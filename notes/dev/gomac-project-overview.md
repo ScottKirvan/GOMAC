@@ -1,11 +1,11 @@
-# Gomtuu — Intelligent Van Platform
+# GOMAC — Gomtuu's Automation, Telemetry, & Logistics
 
 > *"A living ship... it needs a companion as much as Tam needs Gomtuu."*
 > — Star Trek TNG, "Tin Man"
 
 ## Overview
 
-Gomtuu is a 2005 Mercedes T1N Sprinter built as a full-time live-aboard, off-grid, enterprise-grade remote office — and the platform for an intelligent, voice-first vehicle automation and trip planning system. The project is open-source and designed to be configurable for other overlanders and future vehicles.
+**Gomtuu** is a 2005 Mercedes T1N Sprinter built as a full-time live-aboard, off-grid, enterprise-grade remote office. **GOMAC** is the intelligent, voice-first vehicle automation and trip planning system built for her. The project is open-source and designed to be configurable for other overlanders and future vehicles.
 
 This is infrastructure, not a weekend toy. Design priority: reliable first, clever second.
 
@@ -47,8 +47,8 @@ This is infrastructure, not a weekend toy. Design priority: reliable first, clev
 │            MQTT (message bus)            │
 │        everything talks here            │
 ├──────────────────┬──────────────────────┤
-│   ESP32 nodes    │   Jetson hub          │
-│  sensors/control │  vision · voice · AI  │
+│   ESP32 nodes    │   Compute Hub         │
+│  sensors/control │  2× Raspberry Pi      │
 └──────────────────┴──────────────────────┘
 ```
 
@@ -57,7 +57,7 @@ This is infrastructure, not a weekend toy. Design priority: reliable first, clev
 | Layer | Technology | Role |
 |-------|-----------|------|
 | Edge sensors/control | ESP32 (mesh) | Tanks, environment, lighting, locks, etc. |
-| Local AI hub | NVIDIA Jetson | Vision processing, local STT (Whisper), edge inference |
+| Compute hub | 2× Raspberry Pi (8GB + 1GB) | 8GB: Home Assistant, MQTT, local STT (Whisper), Claude integration. 1GB: display/UI. No Jetson currently planned. |
 | Automation backbone | Home Assistant | Device integration, dashboards, automations |
 | Message bus | MQTT | All inter-device communication |
 | Intelligence layer | Claude API | Reasoning, planning, NL understanding |
@@ -99,10 +99,11 @@ The system should know which mode to use — simple queries get immediate voice 
 - Geofencing (presence detection, arrival/departure triggers)
 - Real-time presence (occupancy)
 
-### Camera / Vision (Jetson)
+### Camera / Vision (not currently planned)
 - Occupancy and presence detection
 - Security monitoring
 - Gesture input (TBD)
+- Would require a vision-capable compute node (e.g. a Jetson) added later — no commitment made either way yet
 
 ### Web / External Data
 - Weather forecasts (route-aware, multi-day)
@@ -194,7 +195,7 @@ The intelligence layer reads config, not hardcoded assumptions. A 4Runner build 
 *Physical installation, can't skip*
 - ESP32 mesh network
 - MQTT broker
-- Home Assistant on Jetson
+- Home Assistant on the 8GB Raspberry Pi; display/UI on the 1GB Raspberry Pi
 - Sensors: tanks, power, environment, GPS
 - Basic automations and dashboard working
 
@@ -216,10 +217,10 @@ The intelligence layer reads config, not hardcoded assumptions. A 4Runner build 
 
 ## Open Questions
 
-- [ ] Offline fallback strategy for Claude API — local LLM on Jetson for core functions?
+- [ ] Offline fallback strategy for Claude API — local LLM fallback not currently planned (would need a more capable compute node than the current 2× Pi setup)
 - [ ] Voice wake word — custom or off-the-shelf?
-- [ ] Primary screen size/location for visual resolution mode
-- [ ] OBD integration approach (Bluetooth dongle → Pi/Jetson?)
+- [ ] Primary screen size/location for visual resolution mode (on the 1GB Pi)
+- [ ] OBD integration approach: WiCAN Pro decided (see `notes/dev/Gomtuu Van Specs.md` / root `CLAUDE.md` for details)
 - [ ] Connectivity fallback hierarchy — auto-switching Starlink/cell logic
 - [ ] Repo structure and licensing for open-source release
 
