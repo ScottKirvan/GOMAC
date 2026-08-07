@@ -212,7 +212,7 @@ The intelligence layer reads config, not hardcoded assumptions. A 4Runner build 
 - Victron Orion Smart HQ2025HGAZQ DC/DC charger (alternator)
 - Shore power inlet (installed)
 - Coulombmeter (mounted)
-- Victron GX monitoring — Cerbo GX hardware vs. VenusOS on the 8GB Pi undecided (see Open Questions); feeds battery SOC, solar input, load, and charger state to MQTT
+- Victron GX monitoring (**not currently owned** — aspirational, part of the wider-scope spec, not a Gomtuu purchase) — Cerbo GX hardware vs. VenusOS on the 8GB Pi undecided (see Open Questions); feeds battery SOC, solar input, load, and charger state to MQTT
 
 **Controllable Loads**
 - Dimmable lighting: overheads, under-cabinet, bee lights in bedroom
@@ -233,7 +233,7 @@ The intelligence layer reads config, not hardcoded assumptions. A 4Runner build 
 - Pioneer DMH-WT3800NEX2561 head unit (CarPlay, Android Auto; backup cam not installed)
 - Autel Bluetooth OBD-II scanner (deep diagnostics, T1N proprietary codes — keep)
 - **OBDLink MX+** (decided) — initial/dev OBD scanner, supersedes earlier Vgate iCar Pro WiFi plan
-- **WiCAN Pro** (decided) — WiFi, native MQTT, raw CAN via SocketCAN, built-in HA integration; always-on data feed to MQTT broker
+- **WiCAN Pro** (decided, **not yet purchased**) — WiFi, native MQTT, raw CAN via SocketCAN, built-in HA integration; always-on data feed to MQTT broker
 - GPS dongle — TBD, needed now that Starlink no longer provides GPS; a custom Android service may stand in during Phase 0 prototyping
 - Tailscale VPN (planned) — secure remote access to Home Assistant without port forwarding
 - USB-A and USB-C outlets in cab, bedroom, galley
