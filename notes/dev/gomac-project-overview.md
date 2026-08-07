@@ -47,21 +47,25 @@ The project is intended to be **open source** and configurable for other overlan
 |---|---|---|
 | Edge sensors/control | ESP32 (mesh) | Tanks, environment, lighting, locks, motion/occupancy (PIR), etc. |
 | Power monitoring | Victron GX | Battery SOC, solar input, load, charger state — feeds MQTT |
-| Compute hub (progression) | Laptop (prototyping) → 2× Raspberry Pi (production) | Runs HA, MQTT, Whisper, Claude integration, display/UI — see "Compute Hub" below |
-| Automation backbone | Home Assistant | Device integration, dashboards, automations |
+| Compute hub (progression) | Laptop (prototyping) → 2× Raspberry Pi (production) | Runs HA, MQTT, Whisper, Claude hub, display/UI — see "Compute Hub" below |
+| Automation backbone | Home Assistant (Container/Docker, **not** Home Assistant OS) | Device integration, dashboards, automations |
 | Message bus | MQTT (Mosquitto) | All inter-device communication |
-| Intelligence layer | Claude API | Reasoning, planning, NL understanding |
+| Claude hub | Standalone service wrapping Claude Code CLI / Claude Agent SDK | Reasoning, planning, NL understanding — see "Claude Hub" below |
 | Voice pipeline | Whisper → Claude → TTS | Voice-first interaction |
 | Remote access | Tailscale VPN | Secure remote access to Home Assistant without port forwarding |
 | Public-facing site | Cloud-hosted web app | Live travel stats, location, journal — outbound only |
 
 **Compute Hub**: production hardware is **two Raspberry Pis already on hand** (exact models/generations not yet finalized in these docs — TBD):
-- **8GB Pi** — primary compute: Home Assistant OS, Mosquitto, Whisper, Claude integration
+- **8GB Pi** — primary compute: Home Assistant (Container, not HAOS — see below), Mosquitto, Whisper, the Claude hub
 - **1GB Pi** — dedicated display/UI node
 
 No Jetson is currently planned. (Previously the plan was Laptop → RPi → Jetson; the Jetson step is dropped, at least for now — see Open Questions for the vision/local-LLM capabilities that were contingent on it.)
 
-**Power monitoring**: a Victron GX device monitors the power system (battery SOC, solar input, load, charger state) and publishes it to MQTT. Whether that's standalone Cerbo GX hardware or VenusOS running on the 8GB Pi is still open — see Open Questions.
+**Home Assistant install**: **HA Container (Docker), not Home Assistant OS.** HAOS is a locked-down appliance image — its Supervisor manages everything as Docker "Add-ons," and HA Core is just one of those add-ons. Packaging the Claude hub as a HAOS add-on would mean building GOMAC's most central component to fit someone else's plugin contract. Running plain HA Core in Docker on a normal OS (Raspberry Pi OS/Debian) instead lets HA be one sibling service among several — HA, Mosquitto, and the Claude hub all run as peers, talking over HA's REST/WebSocket API and MQTT, the same way ESP32 nodes and the Victron GX already do. Keeps HA swappable and keeps the Claude hub from being a guest in HA's house.
+
+**Claude Hub**: a standalone service (not an HA add-on, not embedded in HA) that wraps the **Claude Code CLI** (or the Claude Agent SDK it's built on) as the reasoning engine, and exposes a small, deliberate GOMAC-specific toolset to it — e.g. `get_tank_level`, `run_automation`, `query_battery_soc`, `set_scene` — implemented as calls into Home Assistant's API/MQTT. Modeled directly on [BojuBot](https://github.com/ScottKirvan/BojuBot) (see References & Prior Art): where BojuBot wraps Claude Code CLI with a toolset for controlling Obsidian, the GOMAC hub wraps it with a toolset for controlling Home Assistant. Wrapping the CLI/SDK rather than calling the raw Anthropic API directly means inheriting its agentic tool-use loop instead of building one from scratch.
+
+**Permission model**: borrowed from BojuBot's **security modes** (readonly / standard / full) — a dial on how much the Claude hub is actually allowed to *do*, not just query. Readonly: state queries only, no side effects. Standard: pre-approved safe automations (lights, AC, scenes). Full: reserved for anything riskier, decided case by case — this is the intended mechanism for gating something like CAN-bus writes if that's ever pursued (see Open Questions), rather than a blanket yes/no.
 
 **Remote access**: Tailscale is the planned route for secure remote access to Home Assistant from outside the van's local network, without opening ports.
 
@@ -171,12 +175,12 @@ The intelligence layer reads config, not hardcoded assumptions. A 4Runner build 
 - `python-obd` → OBDLink MX+ (initial/dev OBD scanner)
 - Starlink local API integration → collect & visualize dish stats, signal quality (no GPS — Starlink removed that from its local API in May 2026)
 - GPS for prototyping: possibly a custom Android service reporting phone GPS, until a GPS dongle is acquired
-- Claude API integration prototype (tool use patterns)
+- Claude hub prototype (Claude Code CLI/Agent SDK, wrapping HA via its API — tool use patterns)
 - Define MQTT topic structure
 - Define vehicle config file schema
 
 **Phase 1 — The Nervous System** *(physical install on dedicated hardware)*
-- **Compute hub: 8GB Raspberry Pi** — runs HAOS, Mosquitto, Claude integration
+- **Compute hub: 8GB Raspberry Pi** — runs Home Assistant (Container, not HAOS), Mosquitto, the Claude hub
 - **1GB Raspberry Pi** — dedicated display/UI node
 - ESP32 mesh network
 - WiCAN Pro for OBD (when it arrives)
@@ -261,6 +265,7 @@ The intelligence layer reads config, not hardcoded assumptions. A 4Runner build 
 - [Whisper](https://github.com/openai/whisper) — local speech-to-text
 - [iOverlander](https://www.ioverlander.com/), [Campendium](https://www.campendium.com/), [Freecampsites](https://freecampsites.net/)
 - [WiCAN-PRO](https://www.meatpi.com/products/wican-pro) — production OBD/CAN adapter (see Existing Hardware above)
+- [BojuBot](https://github.com/ScottKirvan/BojuBot) — Obsidian plugin wrapping Claude Code CLI with a permissioned toolset (readonly/standard/full security modes) and vault-native memory. Architectural model for the Claude Hub — see System Architecture above.
 
 ## Open Questions
 
@@ -271,6 +276,8 @@ The intelligence layer reads config, not hardcoded assumptions. A 4Runner build 
 - [ ] Vision/occupancy detection, local-LLM offline fallback — not currently planned; would require a vision/AI-capable compute node (e.g. a Jetson) added later. No commitment either way yet.
 - [ ] Connectivity fallback hierarchy — auto-switching Starlink/cell logic
 - [ ] GPS sourcing: Starlink no longer exposes GPS via its local API (removed May 2026). Prototyping option: a custom Android service reporting phone GPS. Production plan: a dedicated GPS dongle (model TBD, not yet acquired).
+- [ ] CAN-bus writes (vehicle actuation, not just reading telemetry): no current plans, explicitly not ruled out for the future either. WiCAN Pro's SocketCAN access supports writing, not just reading. No engine tuning or automated-driving-system use is intended. If ever pursued, gate it behind the Claude Hub's "full" permission mode rather than exposing it by default.
+- [ ] Operational memory for the deployed Claude Hub — distinct from this design-time doc. E.g. learned state/preferences ("AC ran through the night, battery hit 40%, that was fine"). BojuBot's vault-native `_claude-context.md` is the model.
 
 **Public Travel Site**
 - [ ] Hosting / stack — Next.js + Vercel + Supabase? Static + edge functions? Self-hosted?
@@ -296,7 +303,7 @@ The intelligence layer reads config, not hardcoded assumptions. A 4Runner build 
 **Software / Open Source**
 - [ ] Repo structure and licensing
 - [ ] Vehicle config file schema design
-- [ ] Claude API integration pattern (tool use? structured outputs?)
+- [x] Claude integration pattern decided at a high level: a standalone Claude Hub service wrapping Claude Code CLI/Agent SDK with a custom GOMAC toolset, modeled on BojuBot (see System Architecture). Specific tool definitions and structured-output design still open.
 
 ## Session Log
 
@@ -304,4 +311,5 @@ The intelligence layer reads config, not hardcoded assumptions. A 4Runner build 
 |---|---|
 | 2026-05-15 | Session "SmartGomtuu" started. `notes/dev/CLAUDE.md` created. Reviewed all existing files. No purchases committed. Still in design/spec phase. |
 | 2026-05-31 | OBD adapter decisions: WiCAN Pro (production) + Vgate iCar Pro WiFi (ordered, dev). Compute hub revised to laptop→RPi 5→Jetson progression to defer Jetson cost. Added Public Travel Site as architectural element. Phase 0 added for laptop prototyping (incl. Starlink data collection). |
+| 2026-08-07 | Corrected two overstated hardware claims from earlier in the day: WiCAN Pro is a decided plan, not yet purchased (only the OBDLink MX+ is actually in hand); Victron GX is aspirational, not owned. Decided the Claude Hub's architecture: a standalone service wrapping Claude Code CLI/Claude Agent SDK, exposing a GOMAC-specific toolset (tank levels, automations, battery SOC, etc.) that calls into Home Assistant's API/MQTT — modeled directly on [BojuBot](https://github.com/ScottKirvan/BojuBot), an existing Obsidian plugin built the same way (Claude Code CLI wrapped with a permissioned toolset and vault-native memory). Decided Home Assistant runs as HA Container (Docker) on the 8GB Pi, not Home Assistant OS — HAOS's Supervisor/Add-on model would force the Claude Hub to live inside HA's plugin system instead of alongside it as a peer service; corrected two spots in this doc that still said HAOS. Adopted BojuBot's readonly/standard/full security-mode concept as the intended gating mechanism for anything higher-risk, including CAN-bus writes if ever pursued (no current plans, not ruled out either). Flagged the deployed hub's future need for its own operational memory, separate from this design-time doc, modeled on BojuBot's `_claude-context.md`. |
 | 2026-08-07 | Started working via Claude Code in this repo. Root `CLAUDE.md` created for repo/tooling guidance, then had `notes/dev/CLAUDE.md`'s domain content merged into it and that file removed. Project renamed: the system is now **GOMAC** (Gomtuu's Automation, Telemetry, & Logistics); "Gomtuu" refers only to the van itself. Dropped Jetson from the compute-hub plan (at least for now); production compute hub is two Raspberry Pis already on hand — 8GB (primary compute) + 1GB (display/UI). This file renamed from `gomtuu-project-overview.md` to `gomac-project-overview.md`; `notes/dev/Gomtuu Specs.md` renamed to `Gomtuu Van Specs.md`; `notes/dev/SmartGomtuu Architecture.canvas` renamed to `GOMAC Architecture.canvas` — all updated for the naming/hardware changes. Also: initial/dev OBD scanner changed to OBDLink MX+ (supersedes the earlier Vgate iCar Pro WiFi plan). Learned Starlink removed GPS from its local API in May 2026 — GPS source is now an open question; prototyping may use a custom Android service for phone GPS until a GPS dongle is acquired. Later the same day, this file was folded entirely into root `CLAUDE.md` and deleted, on the reasoning that `CLAUDE.md` should be the single source of truth — then restored as its own file after Scott pointed out that human contributors and other coding agents won't necessarily read `CLAUDE.md`, so the main project doc needs to stand on its own; `CLAUDE.md` now references this file instead of duplicating it. Still later the same day: found this doc had drifted out of sync with `GOMAC Architecture.canvas` in a few places and fixed them — added Tailscale VPN (remote HA access) and Victron GX (power monitoring via MQTT) as real architecture elements instead of omitting them / leaving them only as an open question; split ESP32-based PIR motion/occupancy sensing (planned) out from vision-based occupancy detection (not currently planned, Jetson-contingent), which the doc had conflated; added the existing bedroom iPad mount to Existing Hardware as a candidate display surface; called out door sensors as their own explicit open question. |
