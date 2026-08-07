@@ -43,7 +43,9 @@
   </h4>
 </div>
 
-**GOMAC** is voluptatibus magni nemo est. Nulla nobis dicta iste minus dolor repellendus aspernatur atque. Earum expedita aut inventore tempora fugiat deleniti. Molestias minima nam expedita beatae totam ipsa reprehenderit animi. Occaecati quibusdam beatae ducimus voluptate ut doloribus vitae amet. Quia ut ut voluptate dignissimos adipisci dolorum rem.
+**GOMAC** 
+GOMAC stands for: Gomtuu Automatic Computer - an automation, logistics, and telemetry computer for Gomtuu, our 2005 T1N Sprinter. GOMAC is the name for our main ai compute interface (aka gomac hub - this repo), as well as the nickname for the entire system. It is our little version of the LCARS system from Star Trek. We're vanlifers, traveling around north america, and this project is being developed as we go.
+
 
 ## Getting Started with This Template
 
