@@ -4,8 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Operating rules (hard requirements)
 
-1. **Never commit or push to `main` without explicit, in-the-moment instruction to do so.** Always develop on a feature branch with a meaningful, descriptive name (not `claude/…-generic`) and open a PR for Scott to review. This holds even for small doc edits.
-2. **Don't use the multiple-choice question tool to ask Scott things.** If something is ambiguous, ask in plain conversational language instead.
+1. **Never commit or push to `main` without explicit, in-the-moment instruction to do so.** Always develop on a feature branch and open a PR for Scott to review. This holds even for small doc edits.
+2. **Branch names must be meaningful and descriptive of the work** (e.g. `docs/add-root-claude-md`), never a generic/auto-generated name like `claude/initial-setup-4vzll0`. If a session starts on a pre-assigned generic branch name, rename it (`git branch -m`) before pushing/opening a PR.
+3. **Don't use the multiple-choice question tool to ask Scott things.** If something is ambiguous, ask in plain conversational language instead.
 
 ## Repo state
 
