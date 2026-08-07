@@ -1,7 +1,7 @@
 # GOMAC [![starline](https://raw.githubusercontent.com/ScottKirvan/GOMAC/refs/heads/starlines/ScottKirvan/GOMAC/starline.svg)](https://github.com/qoomon/starlines)
 <div align="center">
 
-  <img src="assets/media/logo.jpg" alt="logo" width="200" height="auto" />
+  <img src="assets/media/logo.png" alt="logo" width="200" height="auto" />
     <h1><a href="https://github.com/ScottKirvan/GOMAC">ScottKirvan/GOMAC</a></h1>
   <h3>Nulla nobis dicta iste minus dolor repellendus aspernatur atque</h3>
   
