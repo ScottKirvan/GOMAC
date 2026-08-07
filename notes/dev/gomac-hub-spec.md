@@ -56,9 +56,21 @@ Same integration pattern as the primary engine: wrap each as an external CLI-bas
 
 Recap — full detail in `gomac-project-overview.md`'s System Architecture: GOMAC exposes a small, deliberate toolset (`get_tank_level`, `run_automation`, `query_battery_soc`, `set_scene`, etc.) implemented as calls into Home Assistant's REST/WebSocket API and MQTT. Not an HA add-on, not embedded in HA — a peer service.
 
+## Automation Authoring
+
+**Yes — GOMAC will be able to write new HA automations from a plain-English description, not just trigger pre-existing ones.** This isn't speculative; it's a proven pattern with real prior art: [AItomation](https://github.com/gmatrangola/AItomation) is an existing open-source project doing exactly this — plain-English description in, LLM-generated automation (trigger/condition/action) out, pushed live to HA via its REST API, with context-awareness of the user's actual entities and services. Worth treating as a second architectural reference alongside BojuBot — same shape of project, HA instead of Obsidian.
+
+**Mechanism**: HA automations are structured config (trigger/condition/action) that HA exposes a REST/config API to create and update programmatically. GOMAC drafts that structure from the natural-language request, pushes it through the API, HA validates and can enable it.
+
+**Design fork, not yet decided**: Home Assistant ships its own [built-in LLM API](https://developers.home-assistant.io/docs/core/llm/) — a native mechanism for exposing HA's entities/services to an AI, which custom integrations can extend with additional tools. GOMAC could lean on that native API (less to build and maintain) rather than only using its own custom toolset calling the config API directly. Not mutually exclusive — GOMAC's Claude Code CLI wrapper could treat HA's native LLM API as one of its own tools. Needs a decision when this gets built, not assumed now.
+
+**Permission-model tie-in — this is the concrete second example the Permission Model section needed.** Authoring a brand-new automation is meaningfully more powerful than "standard" tier's pre-approved safe automations (lights, AC, scenes) — it's open-ended trigger/condition/action logic, not something already vetted. Designed as **propose-then-confirm**, not silent-write-and-enable: GOMAC drafts the automation, shows a plain-English summary (and the underlying YAML on request) for confirmation before it goes live — the same shape as a PR review: draft, show the diff, get sign-off, then merge/enable.
+
+**Ambiguity discipline applies here too.** Vague requests produce bad automations — "turn off the lights when nobody's around" doesn't specify duration, which lights, or motion-vs-time triggering. GOMAC authoring automations should ask a clarifying question rather than guess at trigger semantics for something about to run unattended and control real things in the van — the same "don't bake in assumptions, check first" discipline already governing how Claude Code is supposed to work in this repo, now built into the product itself.
+
 ## Permission Model
 
-Recap — full detail in the overview doc: BojuBot's readonly/standard/full security-mode concept, borrowed directly. Readonly: state queries only. Standard: pre-approved safe automations. Full: reserved for anything riskier, decided case by case (e.g. CAN-bus writes, if ever pursued).
+Recap — full detail in the overview doc: BojuBot's readonly/standard/full security-mode concept, borrowed directly. Readonly: state queries only. Standard: pre-approved safe automations. Full: reserved for anything riskier, decided case by case (e.g. CAN-bus writes, if ever pursued; **authoring new automations, gated as propose-then-confirm — see Automation Authoring above**).
 
 ## Implementation Language / Runtime
 
@@ -96,6 +108,8 @@ Still brainstorming — not a decided design, captured here so the thread isn't 
 - [ ] BojuBot refactor scope — which pieces move into a shared package (Claude Code CLI wrapping, permission modes, chat-UI components, WebSocket state sync) vs. stay Obsidian-specific
 - [ ] PTT mechanism — phone app, wired CB-style handset, or both; the MQTT-routing principle is decided, the physical form isn't
 - [ ] Where audio input physically originates relative to the headless compute Pi (same remote/thin-client pattern as the display — see Interface)
+- [ ] Whether automation authoring uses HA's native LLM API, GOMAC's own custom toolset against HA's config API, or both — see Automation Authoring above
+- [ ] Exact propose-then-confirm UX for authored automations (where the draft/confirm step surfaces — the served web UI, presumably, but not yet designed)
 
 ## References & Prior Art
 
@@ -103,3 +117,5 @@ Still brainstorming — not a decided design, captured here so the thread isn't 
 - [Gemini CLI announcement](https://blog.google/innovation-and-ai/technology/developers-tools/introducing-gemini-cli-open-source-ai-agent/) — Google, open source, Apache 2.0
 - [Ollama web search capability](https://docs.ollama.com/capabilities/web-search), [Ollama tool calling guide](https://localaimaster.com/blog/ollama-tool-calling-guide) — grounding for the Ollama candidate above
 - [Raspberry Pi 5 LLM benchmarks](https://localaimaster.com/blog/llm-raspberry-pi-5), [Running LLMs on Raspberry Pi 5](https://tinyweights.dev/posts/run-llms-raspberry-pi-5/) — RAM/tokens-per-second figures behind the hardware-conflict note above
+- [AItomation](https://github.com/gmatrangola/AItomation) — existing open-source project doing plain-English-to-HA-automation exactly as described above; second architectural reference alongside BojuBot
+- [Home Assistant LLM API](https://developers.home-assistant.io/docs/core/llm/) — HA's own native mechanism for exposing entities/services to an AI, relevant to the design fork above
