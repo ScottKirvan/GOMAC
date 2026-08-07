@@ -30,7 +30,7 @@
 		{"id":"n_esp32","type":"text","text":"## ESP32 Mesh Nodes\nTank levels · Temp/humidity · Door & lock state\nLighting control (PWM dimming) · Relay switching\nWater pump · OBD relay · Motion/occupancy","x":130,"y":610,"width":460,"height":160},
 		{"id":"n_victron_gx","type":"text","text":"## Victron GX\n(Cerbo GX or VenusOS on the 8GB Pi)\nPower system monitoring via MQTT\nBattery SOC · Solar input · Load · Charger state","x":650,"y":610,"width":480,"height":160},
 		{"id":"n_obd","type":"text","text":"**WiCAN Pro** (WiFi + raw CAN)\nNative MQTT · SocketCAN · Home Assistant built-in\nContinuous monitoring → MQTT broker directly\n\n**Autel OBD-II** (Bluetooth, keep for deep diagnostics)\nManual scans · T1N proprietary codes","x":-810,"y":990,"width":480,"height":150},
-		{"id":"n_gps","type":"text","text":"**GPS — via Starlink**\nLocation · Geofencing · Trip planning\n(Starlink dish exposes GPS via local API)","x":-810,"y":1130,"width":480,"height":100},
+		{"id":"n_gps","type":"text","text":"**GPS — source TBD**\nLocation · Geofencing · Trip planning\nStarlink no longer provides GPS (removed from its local API, May 2026)\nPrototyping: possible custom Android GPS service\nProduction: GPS dongle (TBD)","x":-810,"y":1130,"width":480,"height":100},
 		{"id":"n_headunit","type":"text","text":"**Pioneer DMH-WT3800NEX**\nCarPlay · Android Auto\n(backup camera not yet installed)","x":-810,"y":1250,"width":480,"height":100},
 		{"id":"n_usb_cab","type":"text","text":"USB-A + USB-C outlets","x":-810,"y":1390,"width":480,"height":60},
 		{"id":"n_fridge","type":"text","text":"**Waeco RSD-110**\nFridge/Freezer — 12V, rated 4A","x":-220,"y":990,"width":480,"height":80},

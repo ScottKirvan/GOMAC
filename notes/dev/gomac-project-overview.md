@@ -92,7 +92,7 @@ The system should know which mode to use — simple queries get immediate voice 
 - Power: battery state of charge, solar input, load
 - Environment: interior/exterior temperature, humidity
 - Vehicle: engine data (OBD), door/lock state
-- Location: GPS
+- Location: GPS (source TBD — Starlink removed GPS from its local API in May 2026; see root `CLAUDE.md` Open Questions)
 
 ### Human Inputs
 - Voice queries
@@ -222,6 +222,7 @@ The intelligence layer reads config, not hardcoded assumptions. A 4Runner build 
 - [ ] Primary screen size/location for visual resolution mode (on the 1GB Pi)
 - [ ] OBD integration approach: WiCAN Pro decided (see `notes/dev/Gomtuu Van Specs.md` / root `CLAUDE.md` for details)
 - [ ] Connectivity fallback hierarchy — auto-switching Starlink/cell logic
+- [ ] GPS sourcing: Starlink no longer exposes GPS via its local API (removed May 2026) — see root `CLAUDE.md` Open Questions for the Android-service/GPS-dongle options being considered
 - [ ] Repo structure and licensing for open-source release
 
 ---

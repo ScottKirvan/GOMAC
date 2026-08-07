@@ -131,7 +131,7 @@ Known T1N failure points to monitor:
 **5. Public Travel Site**
 A cloud-hosted, public-facing site that follows Scott & Wendy's travels in real (or near-real) time.
 
-- **Live location** on a map (from Starlink GPS)
+- **Live location** on a map (GPS source TBD — Starlink no longer exposes GPS via its local API as of May 2026; see Open Questions)
 - **System stats dashboard** — battery SOC, solar input, interior temp, water levels
 - **Journal / blog** entries
 - **Trip history** — past routes, places visited
@@ -165,8 +165,9 @@ A cloud-hosted, public-facing site that follows Scott & Wendy's travels in real 
 **Phase 0 — Laptop Prototyping** *(now — no van hardware needed)*
 - Home Assistant in Docker on laptop
 - Mosquitto MQTT broker locally
-- `python-obd` → Vgate iCar Pro WiFi (when it arrives)
-- Starlink local API integration → collect & visualize dish stats, GPS, signal quality
+- `python-obd` → OBDLink MX+ (initial/dev OBD scanner)
+- Starlink local API integration → collect & visualize dish stats, signal quality (no GPS — Starlink removed that from its local API in May 2026)
+- GPS for prototyping: possibly a custom Android service reporting phone GPS, until a GPS dongle is acquired
 - Claude API integration prototype (tool use patterns)
 - Define MQTT topic structure
 - Define vehicle config file schema
@@ -177,7 +178,7 @@ A cloud-hosted, public-facing site that follows Scott & Wendy's travels in real 
 - ESP32 mesh network
 - WiCAN Pro for OBD (when it arrives)
 - Sensors: tanks, power, environment
-- Starlink GPS feeding HA
+- GPS dongle feeding HA (production GPS source — see Open Questions)
 - Basic automations and dashboard working
 - **Public travel site v1** — push location + basic stats to cloud, public read-only view
 
@@ -219,11 +220,13 @@ A cloud-hosted, public-facing site that follows Scott & Wendy's travels in real 
 - 1GB Raspberry Pi (production display/UI node — model/generation TBD)
 
 **Connectivity / Data**
-- Starlink (wired, installed) — bandwidth-heavy tasks
+- Starlink (wired, installed) — bandwidth-heavy tasks; **no longer a GPS source** — Starlink removed GPS from its local API in May 2026
 - Multi-carrier cell (TBD) — low-latency API calls; fallback hierarchy TBD
 - Pioneer DMH-WT3800NEX2561 head unit (CarPlay, Android Auto; backup cam not installed)
 - Autel Bluetooth OBD-II scanner (deep diagnostics, T1N proprietary codes — keep)
+- **OBDLink MX+** (decided) — initial/dev OBD scanner, supersedes earlier Vgate iCar Pro WiFi plan
 - **WiCAN Pro** (decided) — WiFi, native MQTT, raw CAN via SocketCAN, built-in HA integration; always-on data feed to MQTT broker
+- GPS dongle — TBD, needed now that Starlink no longer provides GPS; a custom Android service may stand in during Phase 0 prototyping
 - USB-A and USB-C outlets in cab, bedroom, galley
 
 **Water System**
@@ -250,6 +253,7 @@ A cloud-hosted, public-facing site that follows Scott & Wendy's travels in real 
 - [ ] Victron Cerbo GX vs. VenusOS on the 8GB Pi — separate device needed?
 - [ ] Vision/occupancy detection, local-LLM offline fallback — not currently planned; would require a vision/AI-capable compute node (e.g. a Jetson) added later. No commitment either way yet.
 - [ ] Connectivity fallback hierarchy — auto-switching Starlink/cell logic
+- [ ] GPS sourcing: Starlink no longer exposes GPS via its local API (removed May 2026). Prototyping option: a custom Android service reporting phone GPS. Production plan: a dedicated GPS dongle (model TBD, not yet acquired).
 - [ ] Reconcile the duplication between this file's "GOMAC — Project Overview" section and `notes/dev/gomac-project-overview.md` (which is also somewhat stale relative to this section's build phases) into a single source of truth
 
 **Public Travel Site**
@@ -262,7 +266,7 @@ A cloud-hosted, public-facing site that follows Scott & Wendy's travels in real 
 **Hardware / Sensors**
 - [ ] Water tank level sensing method (float, capacitive, ultrasonic?)
 - [x] OBD integration: WiCAN Pro (WiFi, native MQTT, raw CAN) for continuous monitoring; Autel kept for deep diagnostics
-- [x] Dev OBD adapter: Vgate iCar Pro WiFi (ordered) — ELM327/WiFi, for prototyping until WiCAN Pro arrives
+- [x] Initial/dev OBD scanner: OBDLink MX+ — supersedes the earlier Vgate iCar Pro WiFi plan, for prototyping until WiCAN Pro arrives
 - [x] CAN bus access: WiCAN Pro exposes raw CAN via SocketCAN — T1N bus can be decoded over time with SavvyCAN + DBC files
 - [ ] Primary screen size/location for visual resolution mode (drives the 1GB Pi's display setup)
 - [ ] ESP32 node count and placement (zone-by-zone mapping TBD)
@@ -283,7 +287,7 @@ A cloud-hosted, public-facing site that follows Scott & Wendy's travels in real 
 |---|---|
 | 2026-05-15 | Session "SmartGomtuu" started. `notes/dev/CLAUDE.md` created. Reviewed all existing files. No purchases committed. Still in design/spec phase. |
 | 2026-05-31 | OBD adapter decisions: WiCAN Pro (production) + Vgate iCar Pro WiFi (ordered, dev). Compute hub revised to laptop→RPi 5→Jetson progression to defer Jetson cost. Added Public Travel Site as architectural element. Phase 0 added for laptop prototyping (incl. Starlink data collection). |
-| 2026-08-07 | Started working via Claude Code in this repo. Root `CLAUDE.md` (this file) created for repo/tooling guidance, then had `notes/dev/CLAUDE.md`'s domain content merged into it and that file removed — single source of truth going forward. Project renamed: the system is now **GOMAC** (Gomtuu's Automation, Telemetry, & Logistics); "Gomtuu" refers only to the van itself. Dropped Jetson from the compute-hub plan (at least for now); production compute hub is two Raspberry Pis already on hand — 8GB (primary compute) + 1GB (display/UI). `notes/dev/Gomtuu Specs.md` renamed to `Gomtuu Van Specs.md`, `notes/dev/gomtuu-project-overview.md` renamed to `gomac-project-overview.md`, `notes/dev/SmartGomtuu Architecture.canvas` renamed to `GOMAC Architecture.canvas`, all updated for the naming/hardware changes. |
+| 2026-08-07 | Started working via Claude Code in this repo. Root `CLAUDE.md` (this file) created for repo/tooling guidance, then had `notes/dev/CLAUDE.md`'s domain content merged into it and that file removed — single source of truth going forward. Project renamed: the system is now **GOMAC** (Gomtuu's Automation, Telemetry, & Logistics); "Gomtuu" refers only to the van itself. Dropped Jetson from the compute-hub plan (at least for now); production compute hub is two Raspberry Pis already on hand — 8GB (primary compute) + 1GB (display/UI). `notes/dev/Gomtuu Specs.md` renamed to `Gomtuu Van Specs.md`, `notes/dev/gomtuu-project-overview.md` renamed to `gomac-project-overview.md`, `notes/dev/SmartGomtuu Architecture.canvas` renamed to `GOMAC Architecture.canvas`, all updated for the naming/hardware changes. Also: initial/dev OBD scanner changed to OBDLink MX+ (supersedes the earlier Vgate iCar Pro WiFi plan). Learned Starlink removed GPS from its local API in May 2026 — GPS source is now an open question; prototyping may use a custom Android service for phone GPS until a GPS dongle is acquired. |
 
 ---
 
