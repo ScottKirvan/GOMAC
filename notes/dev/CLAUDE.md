@@ -10,11 +10,19 @@ This file provides persistent context for Claude Code (ObsidiBot) when working o
 
 The project is intended to be **open source** and configurable for other overlanders and future vehicles. A vehicle config layer abstracts hardware specifics so the same software stack runs on different rigs.
 
-Scott is an engineer and programmer — homebrew is the preference over commercial black boxes.
-
 **No purchases or commitments have been made yet.** All architecture and hardware choices are still in design/spec phase.
 
 The canonical project overview document is `[[gomtuu-project-overview]]`.
+
+---
+
+## Working with Scott
+
+Scott is a senior software engineer and systems architect. He works from first principles and prefers rolling his own systems and doing the extra work to use existing hardware over taking shortcuts or working around the limitations of off-the-shelf libraries/packages — homebrew over commercial black boxes.
+
+- **Don't bake in assumptions that make a task easier without checking with him first.** Surface the tradeoff and let him decide, even if it slows things down.
+- **Nothing is deferred without his explicit permission.** Don't quietly punt on a hard part of the spec or implementation.
+- **When a sub-agent takes a shortcut, or declares something "not a bug" without actually having implemented or verified it, call that out explicitly** rather than passing it through as if it were solid.
 
 ---
 
@@ -285,3 +293,4 @@ A cloud-hosted, public-facing site that follows Scott & Wendy's travels in real 
 |---|---|
 | 2026-05-15 | Session "SmartGomtuu" started. CLAUDE.md created. Reviewed all existing files. No purchases committed. Still in design/spec phase. |
 | 2026-05-31 | OBD adapter decisions: WiCAN Pro (production) + Vgate iCar Pro WiFi (ordered, dev). Compute hub revised to laptop→RPi 5→Jetson progression to defer Jetson cost. Added Public Travel Site as architectural element. Phase 0 added for laptop prototyping (incl. Starlink data collection). |
+| 2026-08-07 | Started using Claude Code (this repo) to continue the spec. Root `CLAUDE.md` added for repo/tooling guidance; this file's scope confirmed as SmartGomtuu domain context. Recorded working-style expectations under "Working with Scott" below. |
