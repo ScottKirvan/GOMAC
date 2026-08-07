@@ -1,0 +1,112 @@
+
+## SPECS
+- Battle born bb10012 - 2 batteries # 100Ah 12V LiFePO4 Deep Cycle Battery https://battlebornbatteries.com/product/12v-lifepo4-deep-cycle-battery/
+- wheel base: 144
+- side door: 45w x  69h
+- back door: 64w x 73h
+- 5 cyl Mercedes Diesel ("million mile engine") w/ cruise control
+- Victron mppt 100 / 15 solar charger
+- 2 x 220w bifacial solar panels
+- waeco rsd-110 refrigerator/freezer - rated 12v/4A
+- 12v, 10,000 BTU CountryModPro Low Profile Rooftop air conditioner - https://countrymodpro.com/products/12v-10000-btu-rv-air-conditioner-top-mounted-fast-cooling-system-for-rvs-trucks-vans-campers?variant=50549355151669 
+- passenger swivel seat
+- diesel heater
+- victron 12/375 pure sign wave inverter
+- victron 12 / 15 blue smart battery charger
+- shore power
+- dimmable lighting - overheads, under cabinet, bee lights in bedroom
+- covered, folding sink w/ pressure based electric pump on cutoff switch
+- 5 gal fresh, 5 gal gray, 10 gal fresh spare
+- boxio composting toilet
+- pioneer dmh-wt3800nex2561 head unit - carplay, android auto, (backup camera not installed yet)
+- victron Orion Smart HQ2025HGAZQ dc/dc charger (alternator charging)
+- independently powered puck lighting in garage, closet, and above sink
+- USB-A and C outlets in cab, bedroom, and central living/galley space
+- custom built and fitted memory foam bed
+- driver and passenger side louvered and screened window inserts
+- insulated reflectix window covers for all windows
+- autel Bluetooth obd-II scanner
+- 
+
+## DONE
+- [x] leak: sink
+- [x] leak: roof
+- [x] new solar panels
+- [x]  shore power
+- [x] wire starlink
+- [x] mount coulombmeter
+- [ ] switch panel
+	- [x] skynet
+	- [x] diesel heater
+- [x] leak - sink
+- [x] mount sink switch
+- [x] bed foot shelf w/ shovk chord
+- [x] hanging cubbies we bought
+- [x] curtains
+- [x] firewood storage - maybe one of those trailer hitch platforms - could put propane there too
+- [x] console
+- [x] solar? is it working?
+- [x] grill
+- [x] hood latch - #  05104405AA
+- [x] untwist passenger seatbelt
+- [x] wendy seatbelt hurts her neck
+- [x] awning/screen tent
+- [x] rear door screen
+- [x] window screens
+- [x] spirit levels
+- [x] carpet
+- [x] ipad mount bedroom
+- [x] bedtime personal storage spots
+- [x] bedroom shelving
+- [x] cab area overhead storage for window covers
+- [x] back wall for sink cabinet
+- [x] 5 gallon bucket toilet seat
+- [x] screen window for rv window
+- [x] havok step - double use , step into van
+- [x] aqua cubes
+- [x] android head unit
+- [x] first aid kit
+- [x] closet door
+	- [x] hinges
+	- [x] trim
+	- [x] skin bottom 
+- [x] kitchen void - kick plate to keep shit from sliding
+- [x] water cube
+- [x] check fridge
+- [x] mod cabinets to open vertically and lock open
+- [x] cabinets are coming open - bumps 
+- [x] fix drawer slides - falling out door
+- [x] spot for lap desk - by passenger seat - shock chorded in
+- [x] awning for rear (rain on bed when in garage - shade from sun)
+- [x] reverse polarity on shore power
+- [x] havok/child door - padding
+- [x] battery charger
+- [x] fix window leak - rust
+- [x] can we get a boost gauge?
+- [x] autel dongle
+- [x] replace 2005 freightliner sprinter boost pressure sensor - BEM 0261230189 - connector doesn’t fit properly
+- [x] i’m suspecting a voltage regulator issue too - there’s a thin wire on the back of the voltage regulator that feels like it’s about to break. the victron app shows me the input voltage, and i think that should always be 14.2 volts or less, and i was seeing intermittent 14.6 v values.  autel eobd shows the voltage too, that looks better and may be more accurate. it may look better because I’ve stabilized that wire too 🤷🏼
+- [x] swivel seat https://www.sprinterpartsdepot.com/products/sportcraft-swivel-seat-base?variant=45319175045359
+- [x] drawer updates: use a cutout rather than a handle when we upgrade to slides
+- [x] take a closer look at the brake light switch
+- [x] fix the damn window crank
+- [x] rethink the water bottle situation
+- [x] magnet hooks
+- [x] spare fuses
+- [x] get door locks working smoother
+- [x] rekey back door - lock broken - can't fix
+- [x] get seat adjustments working smoother
+- [x] cutout drawer pull notches - lose the webbing
+- [x] access trash w/o having to open a drawer or cabinet
+- [x] right rear reverse light, 
+- [x] top center brake light, 
+- [x] make driver side side door curtain
+- [x] fix passenger seat adjustments - they stick hard now
+- [x] take dremel to side louver storage (lower passenger door storage area) so that’s easier to get the lovers in and close the drawer. 
+- [x] foam for where door louvers are stored
+- [x] stronger solar panels
+- [x] dremel down the sticking up nails in the cabinets
+- [x] moar strong magnets
+- [x] screen tent
+- [x] mattress
+

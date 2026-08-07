@@ -1,4 +1,4 @@
-﻿# GOMAC [![starline](https://raw.githubusercontent.com/ScottKirvan/GOMAC/refs/heads/starlines/ScottKirvan/GOMAC/starline.svg)](https://github.com/qoomon/starlines)
+# GOMAC [![starline](https://raw.githubusercontent.com/ScottKirvan/GOMAC/refs/heads/starlines/ScottKirvan/GOMAC/starline.svg)](https://github.com/qoomon/starlines)
 <div align="center">
 
   <img src="assets/media/logo.jpg" alt="logo" width="200" height="auto" />
