@@ -25,7 +25,7 @@ A distinct, lower-stakes role GOMAC plays: local exploration / tourist-guide que
 
 Explicitly **not** mission-critical — imperfect answers here aren't a real problem the way a bad predictive-maintenance call would be. That's what makes them safe to route to a cheaper/different backend.
 
-One open question worth flagging on the last example: "what trees am I seeing" reads two ways — a location+season *knowledge* question (what species are typically found in this region right now — no camera needed), or an actual *visual identification* question (requires a camera and image analysis). Vision is explicitly not currently planned elsewhere in this project (see the overview doc's Open Questions). Defaulting to the knowledge-question reading unless told otherwise — flagging it rather than silently assuming.
+**Confirmed**: "what trees am I seeing" is a location+season *knowledge* question — what species are typically found in this region right now, reasoned from GPS + time of year — not a camera/image-labeling task. No vision capability needed for this role, consistent with vision not currently being planned elsewhere in this project.
 
 ### Candidate providers
 
@@ -61,7 +61,7 @@ Recap — full detail in the overview doc: BojuBot's readonly/standard/full secu
 - [ ] Routing mechanism for Puka Shell vs. core queries (see above)
 - [ ] Provider selectability granularity: config default vs. live-switchable
 - [x] GitHub Copilot CLI considered as a Puka Shell provider and dropped — coding-agent focus was a real mismatch for tourist-guide queries
-- [ ] Whether "what trees am I seeing" implies camera vision (not currently planned) or a location/season knowledge query (default assumption)
+- [x] Confirmed: "what trees am I seeing" is a location/season knowledge question, not camera vision
 - [ ] Implementation language/runtime for the hub itself
 - [ ] Provider adapter abstraction shape (after the above settle)
 
