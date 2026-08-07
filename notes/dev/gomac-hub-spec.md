@@ -62,7 +62,26 @@ Recap — full detail in the overview doc: BojuBot's readonly/standard/full secu
 
 ## Implementation Language / Runtime
 
-**Not yet decided — open.** BojuBot is TypeScript/Node, but that's a constraint of being an Obsidian plugin (Obsidian's plugin API is JS/TS-only); GOMAC has no equivalent host constraint, since it's a standalone service, not a plugin. Worth weighing: Home Assistant's own ecosystem (integrations, community tooling) is heavily Python; the Claude Agent SDK has both Python and TypeScript SDKs; Gemini CLI (and any future provider) is invoked as an external subprocess either way, so the hub's own language doesn't need to match theirs. No recommendation yet — this needs your call, not mine, given how foundational it is.
+**Decided: TypeScript/Node.** The daemon's job is I/O orchestration (MQTT, HA's REST/WebSocket API, subprocess management for Claude Code CLI and other providers), not computation — the kind of workload async/event-driven runtimes are built for, not one where C/C++'s performance/control advantages actually pay off. That mattered more once the rendering situation was clarified (see Interface below): the compute Pi is headless, so any GUI has to be served over the network to a physically separate display device, which makes real-time WebSocket push to a remote client a core requirement, not an optional nicety — squarely Node's home turf. Combined with direct code/pattern reuse from BojuBot (see below), one language end-to-end (backend daemon + served web UI, shared types) won out over Python's easier bootstrap or C/C++'s raw control.
+
+C/C++ was considered — it's a legitimate strength, just not for this component. It has a real home elsewhere in this project: the ESP32 firmware layer is genuinely embedded/real-time/memory-constrained work, where C/C++ is the correct tool rather than a compromise. Worth noting too: for a daemon that runs unattended for weeks at a time with nobody around to notice a crash, a managed-memory language's reliability profile is arguably the more rigorous choice for *this* component, not the shortcut.
+
+## Interface
+
+**Headless compute, remote rendering.** The compute Pi has no local display — any rendered interface (the escalated/visual-mode tier described in `gomac-project-overview.md`'s Open Questions) is necessarily served over the network to a separate device (the 1GB display Pi, and potentially other clients like a phone). This settles the interface architecture as client-server by hardware necessity, not just design preference: the daemon serves a web UI (HTTP + WebSocket for live state push), and remote devices are thin clients running nothing but a browser. A native local GUI toolkit was never actually on the table once the headless constraint was clear.
+
+**Reuse and refactor BojuBot.** Since GOMAC's UI is being built in the same language and general shape as BojuBot's (a modern, interactive, clean interface wrapping a Claude Code CLI-based agent), this is a real opportunity to extract genuinely reusable code out of BojuBot rather than just copy-pasting patterns by hand — a shared library/package for the pieces that aren't Obsidian-specific: the Claude Code CLI wrapping/agentic-loop plumbing, the readonly/standard/full permission-mode system, live-updating chat-UI components, WebSocket state-sync patterns. If it's reusable enough for a second, quite different project (a note-taking plugin vs. a van automation hub) on the first attempt, it's plausibly useful to other people building Claude Code CLI-wrapped tools too — worth keeping that in mind given both projects are MIT/open source. Scope of the extraction (what specifically moves into a shared package vs. stays BojuBot-specific) is not yet defined — see Open Questions.
+
+## Voice Input
+
+Still brainstorming — not a decided design, captured here so the thread isn't lost. Two (not competing) mechanisms in play:
+
+- **Wake-word / always-listening.** Already tracked as an open question in `gomac-project-overview.md` (custom vs. off-the-shelf, e.g. openWakeWord). Complementary to PTT below, not an alternative to it.
+- **Push-to-talk (PTT).** Two physical forms under consideration:
+  - A **phone PTT app** (or a page within GOMAC's own served web UI) — low cost given the Interface decision above: the WebSocket infrastructure for the display already needs to exist, so a PTT button and audio stream over that same channel is a small addition, not new infrastructure. Works from anywhere in or near the van, no wiring.
+  - A **wired CB-radio-style handset** — more work, more delightful, and thematically on-brand. Real hardware exists for this (PTT handsets/footswitches are a known quantity in ham radio/dispatch-console applications), so it's assembly, not invention.
+
+**One design principle is settled even though the mechanism isn't: PTT audio input routes through MQTT, the same as everything else in this project, rather than being a special-cased direct wire to wherever the GOMAC daemon happens to run.** Concretely: a wired handset's PTT button and mic would connect to the *nearest* ESP32 node, not travel the length of the van to the (likely distant, headless) compute Pi — pressing the button publishes a trigger to MQTT, the same pattern already used for tank sensors and relays. PTT is treated as a generic concept — a trigger plus an audio stream — with multiple physical sources (phone app, wired handset) able to feed the same backend handling, all converging through the bus rather than each needing its own bespoke path into the daemon. This keeps audio input architecturally consistent with the rest of the system instead of becoming a special case.
 
 ## Open Questions
 
@@ -72,8 +91,11 @@ Recap — full detail in the overview doc: BojuBot's readonly/standard/full secu
 - [x] Confirmed: "what trees am I seeing" is a location/season knowledge question, not camera vision
 - [ ] Whether to pursue Ollama as a Puka Shell provider, and on what hardware — the currently-planned 8GB compute Pi doesn't have headroom for a reliable tool-calling model (~6-8GB RAM) alongside HA/Mosquitto/Whisper/GOMAC. Would need a RAM upgrade (e.g. 16GB Pi 5) or a separate dedicated machine.
 - [ ] Whether small (1B-3B) Ollama models are reliable enough at tool-calling to fit the existing 8GB Pi without a hardware change — unproven, needs empirical testing on real hardware, not assumed
-- [ ] Implementation language/runtime for the hub itself
-- [ ] Provider adapter abstraction shape (after the above settle)
+- [x] Implementation language/runtime for the hub: TypeScript/Node — see Implementation Language / Runtime above
+- [ ] Provider adapter abstraction shape (after the routing/selectability questions settle)
+- [ ] BojuBot refactor scope — which pieces move into a shared package (Claude Code CLI wrapping, permission modes, chat-UI components, WebSocket state sync) vs. stay Obsidian-specific
+- [ ] PTT mechanism — phone app, wired CB-style handset, or both; the MQTT-routing principle is decided, the physical form isn't
+- [ ] Where audio input physically originates relative to the headless compute Pi (same remote/thin-client pattern as the display — see Interface)
 
 ## References & Prior Art
 
