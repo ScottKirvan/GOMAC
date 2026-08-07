@@ -19,16 +19,15 @@ jobs:
     uses: ScottKirvan/.github/.github/workflows/reusable-pre-release-staging.yml@main
     with:
       tag_name: ${{ inputs.tag_name }}
-      project_name: ${{ github.event.repository.name }}
-      # TODO: Replace with a one-sentence description of what this project does
-      project_context: "${{ github.event.repository.name }} is a project by ${{ github.repository_owner }}."
+      project_name: GOMAC
+      project_context: "GOMAC (Gomtuu Automatic Computer) is an AI-powered automation, logistics, and telemetry hub for Gomtuu, a 2005 T1N Sprinter van — a personal LCARS-inspired compute interface for vanlife travel across North America."
       header: |
-        ## ${{ github.event.repository.name }}
+        ## GOMAC
 
-        > TODO: Replace with your project tagline.
+        > The computer that runs Gomtuu.
 
         ---
       footer: |
         ---
-        📖 [User Guide](https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/) · 💬 [Discord](https://discord.gg/TN6XJSNK5Y) · 🐛 [Report a Bug](https://github.com/${{ github.repository }}/issues/new?template=bug_report.md) · ✨ [Request Feature](https://github.com/${{ github.repository }}/issues/new?template=feature_request.md)
+        📖 [User Guide](https://ScottKirvan.github.io/GOMAC/) · 💬 [Discord](https://discord.gg/TN6XJSNK5Y) · 🐛 [Report a Bug](https://github.com/ScottKirvan/GOMAC/issues/new?template=bug_report.md) · ✨ [Request Feature](https://github.com/ScottKirvan/GOMAC/issues/new?template=feature_request.md)
     secrets: inherit
