@@ -28,13 +28,16 @@ The actual substance of this project lives in **`notes/dev/`**, which documents 
 
 It's currently in the **design/spec phase — no application code has been written yet, and no hardware purchases beyond what's listed as existing have been committed to.**
 
-This file is now the single source of truth for GOMAC's domain context (architecture, build phases, open questions, session log) as well as repo/tooling guidance — Scott previously kept a separate `notes/dev/CLAUDE.md` for domain context (for a different, Obsidian-vault-scoped tool) but has moved to working out of this repo via Claude Code exclusively, so that file was merged in here and removed to avoid two diverging sources of truth. Update this file's relevant sections as decisions are made and the design evolves, the same way `notes/dev/CLAUDE.md` used to be updated.
+This file is now the single source of truth for GOMAC's domain context (architecture, build phases, open questions, session log) as well as repo/tooling guidance — Scott previously kept a separate `notes/dev/CLAUDE.md` for domain context (for a different, Obsidian-vault-scoped tool) but has moved to working out of this repo via Claude Code exclusively, so that file was merged in here and removed to avoid two diverging sources of truth. The standalone `notes/dev/gomac-project-overview.md` and the one-line `notes/dev/Hardware Reference.md` were consolidated in the same way — their unique content (Goals, Multi-Platform Design, References & Prior Art) now lives in this file, and both files were removed. Update this file's relevant sections as decisions are made and the design evolves, the same way `notes/dev/CLAUDE.md` used to be updated.
 
 ---
 
 ## GOMAC — Project Overview
 
-**GOMAC** is an intelligent, voice-first vehicle automation and trip planning platform built on Gomtuu, Scott's 2005 Mercedes T1N Sprinter — used as a full-time live-aboard, off-grid, enterprise-grade remote office.
+> *"A living ship... it needs a companion as much as Tam needs Gomtuu."*
+> — Star Trek TNG, "Tin Man"
+
+**GOMAC** is an intelligent, voice-first vehicle automation and trip planning platform built on Gomtuu, Scott's 2005 Mercedes T1N Sprinter — used as a full-time live-aboard, off-grid, enterprise-grade remote office. This is infrastructure, not a weekend toy.
 
 **Design priority: reliable first, clever second.**
 
@@ -42,7 +45,17 @@ The project is intended to be **open source** and configurable for other overlan
 
 **No purchases or commitments have been made yet.** All architecture and hardware choices are still in design/spec phase.
 
-The canonical project overview document is `notes/dev/gomac-project-overview.md`. (Note: that file and this section currently overlap in content — not yet reconciled into a single non-duplicated source; flagged as an open item below.)
+This section is the canonical, single source of truth for GOMAC's project overview — no separate overview doc exists elsewhere in the repo.
+
+### Goals
+
+1. **Intelligent ambient awareness** — the van knows its state and anticipates needs
+2. **Voice-first interaction** for quick/ambient queries
+3. **Screen-based resolution** for complex tasks (trip planning, comparisons, options)
+4. **Multi-variable trip planning** — the primary unsolved problem this replaces manual tool-wrangling for
+5. **Resource management** — water, grey water, power, inventory
+6. **Predictive maintenance** — especially for known T1N failure points
+7. **Open source and configurable** — a vehicle config layer abstracts hardware specifics so others can run the same stack on their own rigs
 
 ### System Architecture
 
@@ -121,6 +134,8 @@ Known T1N failure points to monitor:
 - EGR / turbo (intake temps, boost pressure)
 - Coolant system (temp trends, overflow level)
 
+*Example: "Your coolant temp has been running 8° higher than baseline for the last 3 days — worth checking the thermostat before the mountain stretch."*
+
 **4. Ambient Awareness & Automation**
 - Geofencing triggers (pre-cool van before arrival)
 - Lighting scenes (arrival, bedtime, movie mode, etc.)
@@ -138,6 +153,18 @@ A cloud-hosted, public-facing site that follows Scott & Wendy's travels in real 
 - **Push pattern only** — van pushes data outbound to a cloud endpoint; nothing inbound to the van for security
 - Hosted separately from in-van systems; subset of MQTT data, sanitized for public consumption
 - Stack TBD (likely Next.js or similar + a cloud DB/store)
+
+### Multi-Platform Design
+
+The system is designed so other overlanders can run it on their own vehicles. Key abstraction:
+
+**Vehicle config file** — defines:
+- Tank capacities and sensor mappings
+- Electrical topology
+- ESP32 node assignments
+- Vehicle-specific maintenance schedules and known issues
+
+The intelligence layer reads config, not hardcoded assumptions. A 4Runner build and a Sprinter build run the same software with different configs.
 
 ### Data Inputs
 
@@ -245,6 +272,15 @@ A cloud-hosted, public-facing site that follows Scott & Wendy's travels in real 
 - Space and thermal constraints inside a van
 - Core functions must degrade gracefully when offline (no cloud)
 
+### References & Prior Art
+
+- [Home Assistant](https://www.home-assistant.io/)
+- [ESPHome](https://esphome.io/) — ESP32 firmware that speaks Home Assistant natively
+- [Mosquitto](https://mosquitto.org/) — MQTT broker
+- [Whisper](https://github.com/openai/whisper) — local speech-to-text
+- [iOverlander](https://www.ioverlander.com/), [Campendium](https://www.campendium.com/), [Freecampsites](https://freecampsites.net/)
+- [WiCAN-PRO](https://www.meatpi.com/products/wican-pro) — production OBD/CAN adapter (see Existing Hardware above)
+
 ### Open Questions
 
 **Architecture**
@@ -254,7 +290,6 @@ A cloud-hosted, public-facing site that follows Scott & Wendy's travels in real 
 - [ ] Vision/occupancy detection, local-LLM offline fallback — not currently planned; would require a vision/AI-capable compute node (e.g. a Jetson) added later. No commitment either way yet.
 - [ ] Connectivity fallback hierarchy — auto-switching Starlink/cell logic
 - [ ] GPS sourcing: Starlink no longer exposes GPS via its local API (removed May 2026). Prototyping option: a custom Android service reporting phone GPS. Production plan: a dedicated GPS dongle (model TBD, not yet acquired).
-- [ ] Reconcile the duplication between this file's "GOMAC — Project Overview" section and `notes/dev/gomac-project-overview.md` (which is also somewhat stale relative to this section's build phases) into a single source of truth
 
 **Public Travel Site**
 - [ ] Hosting / stack — Next.js + Vercel + Supabase? Static + edge functions? Self-hosted?
@@ -287,7 +322,7 @@ A cloud-hosted, public-facing site that follows Scott & Wendy's travels in real 
 |---|---|
 | 2026-05-15 | Session "SmartGomtuu" started. `notes/dev/CLAUDE.md` created. Reviewed all existing files. No purchases committed. Still in design/spec phase. |
 | 2026-05-31 | OBD adapter decisions: WiCAN Pro (production) + Vgate iCar Pro WiFi (ordered, dev). Compute hub revised to laptop→RPi 5→Jetson progression to defer Jetson cost. Added Public Travel Site as architectural element. Phase 0 added for laptop prototyping (incl. Starlink data collection). |
-| 2026-08-07 | Started working via Claude Code in this repo. Root `CLAUDE.md` (this file) created for repo/tooling guidance, then had `notes/dev/CLAUDE.md`'s domain content merged into it and that file removed — single source of truth going forward. Project renamed: the system is now **GOMAC** (Gomtuu's Automation, Telemetry, & Logistics); "Gomtuu" refers only to the van itself. Dropped Jetson from the compute-hub plan (at least for now); production compute hub is two Raspberry Pis already on hand — 8GB (primary compute) + 1GB (display/UI). `notes/dev/Gomtuu Specs.md` renamed to `Gomtuu Van Specs.md`, `notes/dev/gomtuu-project-overview.md` renamed to `gomac-project-overview.md`, `notes/dev/SmartGomtuu Architecture.canvas` renamed to `GOMAC Architecture.canvas`, all updated for the naming/hardware changes. Also: initial/dev OBD scanner changed to OBDLink MX+ (supersedes the earlier Vgate iCar Pro WiFi plan). Learned Starlink removed GPS from its local API in May 2026 — GPS source is now an open question; prototyping may use a custom Android service for phone GPS until a GPS dongle is acquired. |
+| 2026-08-07 | Started working via Claude Code in this repo. Root `CLAUDE.md` (this file) created for repo/tooling guidance, then had `notes/dev/CLAUDE.md`'s domain content merged into it and that file removed — single source of truth going forward. Project renamed: the system is now **GOMAC** (Gomtuu's Automation, Telemetry, & Logistics); "Gomtuu" refers only to the van itself. Dropped Jetson from the compute-hub plan (at least for now); production compute hub is two Raspberry Pis already on hand — 8GB (primary compute) + 1GB (display/UI). `notes/dev/Gomtuu Specs.md` renamed to `Gomtuu Van Specs.md`, `notes/dev/gomtuu-project-overview.md` renamed to `gomac-project-overview.md`, `notes/dev/SmartGomtuu Architecture.canvas` renamed to `GOMAC Architecture.canvas`, all updated for the naming/hardware changes. Also: initial/dev OBD scanner changed to OBDLink MX+ (supersedes the earlier Vgate iCar Pro WiFi plan). Learned Starlink removed GPS from its local API in May 2026 — GPS source is now an open question; prototyping may use a custom Android service for phone GPS until a GPS dongle is acquired. Later the same day: consolidated `notes/dev/gomac-project-overview.md` into this file too (it had drifted stale — its Build Phases section was missing Phase 0 and never got the Jetson→2×Pi update) and removed it; its unique content (Goals, Multi-Platform Design, References & Prior Art, the TNG epigraph) was folded in above rather than lost. Also removed `notes/dev/Hardware Reference.md`, a one-line WiCAN-PRO link fully superseded by the Existing Hardware / References sections here. |
 
 ---
 
@@ -295,7 +330,6 @@ A cloud-hosted, public-facing site that follows Scott & Wendy's travels in real 
 
 | File | Contents |
 |---|---|
-| `gomac-project-overview.md` | Canonical project overview — goals, architecture, features, build phases. Currently duplicates part of this file's "GOMAC — Project Overview" section — see Open Questions. |
 | `Gomtuu Van Specs.md` | Van hardware spec sheet and build/punch-list (done vs. outstanding). This is about the physical van (Gomtuu), not the GOMAC software system. |
 | `rv-automation-research.md` | Prior research on RV/12V home-automation state of the art. |
 | `esp32.md` | ESP32 vs. Teensy 4.1 comparison notes. |
