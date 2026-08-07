@@ -1,6 +1,6 @@
 # GOMAC Hub — Design Spec
 
-This is the implementation-level design spec for **the GOMAC hub itself** — the standalone service described in `gomac-project-overview.md`'s System Architecture section, and this repo's primary deliverable. That doc covers the product-level "what and why" (goals, features, hardware, build phases); this one covers the hub's own "how" (license, engine, provider architecture, module shape). Where both docs have an Open Questions section, they're scoped differently on purpose — project-level questions (hardware, GPS sourcing, etc.) stay in the overview doc; hub-implementation questions live here — to avoid the duplication this project already got bitten by once.
+This is the implementation-level design spec for **the GOMAC hub itself** — the standalone service described in `gomac-project-overview.md`'s System Architecture section, and this repo's primary deliverable. That doc covers the product-level "what and why" (goals, features, hardware, build phases); this one covers the hub's own "how" (license, engine, provider architecture, module shape). Where both docs have an Open Questions section, they're scoped differently on purpose — project-level questions (hardware, GPS sourcing, etc.) stay in the overview doc; hub-implementation questions live here.
 
 ## License
 
