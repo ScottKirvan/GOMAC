@@ -33,6 +33,14 @@ Same integration pattern as the primary engine: wrap each as an external CLI-bas
 
 - **Gemini CLI** (Google, Apache 2.0, open source, verified current). Genuinely well-suited to this role specifically — it ships a Google Search MCP integration, giving grounded, current local results, which is exactly what "what's a good dive bar nearby" needs. Free tier via a personal Google account. **Worth watching**: Google announced "Antigravity 2.0" at I/O 2026 as a replacement for Gemini CLI aimed at consumer users — unclear yet whether Gemini CLI remains the right long-term integration target or whether Antigravity becomes it. Not blocking today, just flagged.
 
+- **Ollama** (local/self-hosted model runner) — verified current, genuinely viable, but with a real hardware conflict on the currently-planned compute hub. This is not a capability gap the way it might have been a year or two ago: Ollama now ships an official web-search capability and native tool/function calling, following the same "model calls a tool, code runs it, result feeds back" agent loop as Claude Code CLI or Gemini CLI — so it can do grounded, current lookups, not just answer from frozen training data.
+
+  What makes it worth including despite the hardware conflict: it's the **only candidate that works fully offline**. GOMAC's own design principle already says core functions should degrade gracefully with no cloud — Ollama is the one option philosophically aligned with that, not just cheaper. Real value proposition, distinct from "saves tokens."
+
+  **The hardware conflict, specifically**: Ollama's own docs currently recommend `qwen3:8b` for reliable tool-calling — roughly 6-8GB RAM in use. The compute hub's 8GB Pi 5 is the *same box* slated to run Home Assistant, Mosquitto, Whisper, and GOMAC itself; an 8B model would consume essentially the whole machine, competing directly with everything else already committed to it. Smaller models (1B-3B) fit the RAM (4GB is enough) and run at usable speeds (roughly 5-20 tokens/sec on Pi 5 CPU depending on size), but tool-calling reliability at that size is **unproven** — the sources found specifically call out the 8B model as "the most consistent small model in agent testing," not the smaller ones. Untested claim either way; needs empirical testing on real hardware before deciding, not assumed from spec-level reasoning.
+
+  **This means Ollama likely requires either a hardware upgrade (e.g. a 16GB Pi 5 instead of 8GB) or a separate dedicated machine for local inference — not a drop-in addition to the currently-planned 2-Pi compute hub.** A Raspberry Pi AI HAT+ 2 add-on (Hailo-10H chip) exists and accelerates inference 5-10x, but that only helps speed, not the RAM contention — worth being precise about that distinction so it doesn't get assumed to solve both problems.
+
 **Considered and dropped: GitHub Copilot CLI.** Its toolset is built and marketed specifically as a *coding* agent — repo analysis, code review, planning/building software — not a general knowledge or location-aware assistant, which was a real mismatch for Puka Shell duties. Decided not to pursue it.
 
 ### Open design questions (this doc's, not the project overview's)
@@ -62,6 +70,8 @@ Recap — full detail in the overview doc: BojuBot's readonly/standard/full secu
 - [ ] Provider selectability granularity: config default vs. live-switchable
 - [x] GitHub Copilot CLI considered as a Puka Shell provider and dropped — coding-agent focus was a real mismatch for tourist-guide queries
 - [x] Confirmed: "what trees am I seeing" is a location/season knowledge question, not camera vision
+- [ ] Whether to pursue Ollama as a Puka Shell provider, and on what hardware — the currently-planned 8GB compute Pi doesn't have headroom for a reliable tool-calling model (~6-8GB RAM) alongside HA/Mosquitto/Whisper/GOMAC. Would need a RAM upgrade (e.g. 16GB Pi 5) or a separate dedicated machine.
+- [ ] Whether small (1B-3B) Ollama models are reliable enough at tool-calling to fit the existing 8GB Pi without a hardware change — unproven, needs empirical testing on real hardware, not assumed
 - [ ] Implementation language/runtime for the hub itself
 - [ ] Provider adapter abstraction shape (after the above settle)
 
@@ -69,3 +79,5 @@ Recap — full detail in the overview doc: BojuBot's readonly/standard/full secu
 
 - [BojuBot](https://github.com/ScottKirvan/BojuBot) — architectural and naming model, see `gomac-project-overview.md`
 - [Gemini CLI announcement](https://blog.google/innovation-and-ai/technology/developers-tools/introducing-gemini-cli-open-source-ai-agent/) — Google, open source, Apache 2.0
+- [Ollama web search capability](https://docs.ollama.com/capabilities/web-search), [Ollama tool calling guide](https://localaimaster.com/blog/ollama-tool-calling-guide) — grounding for the Ollama candidate above
+- [Raspberry Pi 5 LLM benchmarks](https://localaimaster.com/blog/llm-raspberry-pi-5), [Running LLMs on Raspberry Pi 5](https://tinyweights.dev/posts/run-llms-raspberry-pi-5/) — RAM/tokens-per-second figures behind the hardware-conflict note above
