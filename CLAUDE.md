@@ -40,6 +40,7 @@ Scott previously kept a separate `notes/dev/CLAUDE.md` for Claude-specific domai
 | File | Contents |
 |---|---|
 | `gomac-project-overview.md` | **Main project doc.** Canonical GOMAC overview — goals, architecture, features, build phases, existing hardware, technical constraints, open questions, session log. Written for humans and any agent, not just Claude Code. |
+| `gomac-hub-spec.md` | Implementation-level design spec for the GOMAC hub itself (this repo's primary deliverable) — license, engine, multi-provider AI routing, permission model, open implementation questions. |
 | `Gomtuu Van Specs.md` | Van hardware spec sheet and build/punch-list (done vs. outstanding). This is about the physical van (Gomtuu), not the GOMAC software system. |
 | `rv-automation-research.md` | Prior research on RV/12V home-automation state of the art. |
 | `esp32.md` | ESP32 vs. Teensy 4.1 comparison notes. |
