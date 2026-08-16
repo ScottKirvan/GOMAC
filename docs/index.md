@@ -4,7 +4,7 @@ layout: home
 hero:
   name: "GOMAC"
   text: "TODO: Short project headline"
-  tagline: TODO: Replace with your project tagline.
+  tagline: "TODO: Replace with your project tagline."
   actions:
     - theme: brand
       text: View on GitHub
@@ -16,15 +16,15 @@ hero:
 features:
   - icon: 🚀
     title: Feature One
-    details: TODO: Describe your first key feature here.
+    details: "TODO: Describe your first key feature here."
 
   - icon: 🛠️
     title: Feature Two
-    details: TODO: Describe your second key feature here.
+    details: "TODO: Describe your second key feature here."
 
   - icon: 📖
     title: Feature Three
-    details: TODO: Describe your third key feature here.
+    details: "TODO: Describe your third key feature here."
 ---
 
 <!-- Begin Sponsors -->
