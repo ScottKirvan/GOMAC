@@ -1,21 +1,23 @@
 # MQTT Topics
 
-Broker: Mosquitto, on the 8GB compute Pi.
+Broker: Mosquitto.
 
-Root namespace: `gomtuu/<category>/<role>/...`
+Root namespace: `gomac/<category>/<role>/...`
 
 ## Power
 
-Source: BLE collector (`victron-ble-monitor.py`) decrypting Victron "Instant Readout" broadcasts. One retained JSON message per device, published per scan pass.
+Source: a BLE collector decrypting Victron "Instant Readout" advertisements via the [`victron-ble`](https://github.com/keshavdv/victron-ble) library. One retained JSON message per device, published per scan pass.
+
+Roles are named by function, not by vendor or model, so any device filling that role publishes to the same topic.
 
 ### Topics
 
-| Topic | Device |
+| Topic | Role |
 |---|---|
-| `gomtuu/power/solar/state` | MPPT 100/15 solar charge controller |
-| `gomtuu/power/dcdc/state` | Orion Smart DC-DC charger (alternator) |
-| `gomtuu/power/shore/state` | Blue Smart IP22 charger (AC/shore power) |
-| `gomtuu/power/bridge/status` | Collector availability: `online` / `offline` (LWT) |
+| `gomac/power/solar/state` | Solar charge controller (Victron MPPT series) |
+| `gomac/power/dcdc/state` | DC-DC charger, e.g. alternator-fed (Victron Orion Smart series) |
+| `gomac/power/shore/state` | AC/shore power charger (Victron Blue Smart series) |
+| `gomac/power/bridge/status` | Collector availability: `online` / `offline` (LWT) |
 
 ### Payload
 
@@ -35,7 +37,7 @@ Retained JSON. Only fields the device reports are present — no fixed schema.
 
 ### Fields
 
-#### `gomtuu/power/solar/state`
+#### `gomac/power/solar/state`
 
 | Field | Unit | Notes |
 |---|---|---|
@@ -47,7 +49,7 @@ Retained JSON. Only fields the device reports are present — no fixed schema.
 | `solar_power` | W | |
 | `external_device_load` | A | |
 
-#### `gomtuu/power/dcdc/state`
+#### `gomac/power/dcdc/state`
 
 | Field | Unit | Notes |
 |---|---|---|
@@ -57,7 +59,7 @@ Retained JSON. Only fields the device reports are present — no fixed schema.
 | `output_voltage` | V | |
 | `off_reason` | — | `OffReason` enum name |
 
-#### `gomtuu/power/shore/state`
+#### `gomac/power/shore/state`
 
 | Field | Unit | Notes |
 |---|---|---|
