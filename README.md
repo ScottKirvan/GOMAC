@@ -136,8 +136,9 @@ Contributions / Contact
 
 Credits
 -------
-**[ScooterGitTemplate](https://github.com/ScottKirvan/ScooterGitTemplate) Copyright (c) (2025):** [Scott Kirvan](https://github.com/ScottKirvan)  - All rights reserved
-*ScooterGitTemplate is licensed under the [MIT License](LICENSE.md).*
+**[GOMAC](https://github.com/ScottKirvan/GOMAC)** — Copyright (c) 2025 [Scott Kirvan](https://github.com/ScottKirvan). [MIT License](LICENSE.md).
+
+Scaffolded from [ScooterGitTemplate](https://github.com/ScottKirvan/ScooterGitTemplate).
 
 Project Link:  [GOMAC](https://github.com/ScottKirvan/GOMAC)  
 [CHANGELOG](notes/CHANGELOG.md)  
