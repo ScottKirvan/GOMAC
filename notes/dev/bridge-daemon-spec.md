@@ -227,6 +227,57 @@ phone app needs both LAN (in-van) and Tailscale (away). **Not yet done** —
 a real prerequisite for the app-control half of this project, tracked here
 so it isn't silently assumed solved.
 
+**Per issue #23's ordering fix: this cannot happen before the ACL policy
+below is actually applied.** Widening the listener onto a broker with no
+real ACL (every authenticated user has full access to every topic today —
+verified directly, no `acl_file` line is active in TheFlea's Mosquitto
+config despite `/etc/mosquitto/aclfile.example` existing) would mean any
+device on the LAN/tailnet holding any one of the existing credentials
+could read or publish anything, not just its own daemon's topics.
+
+### ACL Policy (designed, not yet applied)
+
+Real Mosquitto ACL file syntax, covering every identity that exists on
+the broker today plus the slot reserved for the future app credential —
+introducing an `acl_file` at all is default-deny for anyone not matched
+by a rule, so every existing identity needs an explicit entry or it loses
+access it currently has:
+
+```
+user victron
+topic write victron-ble/#
+topic write homeassistant/sensor/victron_+/+/config
+
+user mediaplayer
+topic readwrite mediaplayer/#
+
+user pianobar
+topic readwrite gomac/pandora/#
+topic write homeassistant/+/gomac_pandora_+/config
+
+# Future: a scoped credential for the KMP app once it exists (Phase 4's
+# app-integration half). Same shape as the daemon's own scope --
+# deliberately not "add pianobar-app to the daemon's rule block" as one
+# shared identity, since the app and the daemon are different trust
+# levels even though they touch the same topics today.
+# user pianobar-app
+# topic readwrite gomac/pandora/#
+
+user homeassistant
+topic readwrite #
+```
+
+`homeassistant` gets unrestricted access deliberately, not by omission —
+per this doc's MQTT Identity & ACL Model above, HA is meant to be the
+most broadly-privileged client on the bus after each daemon itself, since
+it needs to discover and act on any current or future daemon's topics
+without this ACL file needing an edit every time a new daemon is added.
+
+**Not yet applied to TheFlea** — per the domain-separation model
+(`compute-hub-current-state.md`), activating this (and the listener
+widening above) is a system change for Scott's IT agent, not something a
+GOMAC session executes directly.
+
 ## Repo Layout
 
 Per the Process Model above: **one project per daemon**, not a shared host
@@ -263,13 +314,10 @@ part of this work.
 
 ## Open Questions
 
-- [ ] Exact Mosquitto ACL file format/granularity for the three identity
-  tiers (daemon / HA / per-app) described above — not yet designed, just
-  the requirement is captured. **Has a real ordering dependency on Network
-  Exposure below** (GitHub issue #23): ACLs need to exist before or
-  alongside the listener widening, never after — widening first would let
-  any LAN/tailnet device holding the shared credential publish/subscribe
-  broadly during the gap.
+- [x] Exact Mosquitto ACL file format/granularity for the three identity
+  tiers (daemon / HA / per-app) described above — designed, see Network
+  Exposure's "ACL Policy" section. Not yet applied to TheFlea (that's a
+  change-doc request for Scott's IT agent, per domain separation).
 - [ ] Whether/when `victron-ble-monitor.py` gets rewritten as a
   conventions-following daemon of its own, or stays a standalone script
   indefinitely — same "wait for real signal" discipline as the process
