@@ -1,14 +1,15 @@
-# GOMAC Bridge Daemon — Design Spec
+# GOMAC Bridge Daemon Conventions
 
-This is the design spec for **the GOMAC bridge daemon** — a general-purpose
-pattern for connecting local services (pianobar today; other things later)
-to MQTT, so they can be controlled and monitored the same way everything
-else in GOMAC is. It sits alongside `gomac-hub-spec.md` (the hub's own
-design) as a second, earlier piece of application code for this repo — the
-hub's toolset will likely end up calling into bridges like this one rather
-than duplicating their logic. Where `pandora-mqtt-spec.md` covers the first
-concrete adapter (pianobar) in detail, this doc covers the shape every
-adapter shares.
+This is the shared design spec for **GOMAC bridge daemons** — the shape any
+daemon follows that connects a local service (pianobar today; other things
+later) to MQTT, so it can be controlled and monitored the same way
+everything else in GOMAC is. It sits alongside `gomac-hub-spec.md` (the
+hub's own design) as a second, earlier piece of application code for this
+repo — the hub's toolset will likely end up calling into bridges like this
+one rather than duplicating their logic. Where `src/integrations/pianobar/notes/pandora-mqtt-spec.md`
+covers the first concrete daemon (pianobar) in detail, this doc covers the
+conventions every daemon follows: topic naming, MQTT identity/ACL model, HA
+discovery conventions, and the generic Media Player contract.
 
 ## Motivation
 
@@ -16,78 +17,75 @@ This isn't a one-off for Pandora. The shape — some local service needs a
 command surface and a telemetry surface on MQTT, with Home Assistant
 picking up telemetry via discovery — is recurring: pianobar today, likely
 more integrations later. `victron-ble-monitor.py` already does a version of
-this by hand (see `compute-hub-current-state.md`). Worth generalizing now
-that a second instance exists, rather than hand-copying the pattern again
-each time — the same reasoning `gomac-hub-spec.md` already applies to
-extracting shared code from BojuBot.
+this by hand (see `compute-hub-current-state.md`). Worth documenting the
+shared conventions now that a second instance exists, rather than
+hand-copying the pattern again each time — the same reasoning
+`gomac-hub-spec.md` already applies to extracting shared code from BojuBot.
+This doc captures *conventions*, not a shared runtime — see Process Model
+below for why those are different things.
 
-## One Daemon, Not One Process Per Service
+## Process Model
 
-**Decided: a single mono-daemon process hosting multiple adapters
-internally**, not a separate OS process per integration. Reasoning weighed:
+**Decided (revised): one daemon process per non-trivial integration** —
+pianobar gets its own standalone daemon, not a slot in a shared host
+process. Revisit this once a second non-trivial daemon actually exists to
+learn from, not before — the same discipline already applied to HA device
+modeling and adapter "type" contracts elsewhere in this doc: don't design
+a shared shape speculatively from a single instance.
 
-- **Against separate processes**: N long-running processes each carry their
-  own baseline memory, their own systemd unit, their own dependency tree to
-  patch, and their own way to silently die — real ops overhead on a shared
-  8GB Pi that's also running HA, Mosquitto, Whisper, and eventually the hub
-  itself, and overhead that grows with every new integration.
-- **For separate processes**: real fault isolation — a hang in one adapter
-  can't take another down. MQTT already provides the decoupling a shared
-  process would otherwise buy you (nothing requires one process to share a
-  bus), so this benefit is partially available either way.
-- **Decided in favor of mono-daemon** for the reuse promise it makes
-  possible: heartbeat monitoring, load/unload, list/start/stop/restart, all
-  as one coherent management surface, achievable in-process far more simply
-  than by orchestrating N systemd units remotely. This is only safe given
-  the two rules below — without them, the fault-isolation concern above is
-  a real regression, not a false alarm.
+**This reverses the original decision recorded in this doc** (a single
+mono-daemon hosting multiple adapters internally). That decision came from
+an outside spec review (GitHub issue #22) that found it lacked any
+technical enforcement — the "adapters must be async-only, must catch their
+own errors" rule was the *entire* safety mechanism preventing one bad
+adapter from freezing or crashing every other adapter sharing its event
+loop, with nothing backing it up. The review's proposed alternative — a
+systemd template unit (`gomac-adapter@.service`) plus a thin CLI wrapping
+`systemctl start/stop/restart gomac-adapter@<name>` — would have gotten
+equivalent list/start/stop/restart management using existing
+infrastructure, with real OS-level fault isolation instead of a
+discipline-only rule. Reconsidered further and simplified past even that:
+with only one daemon in scope right now, there's no multi-adapter
+management surface to build at all yet, template unit or otherwise — plain
+`systemctl start/stop/restart` on a single ordinary unit already covers it.
+The mono-daemon's actual appeal (heartbeat/list/start/stop/restart as one
+coherent surface, cheaper footprint than N processes) only starts to
+matter once there's a second daemon to manage — that's the trigger for
+revisiting this, not a timeline.
 
-### Required adapter discipline (non-negotiable, not aspirational)
-
-1. **Async I/O only.** Node's event loop is single-threaded — a blocking
-   call or an uncaught exception in one adapter can freeze or crash the
-   *entire* daemon, not just that adapter, defeating the whole point of
-   independent load/unload/restart. Every adapter's I/O must be
-   non-blocking, and every adapter's errors must be caught at its own
-   boundary and reported as "this adapter crashed" rather than propagating
-   up and taking the daemon with it.
-2. **Escape hatch for OS-level isolation.** Not every future integration
-   will be safe to trust fully in-process forever — something flaky enough
-   (a wedged subprocess, a driver prone to hanging) may eventually need real
-   process isolation. The adapter registry should be designed so a specific
-   adapter *could* run as a child process under the hood without changing
-   the daemon's external management surface (still shows up in
-   `list`/`restart`/etc.) — not built now, just not architected away.
+This also resolves issue #22's core risk outright rather than mitigating
+it: with nothing else sharing the process, there's no cross-adapter fault
+domain for a hang or an unhandled error to threaten. The async-I/O-hygiene
+practice from the original draft is still just good Node practice, but
+it's no longer load-bearing safety infrastructure — dropped from this doc
+as a "non-negotiable rule" accordingly.
 
 ## MQTT Identity & ACL Model
 
-The daemon connecting as one shared MQTT identity for all its adapters does
-**not** mean everything on the bus is one trust domain. Three separate
-concerns:
+Three separate concerns, independent of how many daemons exist:
 
-- **The daemon's own identity** — one connection, one credential, used
-  internally by every adapter it hosts. Topic-scoped Mosquitto ACLs can
-  still restrict what that identity may publish/subscribe to, independent
-  of how many adapters share the connection.
-- **Home Assistant's identity** — broader than any single adapter needs.
+- **Each daemon's own identity** — its own connection, its own credential,
+  scoped to its own topic namespace via Mosquitto ACLs. Mirrors the
+  existing precedent of a per-service MQTT user (e.g. the `victron` user
+  `victron-ble-monitor.py` already authenticates as) — one daemon, one
+  identity, one namespace.
+- **Home Assistant's identity** — broader than any single daemon needs.
   HA is staying in the loop as both the automation/rules engine and a
   backup settings interface (decided in this design session, see
   `gomac-project-overview.md` for the product-level rationale once this is
   folded in there), so its credential needs read access across every
-  adapter's state/discovery topics and write access to every adapter's
+  daemon's state/discovery topics and write access to every daemon's
   command topics — the most broadly-privileged client on the bus after the
-  daemon itself.
+  daemons themselves.
 - **Per-app identities** — the phone/KMP app (and anything like it later)
   should get its own scoped credential, narrower than HA's, limited to what
   that specific app actually needs.
 
-This mirrors the existing precedent of a per-service MQTT user (e.g. the
-`victron` user `victron-ble-monitor.py` already authenticates as) — the
-mono-daemon doesn't have to abandon that, it just means "per-service" now
-means "per external consumer of the bus," not "per adapter inside the
-daemon."
-
 ## Topic Namespace Convention
+
+"Adapter" below means the same thing as "daemon" per the Process Model
+above — each is its own standalone process, but still fills the adapter
+role (local service ↔ MQTT) these conventions describe.
 
 - **Commands**: `gomac/<adapter>/cmd` — JSON payload (e.g.
   `{"action": "skip"}`), not raw single-character keybindings. Keeps the
@@ -100,8 +98,8 @@ daemon."
 - **Availability**: `gomac/<adapter>/availability` — birth/last-will (LWT).
   Missing entirely from both `victron-ble-monitor.py` and
   `pianobar-mpris-bridge.py` today — a real gap, since there's currently no
-  way to tell a bridge died vs. is just quiet. Every adapter under this
-  daemon gets one from the start.
+  way to tell a bridge died vs. is just quiet. Every daemon gets one from
+  the start.
 - **HA discovery**: `homeassistant/<component>/<object_id>/config` — same
   mechanism already proven live by `victron-ble-monitor.py` (confirmed
   working against Mosquitto and HA's entity registry during this design
@@ -135,7 +133,7 @@ Entities are of mixed type depending on the adapter's needs — `sensor` for
 read-only telemetry, plus whatever controllable types apply
 (`button`/`select`/`image`/etc.) so HA functions as a genuine secondary
 control surface, not just a read-only dashboard tile. See
-`pandora-mqtt-spec.md` for a concrete instance of this.
+`src/integrations/pianobar/notes/pandora-mqtt-spec.md` for a concrete instance of this.
 
 **Home Assistant has no native `media_player` MQTT-discovery component** —
 verified directly against HA's own MQTT integration docs during this design
@@ -166,7 +164,7 @@ Not every backend implements every verb — `select_source` and `previous`
 already have a known gap (pianobar can't go back a track at all), and the
 same applies to `seek`/`set_playback_speed` (no scrubbing within a
 radio-style stream) below. A contract verb existing doesn't obligate every
-adapter to support it; see `pandora-mqtt-spec.md`'s mapping table for how
+adapter to support it; see `src/integrations/pianobar/notes/pandora-mqtt-spec.md`'s mapping table for how
 an adapter documents which verbs it does and doesn't implement.
 
 **A base contract richer than any single adapter fully implements is fine
@@ -196,7 +194,7 @@ richer states beyond that as its own bespoke commands, the way pianobar's
 contract.
 
 pianobar is the **first** implementation of this contract, detailed in
-`pandora-mqtt-spec.md`. The point of defining the contract at this level:
+`src/integrations/pianobar/notes/pandora-mqtt-spec.md`. The point of defining the contract at this level:
 a future Plex adapter, internet-radio adapter, or anything else satisfying
 the same shape could plug in without the app or HA's entities needing to
 change — this is the generalization Scott has wanted to build for years,
@@ -231,53 +229,78 @@ so it isn't silently assumed solved.
 
 ## Repo Layout
 
-One deployable daemon project, not one top-level directory per integration:
+Per the Process Model above: **one project per daemon**, not a shared host
+with adapters nested inside it. Each is still its own standalone
+process/deployable — this is about directory organization, not sharing a
+runtime. Daemons live under `src/integrations/`, keeping the repo root
+clean rather than scattering top-level project folders:
 
 ```
 GOMAC/
-└── bridge-daemon/
-    ├── src/
-    │   ├── core/           # MQTT client, adapter registry, heartbeat,
-    │   │                   # lifecycle management (load/start/stop/
-    │   │                   # restart/unload/list)
-    │   └── adapters/
-    │       └── pandora/    # first adapter — see pandora-mqtt-spec.md
-    ├── package.json
-    └── ...
+└── src/
+    └── integrations/
+        └── pianobar/      # first daemon — see src/integrations/pianobar/notes/pandora-mqtt-spec.md
+            ├── package.json
+            └── ...
 ```
+
+A second non-trivial daemon is the trigger to revisit whether a shared
+core package (MQTT bootstrap, HA-discovery builder) is worth factoring
+out between them — not before, per the Motivation section above.
 
 ## Language / Runtime
 
 **TypeScript/Node** — matches the GOMAC hub's own already-decided runtime
 (`gomac-hub-spec.md`), and there's no pull toward anything else here: unlike
 `victron-ble-monitor.py` (Python, for BLE hardware library access via
-`bleak`/`victron-ble`), nothing about this daemon's adapters needs Python's
-hardware ecosystem. Using Node also means `bridge-daemon`'s shared core can
-be directly imported by the hub later, not just structurally resemble it.
-This is a real fork from the existing precedent (both scripts currently
-deployed on TheFlea are Python) — flagged explicitly rather than assumed;
-existing scripts are not being migrated as part of this work.
+`bleak`/`victron-ble`), nothing about pianobar control needs Python's
+hardware ecosystem. Using Node also means a future shared core package (see
+Repo Layout above) could be directly imported by the hub later, not just
+structurally resemble it. This is a real fork from the existing precedent
+(both scripts currently deployed on TheFlea are Python) — flagged
+explicitly rather than assumed; existing scripts are not being migrated as
+part of this work.
 
 ## Open Questions
 
 - [ ] Exact Mosquitto ACL file format/granularity for the three identity
   tiers (daemon / HA / per-app) described above — not yet designed, just
-  the requirement is captured
-- [ ] Whether/when `victron-ble-monitor.py` gets migrated into this
-  framework as an adapter, or stays a standalone script indefinitely
+  the requirement is captured. **Has a real ordering dependency on Network
+  Exposure below** (GitHub issue #23): ACLs need to exist before or
+  alongside the listener widening, never after — widening first would let
+  any LAN/tailnet device holding the shared credential publish/subscribe
+  broadly during the gap.
+- [ ] Whether/when `victron-ble-monitor.py` gets rewritten as a
+  conventions-following daemon of its own, or stays a standalone script
+  indefinitely — same "wait for real signal" discipline as the process
+  model decision above
 - [ ] Timing: does the Mosquitto listener widening (LAN + Tailscale) happen
-  as prep work before the Pandora adapter is built, or alongside it
-- [ ] Whether the daemon's own adapter-management surface (list/start/
-  stop/restart) is itself exposed over MQTT (consistent with everything
-  else) or some other mechanism
+  as prep work before the Pandora daemon is built, or alongside it — see
+  the ordering dependency noted above
+- [x] Whether a shared multi-daemon management surface (list/start/stop/
+  restart) is needed now — no, resolved by the Process Model decision
+  above: one daemon in scope today, plain `systemctl` covers it, revisit
+  with a second daemon
+- [ ] Whether to adopt a custom **config-entry-based** HA `media_player`
+  integration instead of the sensor/button/select/image fallback below
+  (GitHub issue #24) — an ad hoc TheFlea-side integration already proves
+  this is feasible and gets a real unified player card; see
+  `src/integrations/pianobar/notes/pandora-mqtt-spec.md` for the concrete reconsideration
 
 ## References & Prior Art
 
 - `gomac-hub-spec.md` — the hub's own design; likely future consumer of
-  this daemon's adapters as tools
+  these daemons as tools
 - `compute-hub-current-state.md` — what's actually running on TheFlea
-  right now, including the two existing hand-rolled bridge scripts this
-  pattern generalizes from
+  right now, including the two existing hand-rolled bridge scripts these
+  conventions generalize from
 - [Home Assistant MQTT integration](https://www.home-assistant.io/integrations/mqtt/) —
   confirms the natively-supported MQTT discovery component list and the
   absence of `media_player` among them
+- GitHub issue #22 — outside spec review that found the original
+  mono-daemon design's fault-isolation story was discipline-only with no
+  enforcement; drove the Process Model reversal above
+- GitHub issue #23 — outside spec review that caught the ACL/listener
+  ordering dependency noted above
+- GitHub issue #24 — outside spec review flagging the ad hoc TheFlea
+  media_player integration; see `src/integrations/pianobar/notes/pandora-mqtt-spec.md`

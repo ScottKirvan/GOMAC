@@ -15,6 +15,48 @@ project's compute hub — see System Architecture in
 (security hardening, connectivity monitoring, etc.) predating this
 project, tracked separately and not duplicated here.
 
+## Domain separation — how this gets worked going forward
+
+Scott deliberately keeps two separate working domains, each with its own
+agent session and its own rules: **TheFlea** (an ongoing IT/DevOps
+context — hardening, telemetry collectors, general machine upkeep) and
+**GOMAC** (this repo — design/spec phase, its own `CLAUDE.md`: branches +
+PRs, no AI attribution, tests once code exists). He's now actively
+starting to enforce that separation in practice, having spent 2026-08-29
+deliberately testing where the boundary breaks down.
+
+**Why this is genuinely hard, not just a preference**: the two domains
+are tightly coupled by necessity — GOMAC's actual deliverable has to run
+*on* TheFlea, so testing/deploying it inherently touches TheFlea's live
+system state (Mosquitto, Home Assistant, systemd). A GOMAC-focused
+session that starts editing TheFlea's live config to test something
+inherits TheFlea's IT-ops context it was never meant to carry, and the
+reverse also happens: TheFlea-side work can end up building actual GOMAC
+features informally, under the wrong rules, with no PR/review.
+
+**Concrete example of exactly that happening**: earlier the same day this
+doc was first written, a TheFlea-side session built a working custom
+Home Assistant `media_player` integration
+(`media_player.audio_feed_media_player`, device "Audio Feed") for
+pianobar/Pandora control — real, deployed, working — entirely outside
+this repo, under TheFlea's rules, not GOMAC's. That's now the same
+problem `src/integrations/pianobar/notes/pandora-mqtt-spec.md`'s Pandora adapter is designing "for
+real," in TypeScript, as part of `bridge-daemon-spec.md`'s daemon. These
+two will need reconciling once the real adapter is built — most likely
+retiring the ad hoc TheFlea-side integration in favor of the designed
+one, not running both. **Don't assume the ad hoc integration is gone or
+current** — check `/opt/homeassistant/config/custom_components/mediaplayer_mqtt/`
+on TheFlea directly if this matters to what you're building.
+
+**The working model going forward**: GOMAC code and design decisions
+stay in this repo, built through GOMAC-focused sessions, following this
+repo's own rules fully. The only thing meant to cross into TheFlea's
+domain is a narrow, explicit deployment step — not an agent freely
+making live system changes on TheFlea mid-development the way the
+example above happened. What exactly that deployment contract looks like
+(a script, a doc, something else) isn't decided yet — flagging the
+principle here since it's now the intended direction, not the mechanism.
+
 ## Hardware reality check
 
 - **8GB Pi 5 = TheFlea = the compute hub.** Confirmed 2026-08-07. This is

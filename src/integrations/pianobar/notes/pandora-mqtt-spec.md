@@ -1,16 +1,20 @@
-# Pandora / pianobar MQTT Adapter — Design Spec
+# Pandora / pianobar MQTT Daemon — Design Spec
 
-The first concrete adapter built on `bridge-daemon-spec.md`'s general
-pattern, and the first implementation of that doc's generic "Media Player"
-adapter contract. This doc covers pianobar specifically: what's already
-running, the full command/telemetry surface pianobar exposes, and which
-parts of that surface a FIFO-and-`event_command`-based bridge can actually
-drive reliably today versus what needs more infrastructure later.
+The first standalone daemon built to `notes/dev/bridge-daemon-spec.md`'s shared
+conventions, and the first implementation of that doc's generic "Media
+Player" contract. Runs as its own process (`src/integrations/pianobar/` — see
+`notes/dev/bridge-daemon-spec.md`'s Process Model and Repo Layout sections; the
+original mono-daemon/multi-adapter design was reconsidered per GitHub
+issue #22 before any of this was built). This doc covers pianobar
+specifically: what's already running, the full command/telemetry surface
+pianobar exposes, and which parts of that surface a
+FIFO-and-`event_command`-based bridge can actually drive reliably today
+versus what needs more infrastructure later.
 
-**The daemon and this adapter are fully functional with zero Home
-Assistant involvement** — see `bridge-daemon-spec.md`'s HA section. HA
-entities described below are a free-riding presentation layer on top of
-messages the adapter sends regardless.
+**This daemon is fully functional with zero Home Assistant involvement**
+— see `notes/dev/bridge-daemon-spec.md`'s HA section. HA entities described below
+are a free-riding presentation layer on top of messages the daemon sends
+regardless.
 
 ## Current State (verify against `compute-hub-current-state.md`, not just here)
 
@@ -155,7 +159,7 @@ Events most relevant to this adapter's state topics:
 
 ## HA Entity Plan
 
-One HA device (per `bridge-daemon-spec.md`'s convention — its own
+One HA device (per `notes/dev/bridge-daemon-spec.md`'s convention — its own
 `identifiers`, not folded into a larger device), entities:
 
 - `sensor` — now-playing title, artist, album, station name, rating
@@ -166,9 +170,78 @@ One HA device (per `bridge-daemon-spec.md`'s convention — its own
 Tier 3 actions are **not** exposed as HA entities in this version — they
 aren't reliably drivable yet (see above), so there's nothing to wire up.
 
+## Lessons From the Ad Hoc TheFlea Integration
+
+A separate, TheFlea-owned session (not this repo, see
+`compute-hub-current-state.md`'s "Domain separation" section) built a
+working custom HA `media_player` integration for pianobar before this spec
+existed — `media_player.audio_feed_media_player`,
+`/opt/homeassistant/config/custom_components/mediaplayer_mqtt/` on
+TheFlea. Read directly (2026-08-30) to pull out what it already hit, since
+it's real, dated evidence rather than speculation:
+
+- **Config-entry integration is required, not optional, for a real HA
+  device.** Confirmed directly in its code comments (dated 2026-08-29): a
+  legacy YAML-platform entity cannot attach to a Device — and therefore
+  can't be assigned to a Room in HA's UI — even with `device_info` set.
+  Only a config-entry-based integration (one with a `config_flow.py`) can.
+  Their `config_flow.py` takes no real user input at all; it exists purely
+  to force a config entry into being, using a singleton pattern
+  (`async_set_unique_id` + `_abort_if_unique_id_configured`) so only one
+  instance can ever be added. If this project ever builds a custom HA
+  `media_player` integration (see Open Questions below and GitHub issue
+  #24), this is the exact mechanism to copy — not the simpler legacy
+  platform form, which looks like it should work and silently doesn't.
+- **Confirmed independently, from HA's own source**: their code comment
+  cites `mqtt/const.py`'s `SUPPORTED_COMPONENTS`, which omits
+  `media_player` entirely — the same conclusion this spec already reached
+  by reading HA's public docs (see `notes/dev/bridge-daemon-spec.md`), now
+  corroborated against the actual installed HA version's source rather
+  than just its documentation.
+- **A live instance of the exact risk GitHub issue #22 raised.** Their
+  bridge script (`mediaplayer-mqtt-bridge.py`) mixes `paho-mqtt` (which
+  runs its callbacks on its own network thread) with `dbus-python` (not
+  thread-safe to call from there) — every command and connect handler
+  explicitly marshals the actual D-Bus work onto the GLib main loop via
+  `GLib.idle_add()` rather than calling it directly, with a code comment
+  flagging exactly why. Different stack from this project's planned
+  Node/TypeScript daemon (threads vs. a single event loop), but the same
+  underlying lesson issue #22 raised in the abstract: a naive
+  synchronous-looking call into a non-thread-safe/non-reentrant resource
+  from the wrong callback context is a real, concrete failure mode, not a
+  hypothetical one.
+- **Their bridge controls pianobar through its existing MPRIS2 interface**
+  (see `pianobar-mpris-bridge.py` in `compute-hub-current-state.md`), not
+  pianobar's own FIFO — `MPRIS_BUS_NAME =
+  "org.mpris.MediaPlayer2.pianobar"`. This caps their bridge at whatever
+  MPRIS2's standard surface offers: play/pause/next/volume only. It has no
+  path to any Pandora-specific verb (love/ban/tired/station-select) —
+  MPRIS doesn't expose them. This is a live, concrete illustration of why
+  this spec's design goes directly to pianobar's FIFO/`event_command`
+  instead of through MPRIS: MPRIS is real and already working for the
+  generic transport controls, but it's a ceiling, not a path to the fuller
+  surface this spec wants.
+- **Volume is device volume here, not pianobar's own gain** — their
+  bridge reads/sets volume via `wpctl`/PipeWire's default sink, not
+  pianobar's internal ReplayGain correction (`(`/`)`/`^`). Concrete,
+  already-live confirmation that the "volume means whatever the backend
+  exposes" ambiguity flagged in `notes/dev/bridge-daemon-spec.md` is a real fork
+  point other implementations have already had to choose on, not a
+  hypothetical edge case.
+- **State/command topic shape differs from this spec's convention**:
+  theirs uses one combined JSON state topic (`mediaplayer/state`, `{state,
+  volume}`) and individual plain-payload command topics
+  (`mediaplayer/play`, `mediaplayer/pause`, etc.), rather than this spec's
+  per-metric state topics and single JSON-payload command topic. Noted as
+  a different pattern that happens to work for them, not a reason to
+  change this spec's convention — their bridge only needs two state
+  fields total, where this spec's fuller telemetry surface (title, artist,
+  album, station, rating, cover art) benefits more from per-metric topics
+  the way `victron-ble-monitor.py` already does it.
+
 ## Generic Media-Player Contract Mapping
 
-Per `bridge-daemon-spec.md`'s "Media Player" adapter type:
+Per `notes/dev/bridge-daemon-spec.md`'s "Media Player" adapter type:
 
 | Generic command | pianobar mechanism |
 |---|---|
@@ -177,7 +250,7 @@ Per `bridge-daemon-spec.md`'s "Media Player" adapter type:
 | `next` | `n` via FIFO |
 | `previous` | **Not supported by pianobar at all** — no "previous track" keybinding exists. A real limitation of the backend, not a gap in this adapter. Worth knowing if this contract is ever compared against a backend that does support it. |
 | `select_source` | `s` + station number via FIFO (Tier 2) |
-| `volume_up` / `volume_down` / `volume_set` | `)` / `(` / — via FIFO. No `volume_set` equivalent — pianobar only exposes relative nudges (`)`/`(`) and a reset (`^`), not an absolute level; `volume_set` is unsupported for this adapter. Also note (per `bridge-daemon-spec.md`): this is pianobar's own internal gain correction, not device/system volume. |
+| `volume_up` / `volume_down` / `volume_set` | `)` / `(` / — via FIFO. No `volume_set` equivalent — pianobar only exposes relative nudges (`)`/`(`) and a reset (`^`), not an absolute level; `volume_set` is unsupported for this adapter. Also note (per `notes/dev/bridge-daemon-spec.md`): this is pianobar's own internal gain correction, not device/system volume. |
 | `rate` (like/dislike) | `+` (love) / `-` (ban) via FIFO. pianobar's `tired` (`t`, ban-for-one-month) is a third state beyond this generic two-state verb — kept as a Pandora-specific extension, not folded into `rate` |
 | `seek` | **Not supported** — no scrubbing within a pianobar/Pandora stream |
 | `set_playback_speed` | **Not supported** — not a concept pianobar has |
@@ -236,4 +309,4 @@ diverges from them:
   confirms `media_player` is not a natively-discoverable MQTT component,
   which is why this spec's HA entity plan uses `sensor`/`button`/`select`/
   `image` instead of a unified player widget (see
-  `bridge-daemon-spec.md` for the fuller reasoning).
+  `notes/dev/bridge-daemon-spec.md` for the fuller reasoning).
