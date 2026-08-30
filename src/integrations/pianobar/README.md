@@ -5,17 +5,21 @@ exposes its command surface over MQTT, and publishes now-playing telemetry,
 per the shared conventions in `notes/dev/bridge-daemon-spec.md` and the
 daemon-specific design in `notes/pandora-mqtt-spec.md` (in this directory).
 
-**This is a Phase 2 implementation.** Phase 1 covered process ownership and
-the Tier 1 command surface. Phase 2 adds:
+**This is a Phase 3 implementation.** Phase 1 covered process ownership and
+the Tier 1 command surface; Phase 2 added telemetry and `select_source`.
+Phase 3 adds:
 
-- A real `event_command` implementation that publishes now-playing/rating/
-  cover-art/station-list telemetry to `gomac/pandora/state/<metric>` topics.
-- `select_source` (Tier 2's "select another station"), using the most
-  recently published station list to pick the right FIFO follow-up number.
+- Home Assistant MQTT-discovery config messages
+  (`homeassistant/<component>/<object_id>/config`) so this daemon's existing
+  commands/telemetry show up as real HA entities — `sensor` (now-playing
+  title/artist/album/station/rating), `image` (album art), `button` (skip,
+  love, ban, tired, play, pause, volume up, volume down, restart), and
+  `select` (station picker) — all grouped under one HA device. See "Home
+  Assistant integration" below.
 
-It does **not** yet publish Home Assistant discovery, the quickmix-toggle
-command (`x`), or the bookmark command (`b`) — see "Development Phases" in
-the spec for what comes later.
+It does **not** yet widen Mosquitto's listener, wire up the KMP app, the
+quickmix-toggle command (`x`), or the bookmark command (`b`) — see
+"Development Phases" in the spec for what comes later.
 
 ## What it does
 
@@ -41,6 +45,9 @@ the spec for what comes later.
   writes the corresponding single keystroke to pianobar's control FIFO
   (Tier 1 actions), selects a station (`select_source`), or performs a
   managed restart (`restart`).
+- Publishes Home Assistant MQTT-discovery config so all of the above shows
+  up as real, controllable HA entities under one device — see "Home
+  Assistant integration" below.
 
 ## Configuration
 
@@ -210,6 +217,76 @@ whether it's reliable by `songfinish` before depending on it for anything.
 before handing it to a scrobbler expecting seconds — published here as
 `song_duration_ms`/`song_played_ms` rather than a bare, unit-ambiguous
 name.)
+
+## Home Assistant integration
+
+On every MQTT connect (and reconnect), the daemon publishes retained
+discovery config messages to `homeassistant/<component>/gomac_pandora_<id>/config`
+for every entity below, per `notes/dev/bridge-daemon-spec.md`'s discovery
+topic convention. All of them share one `device` block (`identifiers:
+["gomac-pandora"]`, name "Pandora"), so they group under a single device in
+HA's UI, and one `availability_topic` (`gomac/pandora/availability`), so
+they correctly show unavailable when this daemon is down.
+
+- **`sensor`** — `title`, `artist`, `album`, `station`, `rating`, each
+  reading its existing `gomac/pandora/state/<metric>` topic directly.
+- **`image`** — album art, wired via `url_topic` to
+  `gomac/pandora/state/cover_art`.
+- **`button`** — one per Tier 1/process action: skip (`next`), love, ban,
+  tired, play, pause, volume up, volume down, and restart (marked with HA's
+  standard `restart` `device_class`). Each publishes the same
+  `{"action": "..."}` payload `gomac/pandora/cmd` already expects.
+- **`select`** — station picker. Its `options` list is populated from the
+  most recently known station list (`gomac/pandora/state/stations`) and its
+  `command_template` renders a selection as
+  `{"action": "select_source", "station": "<chosen name>"}`, matching
+  `commandHandler.ts`'s existing `select_source` handler exactly.
+
+### Investigated: does the `image` entity need a URL topic or a raw-bytes topic?
+
+**A URL topic (`url_topic`), not a raw-bytes topic (`image_topic`) —
+verified against HA's own MQTT `image` integration docs, not assumed.**
+`coverArt` is confirmed (see "Investigated: what form is `coverArt` in?"
+above) to always be a URL string straight from Pandora's API, never raw
+image bytes — `url_topic` is HA's mechanism for exactly that case (HA
+itself downloads the image from the URL it receives); `image_topic` expects
+the daemon to publish actual image bytes on the topic, which it never has
+and would have no reason to start doing.
+
+### Investigated: how does HA's MQTT `select` handle an options list that changes at runtime?
+
+**A discovery config's `options` field is static at the moment it's
+published — there's no separate "patch the options" message type.**
+Verified against HA's own MQTT discovery docs, not assumed: "Subsequent
+messages on a topic where a valid payload has been received will be
+handled as a configuration update" — republishing the *same* discovery
+config topic (same `unique_id`) with a new payload is the documented way
+to update an already-discovered entity in place, not something that
+creates a duplicate or requires deleting/recreating the entity first.
+
+So that's what this daemon does: `StationDirectory` (already tracking the
+most recently known station list for `select_source`, see Phase 2 above)
+now also supports `onStationsChanged`, which fires only when the list
+genuinely differs from what was previously known — pianobar attaches a
+station list to nearly every telemetry event, not just `usergetstations`,
+so without that dedupe this would republish on almost every song.
+`mqttClient.ts` wires that listener to republish just the select's
+discovery config (`haDiscovery.ts`'s `buildSelectDiscoveryConfig`) with the
+new `options` array, retained, every time it fires — in addition to
+publishing it once at startup using whatever station list (possibly none
+yet) is already known.
+
+**Known caveat, not fixed here**: `select`'s `options` list and its
+`state_topic` (`gomac/pandora/state/station`, the currently-playing
+station) come from independent updates. If a station is added or renamed
+through some other Pandora client and the currently-playing station
+changes to reflect it before this daemon's next telemetry-driven `options`
+refresh lands, HA may briefly see a `state_topic` value that isn't in its
+current `options` list. Not a new problem introduced here — it's the same
+staleness window `select_source`'s FIFO index lookup already has (see
+"Investigated: does pianobar's `s` numbering match..." above) — but worth
+knowing this surfaces in the `select` entity's UI too, not just in command
+handling.
 
 ## Running locally
 
@@ -390,3 +467,37 @@ exercise real OS-level primitives with no MQTT or pianobar involved:
   reflects the Pandora-specific three-rating-state model
   `bridge-daemon-spec.md`'s Media Player contract section already
   describes (`tired` as a third state beyond generic `rate`).
+
+### Phase 3 additions
+
+- **Discovery configs are republished on every MQTT connect/reconnect**,
+  not published once and left alone — same reasoning as the existing
+  `online` availability publish in `mqttClient.ts`'s `connect` handler:
+  cheap, idempotent (retained messages with identical content are a no-op
+  on the broker), and self-healing if the broker ever loses its retained
+  message store.
+- **The station `select` entity's `options` list is kept live via
+  `StationDirectory.onStationsChanged`**, not left static after the first
+  discovery publish — see "Investigated: how does HA's MQTT `select` handle
+  an options list that changes at runtime?" above for the full finding and
+  why a bare "publish once at startup" implementation would have quietly
+  gone stale the first time a station was added or removed elsewhere.
+- **`object_id`/`unique_id` values are explicitly prefixed
+  (`gomac_pandora_<name>`)** rather than left to whatever HA would derive
+  from `name`/`device` — keeps generated `entity_id`s predictable
+  (`sensor.pandora_title`, etc.) and avoids any chance of collision with a
+  future adapter's entities under the same HA component namespaces
+  (`sensor`, `button`, ...).
+- **The restart button gets HA's standard `restart` `device_class`**; no
+  other button has a matching standard device class (HA's button
+  `device_class` values are limited to `restart`, `identify`, and
+  `update`), so the rest are left as plain buttons rather than forcing an
+  ill-fitting class onto them.
+- **`mqttClient.ts` itself still has no dedicated unit test** (true since
+  Phase 1/2) — mocking the `mqtt` package's `connect()` realistically
+  wasn't worth it for what's essentially wiring. All of this phase's actual
+  logic (which discovery configs get built, when the `select`'s options
+  change, how publishing is retried/erred) lives in `haDiscovery.ts` and
+  `stationDirectory.ts`, both fully unit tested with a fake MQTT publish
+  function, matching the existing `telemetryServer.ts`/`TelemetryMqttClient`
+  pattern.
