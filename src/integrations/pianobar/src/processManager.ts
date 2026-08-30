@@ -1,5 +1,6 @@
 import { spawn as nodeSpawn } from "node:child_process";
-import { dirname } from "node:path";
+import { readFileSync } from "node:fs";
+import { basename, dirname } from "node:path";
 import type { DaemonConfig } from "./config.js";
 import { clearPid, isProcessAlive as nodeIsProcessAlive, readPid, writePid } from "./pidfile.js";
 
@@ -10,8 +11,29 @@ export interface SpawnedProcess {
 export interface ProcessOps {
   spawnDetached(command: string, args: string[], env: NodeJS.ProcessEnv): SpawnedProcess;
   isAlive(pid: number): boolean;
+  /** Guards against a stale pidfile whose PID has since been reused by an unrelated process. */
+  isExpectedProcess(pid: number, binary: string): boolean;
   kill(pid: number, signal: NodeJS.Signals): void;
   sleep(ms: number): Promise<void>;
+}
+
+/**
+ * /proc/<pid>/comm holds the kernel's record of the running executable's
+ * name, truncated to TASK_COMM_LEN-1 (15) characters -- verified directly
+ * (a 16-character stand-in binary name came back truncated during this
+ * daemon's own acceptance testing). "pianobar" itself fits without
+ * truncation, but the comparison has to truncate its expected side to
+ * match, or any longer configured binary name would never match. Linux-only,
+ * but so is this whole project's target hardware.
+ */
+const COMM_MAX_LEN = 15;
+
+function readProcessComm(pid: number): string | undefined {
+  try {
+    return readFileSync(`/proc/${pid}/comm`, "utf8").trim();
+  } catch {
+    return undefined;
+  }
 }
 
 export const nodeProcessOps: ProcessOps = {
@@ -28,6 +50,9 @@ export const nodeProcessOps: ProcessOps = {
     return { pid: child.pid };
   },
   isAlive: nodeIsProcessAlive,
+  isExpectedProcess(pid, binary) {
+    return readProcessComm(pid) === basename(binary).slice(0, COMM_MAX_LEN);
+  },
   kill(pid, signal) {
     process.kill(pid, signal);
   },
@@ -64,7 +89,11 @@ export class PianobarProcessManager {
   /** Startup entry point: reattach to an already-running owned pianobar, or spawn a fresh one. */
   adoptOrSpawn(): number {
     const existingPid = readPid(this.config.pidFilePath);
-    if (existingPid !== undefined && this.ops.isAlive(existingPid)) {
+    if (
+      existingPid !== undefined &&
+      this.ops.isAlive(existingPid) &&
+      this.ops.isExpectedProcess(existingPid, this.config.pianobar.binary)
+    ) {
       this.pid = existingPid;
       return existingPid;
     }

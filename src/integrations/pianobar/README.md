@@ -14,7 +14,12 @@ see "Development Phases" in the spec for what comes later.
 ## What it does
 
 - Spawns `pianobar` as a detached child process (survives the daemon's own
-  restarts) and tracks it via a pidfile.
+  restarts) and tracks it via a pidfile — verifying, via `/proc/<pid>/comm`,
+  that a pidfile's PID is actually still pianobar before adopting it, so a
+  stale pidfile pointing at a PID the OS has since reused for something
+  else can't be mistaken for a live pianobar.
+- Creates pianobar's control FIFO (`mkfifo`) if it doesn't already exist —
+  pianobar never creates its own, per `man pianobar`.
 - Generates/manages pianobar's own config file, setting only the `fifo` and
   `event_command` keys it needs — every other line (crucially, Pandora
   credentials) is left untouched if the file already exists.
@@ -144,3 +149,14 @@ OS-level FIFO semantics the daemon depends on.
   not a daemon-private path, specifically so `pianobar-mpris-bridge.py`
   (which already writes to that path) keeps working unmodified — FIFOs
   support multiple concurrent writers, so this is additive, not a conflict.
+- **Added during review, not in the original implementation**: FIFO
+  creation and the PID-reuse guard described above. Neither was in the
+  original spec brief explicitly; both are needed for "process ownership"
+  to actually hold on a genuinely fresh deployment / after a long-uptime
+  restart. The PID-reuse guard compares against `/proc/<pid>/comm`, which
+  the kernel truncates to 15 characters — verified live during this
+  daemon's own acceptance testing (a 16-character stand-in binary name
+  came back truncated, and an early version of this check compared against
+  the untruncated name, wrongly failing to recognize a live, correctly
+  running process). The comparison now truncates its expected side to
+  match; see the regression test in `test/processManager.test.ts`.
