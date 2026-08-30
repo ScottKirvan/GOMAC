@@ -169,6 +169,17 @@ radio-style stream) below. A contract verb existing doesn't obligate every
 adapter to support it; see `pandora-mqtt-spec.md`'s mapping table for how
 an adapter documents which verbs it does and doesn't implement.
 
+**A base contract richer than any single adapter fully implements is fine
+— stubbing unsupported verbs is the expected shape, not a smell.** A
+contract with zero gaps across its first implementation would actually be
+the warning sign: it'd mean the interface was drawn to fit that one
+adapter rather than a genuine cross-backend shape. The thing to actually
+watch for when extending this contract later is the *ratio* — a base
+interface where most adapters stub most verbs means it was designed for
+speculative future backends instead of real ones. Grow the contract when a
+verb is shared by backends that actually exist or are actually planned,
+not preemptively.
+
 One nuance worth keeping explicit rather than assuming away: **`volume`
 means whatever level control the backend actually exposes**, not
 necessarily device/system volume. pianobar's volume controls are its own
