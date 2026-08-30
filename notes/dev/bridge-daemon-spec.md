@@ -156,9 +156,33 @@ generically rather than tied to pianobar specifically:
 
 - **Commands**: `play`, `pause`, `next`, `previous`, `select_source`
   (station/playlist/channel — vocabulary varies by backend, the command
-  doesn't)
+  doesn't), `volume_up`, `volume_down`, `volume_set`, `rate` (like/dislike),
+  `seek`, `set_playback_speed`
 - **State**: now-playing metadata (title, artist, album, source name),
-  album art (URL or reference), available sources list
+  album art (URL or reference), available sources list, current volume,
+  current rating
+
+Not every backend implements every verb — `select_source` and `previous`
+already have a known gap (pianobar can't go back a track at all), and the
+same applies to `seek`/`set_playback_speed` (no scrubbing within a
+radio-style stream) below. A contract verb existing doesn't obligate every
+adapter to support it; see `pandora-mqtt-spec.md`'s mapping table for how
+an adapter documents which verbs it does and doesn't implement.
+
+One nuance worth keeping explicit rather than assuming away: **`volume`
+means whatever level control the backend actually exposes**, not
+necessarily device/system volume. pianobar's volume controls are its own
+internal ReplayGain-style correction, separate from whatever the audio
+device's actual output level is — the contract shouldn't quietly conflate
+the two.
+
+`rate` is deliberately scoped as a generic two-state like/dislike, since
+that's roughly universal across streaming platforms (Spotify, YouTube
+Music, Pandora, etc. all have some form of it). A backend can still expose
+richer states beyond that as its own bespoke commands, the way pianobar's
+`tired` (ban-for-one-month, a third state beyond simple like/dislike) does
+— not every extra state a backend has needs to be forced into the generic
+contract.
 
 pianobar is the **first** implementation of this contract, detailed in
 `pandora-mqtt-spec.md`. The point of defining the contract at this level:

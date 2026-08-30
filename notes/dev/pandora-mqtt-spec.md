@@ -55,16 +55,16 @@ Fully drivable today, no further infrastructure required.
 
 | Action | Key | Generic contract mapping |
 |---|---|---|
-| Love song | `+` | — |
-| Ban song permanently | `-` | — |
+| Love song | `+` | `rate` (like) |
+| Ban song permanently | `-` | `rate` (dislike) |
 | Skip song | `n` | `next` |
 | Pause | `S` | `pause` |
 | Resume | `P` | `play` |
-| Pause/resume toggle | `p` / `<Space>` | — |
-| Ban for one month ("tired") | `t` | — |
-| Decrease volume (pianobar's own gain, not system volume) | `(` | — |
-| Increase volume | `)` | — |
-| Reset volume | `^` | — |
+| Pause/resume toggle | `p` / `<Space>` | — (redundant with `play`/`pause`, no separate generic verb needed) |
+| Ban for one month ("tired") | `t` | — (Pandora-specific third rating state beyond generic `rate`, see mapping table below) |
+| Decrease volume (pianobar's own gain, not system volume) | `(` | `volume_down` |
+| Increase volume | `)` | `volume_up` |
+| Reset volume | `^` | — (no generic "reset" verb; not the same as `volume_set` since there's no target level) |
 
 ### Tier 2 — single keystroke, but needs a follow-up selection the daemon must already know
 
@@ -160,7 +160,7 @@ One HA device (per `bridge-daemon-spec.md`'s convention — its own
 
 - `sensor` — now-playing title, artist, album, station name, rating
 - `image` — album art, sourced from the `coverArt` field
-- `button` — skip, love, ban, tired, play, pause (Tier 1 only)
+- `button` — skip, love, ban, tired, play, pause, volume up, volume down (Tier 1 only)
 - `select` — station (Tier 2, populated from `usergetstations`)
 
 Tier 3 actions are **not** exposed as HA entities in this version — they
@@ -177,6 +177,10 @@ Per `bridge-daemon-spec.md`'s "Media Player" adapter type:
 | `next` | `n` via FIFO |
 | `previous` | **Not supported by pianobar at all** — no "previous track" keybinding exists. A real limitation of the backend, not a gap in this adapter. Worth knowing if this contract is ever compared against a backend that does support it. |
 | `select_source` | `s` + station number via FIFO (Tier 2) |
+| `volume_up` / `volume_down` / `volume_set` | `)` / `(` / — via FIFO. No `volume_set` equivalent — pianobar only exposes relative nudges (`)`/`(`) and a reset (`^`), not an absolute level; `volume_set` is unsupported for this adapter. Also note (per `bridge-daemon-spec.md`): this is pianobar's own internal gain correction, not device/system volume. |
+| `rate` (like/dislike) | `+` (love) / `-` (ban) via FIFO. pianobar's `tired` (`t`, ban-for-one-month) is a third state beyond this generic two-state verb — kept as a Pandora-specific extension, not folded into `rate` |
+| `seek` | **Not supported** — no scrubbing within a pianobar/Pandora stream |
+| `set_playback_speed` | **Not supported** — not a concept pianobar has |
 
 ## Android / KMP App Implications
 
