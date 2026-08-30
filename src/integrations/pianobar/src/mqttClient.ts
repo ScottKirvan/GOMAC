@@ -3,8 +3,14 @@ import { handleCommand, parseCommandPayload } from "./commandHandler.js";
 import type { DaemonConfig } from "./config.js";
 import type { Logger } from "./logger.js";
 import type { PianobarProcessManager } from "./processManager.js";
+import type { StationDirectory } from "./stationDirectory.js";
 
-export function connectMqtt(config: DaemonConfig, processManager: PianobarProcessManager, logger: Logger): MqttClient {
+export function connectMqtt(
+  config: DaemonConfig,
+  processManager: PianobarProcessManager,
+  stationDirectory: StationDirectory,
+  logger: Logger,
+): MqttClient {
   const client = mqtt.connect({
     host: config.mqtt.host,
     port: config.mqtt.port,
@@ -51,6 +57,7 @@ export function connectMqtt(config: DaemonConfig, processManager: PianobarProces
     handleCommand(payload, {
       fifoPath: config.pianobar.fifoPath,
       processManager,
+      stationDirectory,
       logger,
     }).catch((err: unknown) => {
       logger.error(`unhandled error processing command: ${(err as Error).message}`);

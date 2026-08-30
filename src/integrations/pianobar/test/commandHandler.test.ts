@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { handleCommand, parseCommandPayload } from "../src/commandHandler.js";
+import { findStationIndex, handleCommand, parseCommandPayload } from "../src/commandHandler.js";
+import { createStationDirectory } from "../src/stationDirectory.js";
 import type { Logger } from "../src/logger.js";
 
 function fakeLogger(): Logger & { calls: { level: string; message: string }[] } {
@@ -9,6 +10,17 @@ function fakeLogger(): Logger & { calls: { level: string; message: string }[] } 
     info: (message) => calls.push({ level: "info", message }),
     warn: (message) => calls.push({ level: "warn", message }),
     error: (message) => calls.push({ level: "error", message }),
+  };
+}
+
+function baseDeps(overrides: Partial<Parameters<typeof handleCommand>[1]> = {}) {
+  return {
+    fifoPath: "/tmp/ctl",
+    processManager: { restart: vi.fn() },
+    stationDirectory: createStationDirectory(),
+    logger: fakeLogger(),
+    writeKey: vi.fn().mockResolvedValue(undefined),
+    ...overrides,
   };
 }
 
@@ -32,76 +44,132 @@ describe("parseCommandPayload", () => {
   });
 });
 
+describe("findStationIndex", () => {
+  it("finds a case-insensitive exact match", () => {
+    expect(findStationIndex(["Alpha", "Bravo"], "bravo")).toBe(1);
+    expect(findStationIndex(["Alpha", "Bravo"], "ALPHA")).toBe(0);
+  });
+
+  it("trims surrounding whitespace before matching", () => {
+    expect(findStationIndex(["Alpha", "Bravo"], "  Bravo  ")).toBe(1);
+  });
+
+  it("returns undefined when there is no match", () => {
+    expect(findStationIndex(["Alpha", "Bravo"], "Charlie")).toBeUndefined();
+  });
+
+  it("returns undefined when there is no known station list yet", () => {
+    expect(findStationIndex(undefined, "Alpha")).toBeUndefined();
+  });
+});
+
 describe("handleCommand", () => {
   it("writes the correct keystroke to the fifo for a Tier 1 action", async () => {
-    const logger = fakeLogger();
-    const writeKey = vi.fn().mockResolvedValue(undefined);
-    const processManager = { restart: vi.fn() };
+    const deps = baseDeps();
 
-    await handleCommand(
-      { action: "next" },
-      { fifoPath: "/tmp/ctl", processManager, logger, writeKey },
-    );
+    await handleCommand({ action: "next" }, deps);
 
-    expect(writeKey).toHaveBeenCalledWith("/tmp/ctl", "n");
-    expect(processManager.restart).not.toHaveBeenCalled();
+    expect(deps.writeKey).toHaveBeenCalledWith("/tmp/ctl", "n");
+    expect(deps.processManager.restart).not.toHaveBeenCalled();
   });
 
   it("maps resume and play to the same keystroke", async () => {
-    const logger = fakeLogger();
-    const writeKey = vi.fn().mockResolvedValue(undefined);
-    const processManager = { restart: vi.fn() };
+    const deps = baseDeps();
 
-    await handleCommand({ action: "resume" }, { fifoPath: "/tmp/ctl", processManager, logger, writeKey });
-    await handleCommand({ action: "play" }, { fifoPath: "/tmp/ctl", processManager, logger, writeKey });
+    await handleCommand({ action: "resume" }, deps);
+    await handleCommand({ action: "play" }, deps);
 
-    expect(writeKey).toHaveBeenNthCalledWith(1, "/tmp/ctl", "P");
-    expect(writeKey).toHaveBeenNthCalledWith(2, "/tmp/ctl", "P");
+    expect(deps.writeKey).toHaveBeenNthCalledWith(1, "/tmp/ctl", "P");
+    expect(deps.writeKey).toHaveBeenNthCalledWith(2, "/tmp/ctl", "P");
   });
 
   it("calls processManager.restart() for the restart action instead of writing to the fifo", async () => {
-    const logger = fakeLogger();
-    const writeKey = vi.fn().mockResolvedValue(undefined);
-    const processManager = { restart: vi.fn().mockResolvedValue(999) };
+    const deps = baseDeps({ processManager: { restart: vi.fn().mockResolvedValue(999) } });
 
-    await handleCommand({ action: "restart" }, { fifoPath: "/tmp/ctl", processManager, logger, writeKey });
+    await handleCommand({ action: "restart" }, deps);
 
-    expect(processManager.restart).toHaveBeenCalledOnce();
-    expect(writeKey).not.toHaveBeenCalled();
+    expect(deps.processManager.restart).toHaveBeenCalledOnce();
+    expect(deps.writeKey).not.toHaveBeenCalled();
   });
 
   it("logs and ignores an unsupported action without writing to the fifo", async () => {
-    const logger = fakeLogger();
-    const writeKey = vi.fn().mockResolvedValue(undefined);
-    const processManager = { restart: vi.fn() };
+    const deps = baseDeps();
 
-    await handleCommand({ action: "select_source" }, { fifoPath: "/tmp/ctl", processManager, logger, writeKey });
+    await handleCommand({ action: "quickmix_toggle" }, deps);
 
-    expect(writeKey).not.toHaveBeenCalled();
-    expect(logger.calls.some((c) => c.level === "warn")).toBe(true);
+    expect(deps.writeKey).not.toHaveBeenCalled();
+    expect(deps.logger.calls.some((c) => c.level === "warn")).toBe(true);
   });
 
   it("logs and ignores a payload with a missing action", async () => {
-    const logger = fakeLogger();
-    const writeKey = vi.fn().mockResolvedValue(undefined);
-    const processManager = { restart: vi.fn() };
+    const deps = baseDeps();
 
-    await handleCommand({}, { fifoPath: "/tmp/ctl", processManager, logger, writeKey });
+    await handleCommand({}, deps);
 
-    expect(writeKey).not.toHaveBeenCalled();
-    expect(processManager.restart).not.toHaveBeenCalled();
-    expect(logger.calls.some((c) => c.level === "warn")).toBe(true);
+    expect(deps.writeKey).not.toHaveBeenCalled();
+    expect(deps.processManager.restart).not.toHaveBeenCalled();
+    expect(deps.logger.calls.some((c) => c.level === "warn")).toBe(true);
   });
 
   it("logs an error rather than throwing when the fifo write fails", async () => {
-    const logger = fakeLogger();
-    const writeKey = vi.fn().mockRejectedValue(new Error("ENXIO: no reader"));
-    const processManager = { restart: vi.fn() };
+    const deps = baseDeps({ writeKey: vi.fn().mockRejectedValue(new Error("ENXIO: no reader")) });
 
-    await expect(
-      handleCommand({ action: "love" }, { fifoPath: "/tmp/ctl", processManager, logger, writeKey }),
-    ).resolves.toBeUndefined();
+    await expect(handleCommand({ action: "love" }, deps)).resolves.toBeUndefined();
 
-    expect(logger.calls.some((c) => c.level === "error")).toBe(true);
+    expect(deps.logger.calls.some((c) => c.level === "error")).toBe(true);
+  });
+
+  describe("select_source", () => {
+    it("writes 's<index>\\n' as a single fifo write when the station is known", async () => {
+      const stationDirectory = createStationDirectory();
+      stationDirectory.setStations(["Alpha", "Bravo", "Charlie"]);
+      const deps = baseDeps({ stationDirectory });
+
+      await handleCommand({ action: "select_source", station: "Bravo" }, deps);
+
+      expect(deps.writeKey).toHaveBeenCalledWith("/tmp/ctl", "s1\n");
+      expect(deps.writeKey).toHaveBeenCalledTimes(1);
+    });
+
+    it("matches station names case-insensitively", async () => {
+      const stationDirectory = createStationDirectory();
+      stationDirectory.setStations(["Alpha", "Bravo"]);
+      const deps = baseDeps({ stationDirectory });
+
+      await handleCommand({ action: "select_source", station: "ALPHA" }, deps);
+
+      expect(deps.writeKey).toHaveBeenCalledWith("/tmp/ctl", "s0\n");
+    });
+
+    it("warns and writes nothing when no station list has been received yet", async () => {
+      const deps = baseDeps();
+
+      await handleCommand({ action: "select_source", station: "Alpha" }, deps);
+
+      expect(deps.writeKey).not.toHaveBeenCalled();
+      expect(deps.logger.calls.some((c) => c.level === "warn" && c.message.includes("no station list"))).toBe(true);
+    });
+
+    it("warns and writes nothing when the named station isn't in the known list", async () => {
+      const stationDirectory = createStationDirectory();
+      stationDirectory.setStations(["Alpha", "Bravo"]);
+      const deps = baseDeps({ stationDirectory });
+
+      await handleCommand({ action: "select_source", station: "Charlie" }, deps);
+
+      expect(deps.writeKey).not.toHaveBeenCalled();
+      expect(deps.logger.calls.some((c) => c.level === "warn")).toBe(true);
+    });
+
+    it("warns and writes nothing when the station field is missing or not a string", async () => {
+      const stationDirectory = createStationDirectory();
+      stationDirectory.setStations(["Alpha"]);
+      const deps = baseDeps({ stationDirectory });
+
+      await handleCommand({ action: "select_source" }, deps);
+
+      expect(deps.writeKey).not.toHaveBeenCalled();
+      expect(deps.logger.calls.some((c) => c.level === "warn")).toBe(true);
+    });
   });
 });

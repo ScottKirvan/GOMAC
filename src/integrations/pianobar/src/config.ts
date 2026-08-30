@@ -17,6 +17,7 @@ export interface DaemonConfig {
     configPath: string;
     fifoPath: string;
     eventCommandPath: string;
+    eventSocketPath: string;
   };
   pidFilePath: string;
   restartSigtermTimeoutMs: number;
@@ -38,6 +39,7 @@ interface RawConfigFile {
     configPath?: string;
     fifoPath?: string;
     eventCommandPath?: string;
+    eventSocketPath?: string;
   };
   pidFilePath?: string;
   restartSigtermTimeoutMs?: number;
@@ -84,6 +86,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): DaemonConfig {
       fifoPath: env.PIANOBAR_FIFO_PATH ?? fileConfig.pianobar?.fifoPath ?? join(homedir(), ".config", "pianobar", "ctl"),
       eventCommandPath:
         env.PIANOBAR_EVENT_COMMAND_PATH ?? fileConfig.pianobar?.eventCommandPath ?? join(DEFAULT_STATE_DIR, "eventcmd.sh"),
+      eventSocketPath:
+        env.PIANOBAR_EVENT_SOCKET_PATH ?? fileConfig.pianobar?.eventSocketPath ?? join(DEFAULT_STATE_DIR, "eventcmd.sock"),
     },
     pidFilePath: env.PIANOBAR_PIDFILE_PATH ?? fileConfig.pidFilePath ?? join(DEFAULT_STATE_DIR, "pianobar.pid"),
     restartSigtermTimeoutMs: Number(env.RESTART_SIGTERM_TIMEOUT_MS ?? fileConfig.restartSigtermTimeoutMs ?? 5000),
