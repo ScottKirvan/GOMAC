@@ -26,6 +26,7 @@ describe("loadConfig", () => {
     expect(config.mqtt.commandTopic).toBe("gomac/pandora/cmd");
     expect(config.mqtt.availabilityTopic).toBe("gomac/pandora/availability");
     expect(config.pianobar.binary).toBe("pianobar");
+    expect(config.pianobar.autostartStationId).toBe("970427846688346580");
     expect(config.restartSigtermTimeoutMs).toBe(5000);
   });
 
@@ -36,6 +37,7 @@ describe("loadConfig", () => {
       MQTT_USERNAME: "pandora-bridge",
       MQTT_PASSWORD: "secret",
       PIANOBAR_BINARY: "/usr/bin/pianobar",
+      PIANOBAR_AUTOSTART_STATION_ID: "123456",
       RESTART_SIGTERM_TIMEOUT_MS: "1234",
     });
 
@@ -44,6 +46,7 @@ describe("loadConfig", () => {
     expect(config.mqtt.username).toBe("pandora-bridge");
     expect(config.mqtt.password).toBe("secret");
     expect(config.pianobar.binary).toBe("/usr/bin/pianobar");
+    expect(config.pianobar.autostartStationId).toBe("123456");
     expect(config.restartSigtermTimeoutMs).toBe(1234);
   });
 

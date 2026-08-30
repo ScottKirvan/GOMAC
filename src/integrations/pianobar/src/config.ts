@@ -18,6 +18,7 @@ export interface DaemonConfig {
     fifoPath: string;
     eventCommandPath: string;
     eventSocketPath: string;
+    autostartStationId: string;
   };
   pidFilePath: string;
   restartSigtermTimeoutMs: number;
@@ -40,12 +41,24 @@ interface RawConfigFile {
     fifoPath?: string;
     eventCommandPath?: string;
     eventSocketPath?: string;
+    autostartStationId?: string;
   };
   pidFilePath?: string;
   restartSigtermTimeoutMs?: number;
 }
 
 const DEFAULT_STATE_DIR = join(homedir(), ".local", "state", "gomac-pianobar");
+
+/**
+ * A real, verified-working station ID (Tool Radio), not a placeholder
+ * guess -- confirmed live during this daemon's own acceptance testing
+ * (selecting it by index started playback correctly). Picked per Scott's
+ * explicit "any station is fine for now" call after "resume last station"
+ * turned out not to be feasible (see pianobarConfig.ts's doc comment for
+ * why) -- expected to be overridden via PIANOBAR_AUTOSTART_STATION_ID once
+ * a real preference is decided, not treated as a permanent choice.
+ */
+const DEFAULT_AUTOSTART_STATION_ID = "970427846688346580";
 
 function readConfigFile(path: string | undefined): RawConfigFile {
   if (!path || !existsSync(path)) {
@@ -88,6 +101,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): DaemonConfig {
         env.PIANOBAR_EVENT_COMMAND_PATH ?? fileConfig.pianobar?.eventCommandPath ?? join(DEFAULT_STATE_DIR, "eventcmd.sh"),
       eventSocketPath:
         env.PIANOBAR_EVENT_SOCKET_PATH ?? fileConfig.pianobar?.eventSocketPath ?? join(DEFAULT_STATE_DIR, "eventcmd.sock"),
+      autostartStationId:
+        env.PIANOBAR_AUTOSTART_STATION_ID ?? fileConfig.pianobar?.autostartStationId ?? DEFAULT_AUTOSTART_STATION_ID,
     },
     pidFilePath: env.PIANOBAR_PIDFILE_PATH ?? fileConfig.pidFilePath ?? join(DEFAULT_STATE_DIR, "pianobar.pid"),
     restartSigtermTimeoutMs: Number(env.RESTART_SIGTERM_TIMEOUT_MS ?? fileConfig.restartSigtermTimeoutMs ?? 5000),
