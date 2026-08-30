@@ -93,7 +93,7 @@ export interface StateMessage {
   payload: string;
 }
 
-const STATE_TOPIC_PREFIX = "gomac/pandora/state";
+export const STATE_TOPIC_PREFIX = "gomac/pandora/state";
 
 type SimpleMetric = "title" | "artist" | "album" | "station" | "cover_art" | "song_duration_ms" | "song_played_ms";
 

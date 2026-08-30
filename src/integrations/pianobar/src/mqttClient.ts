@@ -1,6 +1,7 @@
 import mqtt, { type MqttClient } from "mqtt";
 import { handleCommand, parseCommandPayload } from "./commandHandler.js";
 import type { DaemonConfig } from "./config.js";
+import { buildSelectDiscoveryConfig, buildStaticDiscoveryConfigs, publishDiscoveryConfigs } from "./haDiscovery.js";
 import type { Logger } from "./logger.js";
 import type { PianobarProcessManager } from "./processManager.js";
 import type { StationDirectory } from "./stationDirectory.js";
@@ -35,6 +36,19 @@ export function connectMqtt(
         logger.info(`subscribed to ${config.mqtt.commandTopic}`);
       }
     });
+    publishDiscoveryConfigs(client, buildStaticDiscoveryConfigs(config), logger);
+    publishDiscoveryConfigs(client, [buildSelectDiscoveryConfig(config, stationDirectory.getStations() ?? [])], logger);
+  });
+
+  /**
+   * Republishes only the station select's discovery config, not the full
+   * static set -- its `options` field is the only thing that can change
+   * after startup (see haDiscovery.ts's buildSelectDiscoveryConfig doc
+   * comment for why republishing the same discovery topic is the correct,
+   * HA-documented way to update it in place).
+   */
+  stationDirectory.onStationsChanged((stations) => {
+    publishDiscoveryConfigs(client, [buildSelectDiscoveryConfig(config, stations)], logger);
   });
 
   client.on("error", (err) => {
