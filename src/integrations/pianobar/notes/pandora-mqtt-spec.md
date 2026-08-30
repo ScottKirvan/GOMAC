@@ -265,6 +265,50 @@ the app either** until the PTY-capture work (if ever pursued) exists —
 this is a limitation of what the daemon can drive, not something the app's
 UI layer can work around.
 
+## Development Phases
+
+Sequenced around the real dependencies already documented above, not an
+arbitrary split. Each phase is independently testable before moving to the
+next.
+
+**Phase 1 — Command-only daemon, local testing.** Stand up
+`src/integrations/pianobar/` as its own process: connects to Mosquitto
+under its own MQTT identity, subscribes to `gomac/pandora/cmd`, writes
+Tier 1 keystrokes to pianobar's FIFO. No telemetry yet, no HA entities
+yet. Testable directly via `mosquitto_pub`/`mosquitto_sub` on TheFlea
+itself — doesn't need Mosquitto's listener widened yet, since nothing
+off-box is involved. Requires: a scoped MQTT identity + ACL for this
+daemon (per `bridge-daemon-spec.md`'s identity model).
+
+**Phase 2 — Telemetry via `event_command`.** Requires the deployment
+prerequisite noted above (adding `event_command` to pianobar's config,
+which means quitting and relaunching pianobar — schedule this
+deliberately, it interrupts whatever's playing). Daemon gains an
+`event_command` script publishing state topics (now playing, station,
+rating, cover art) and the availability/LWT topic. `usergetstations`
+firing makes Tier 2's `select_source` drivable for the first time, since
+the daemon now has the station list it needs to operate blind.
+
+**Phase 3 — Home Assistant integration.** Publish MQTT-discovery config
+topics so entities auto-create in HA — either the sensor/button/select/
+image plan above, or the config-entry-based custom `media_player`
+integration under consideration per issue #24 (Open Questions below),
+whichever gets decided first. No dependency on Phase 2 beyond needing its
+state topics to exist to point discovery configs at.
+
+**Phase 4 — Network exposure + app integration.** Widen Mosquitto's
+listener to LAN + Tailscale (`bridge-daemon-spec.md`'s Network Exposure
+section) — **only after** the ACL work from Phase 1 actually covers a
+per-app identity, per issue #23's ordering fix; never widen first. Issue
+the KMP app its own scoped credential, wire its UI to the same
+`gomac/pandora/*` topics HA and Phase 1's manual testing already used.
+
+**Phase 5 — Tier 3 exploration (stretch, not committed).** Investigate
+whether a PTY-based wrapper capturing pianobar's live terminal output is
+worth building to unlock search-based commands (station creation, add
+music, genre stations). Only worth doing if the earlier phases are live
+and this gap is actually felt in practice, not speculatively up front.
+
 ## Open Questions
 
 - [ ] Whether `stationdelete` (`d`) and `stationrename` (`r`) act
