@@ -20,11 +20,17 @@ regardless.
 
 - pianobar is installed and running on TheFlea (`/usr/bin/pianobar`,
   version 2024.12.21), authenticated, playing over Bluetooth to a JBL GO 2
-  speaker.
+  speaker. **Currently run manually inside a tmux session** (`work`,
+  window 1, pane 1) — this is being retired in favor of the daemon owning
+  the process outright, see Process Ownership below. Scott has agreed to
+  give up direct tmux access to pianobar in exchange for app-based
+  restart control.
 - Config (`~/.config/pianobar/config`, credentials excluded here):
   `fifo = /home/scott/.config/pianobar/ctl`, `control_proxy =
-  http://127.0.0.1:8118/`. **No `event_command` is currently set** — this
-  is a prerequisite gap, see below.
+  http://127.0.0.1:8118/`. **No `event_command` is currently set** — see
+  Process Ownership below for how this gets resolved (the daemon spawns
+  pianobar with it configured from the start, rather than a separate
+  quit-and-relaunch step).
 - **`pianobar-mpris-bridge.py` already exists and must not be broken.** A
   separate, already-working script (`~/.local/bin/pianobar-mpris-bridge.py`,
   running as a user systemd service) that writes single pianobar keybinding
@@ -37,13 +43,48 @@ regardless.
 - No `event_command` script exists yet, so pianobar currently reports
   nothing about what's playing anywhere outside its own terminal UI.
 
-## Deployment Prerequisite: Enabling `event_command`
+## Process Ownership
 
-pianobar only reads its config at startup — adding `event_command =
-<path>` requires quitting and relaunching pianobar, which will interrupt
-whatever's currently playing. This needs to happen as a deliberate,
-scheduled step when this adapter is actually built, not silently — flagging
-it here so it isn't discovered as a surprise mid-implementation.
+**Decided: the daemon spawns and owns pianobar's process, not systemd, not
+a manually-run tmux session.** Motivation: pianobar locks up occasionally
+and has needed a manual restart via SSH — the goal is triggering that from
+the app instead, with nobody needing to log into TheFlea.
+
+- The daemon spawns pianobar as a **detached** child process (survives the
+  daemon's own restarts/redeploys — restarting the bridge shouldn't
+  interrupt music) and tracks its PID via a pidfile, since a detached
+  child isn't reachable through Node's own child-process handle after a
+  daemon restart.
+- **Why not systemd**: making pianobar a systemd unit would be a
+  TheFlea-side system change requiring a change doc for Scott's IT agent,
+  per this repo's domain-separation model (see
+  `compute-hub-current-state.md`). Owning the subprocess directly keeps
+  this entirely inside GOMAC's own code.
+- **Restart mechanism**: `SIGTERM`, escalating to `SIGKILL` after a
+  timeout if pianobar doesn't exit — not the FIFO's `q` keybinding. A
+  genuinely locked-up pianobar won't reliably respond to FIFO input
+  either, confirmed firsthand during this project's own design session
+  (an accidentally-duplicated pianobar process didn't respond to `SIGINT`
+  promptly and needed a harder kill).
+- **New command**: `restart` — not part of the generic Media Player
+  contract in `bridge-daemon-spec.md` (process-lifecycle management isn't
+  a playback verb, and per that doc's own discipline, nothing gets
+  generalized into the shared contract from a single instance). Lives on
+  the same `gomac/pandora/cmd` topic as everything else,
+  `{"action": "restart"}`.
+- **Explicitly manual-trigger only.** Automatic hang detection (the daemon
+  noticing pianobar is stuck and restarting it unprompted) is a much
+  fuzzier problem — no reliable signal distinguishes "locked up" from
+  "quiet between songs" without real false-positive risk. Out of scope
+  here; someone (via the app) decides when to restart, the daemon just
+  makes that possible without SSH.
+- **Transition**: the currently-running manual tmux session gets replaced,
+  not run alongside the daemon-owned instance — one pianobar process,
+  owned by the daemon, going forward. This means enabling `event_command`
+  (the config-file gap noted in Current State above) happens naturally as
+  part of the daemon's own spawn step, not as a separate one-time
+  quit-and-relaunch — the daemon just launches pianobar correctly
+  configured from the start.
 
 ## Command Surface
 
@@ -164,7 +205,7 @@ One HA device (per `notes/dev/bridge-daemon-spec.md`'s convention — its own
 
 - `sensor` — now-playing title, artist, album, station name, rating
 - `image` — album art, sourced from the `coverArt` field
-- `button` — skip, love, ban, tired, play, pause, volume up, volume down (Tier 1 only)
+- `button` — skip, love, ban, tired, play, pause, volume up, volume down (Tier 1 only), restart player (Process Ownership above)
 - `select` — station (Tier 2, populated from `usergetstations`)
 
 Tier 3 actions are **not** exposed as HA entities in this version — they
@@ -271,23 +312,27 @@ Sequenced around the real dependencies already documented above, not an
 arbitrary split. Each phase is independently testable before moving to the
 next.
 
-**Phase 1 — Command-only daemon, local testing.** Stand up
-`src/integrations/pianobar/` as its own process: connects to Mosquitto
-under its own MQTT identity, subscribes to `gomac/pandora/cmd`, writes
-Tier 1 keystrokes to pianobar's FIFO. No telemetry yet, no HA entities
-yet. Testable directly via `mosquitto_pub`/`mosquitto_sub` on TheFlea
-itself — doesn't need Mosquitto's listener widened yet, since nothing
-off-box is involved. Requires: a scoped MQTT identity + ACL for this
-daemon (per `bridge-daemon-spec.md`'s identity model).
+**Phase 1 — Process ownership + command-only daemon, local testing.**
+Stand up `src/integrations/pianobar/` as its own process: takes over
+pianobar's lifecycle (spawns it detached, configured with `event_command`
+from the start, tracks its pidfile — see Process Ownership above; this is
+the one point where the current manually-run tmux instance gets replaced),
+connects to Mosquitto under its own MQTT identity, subscribes to
+`gomac/pandora/cmd`, writes Tier 1 keystrokes to pianobar's FIFO, and
+handles `restart`. No telemetry yet, no HA entities yet. Testable directly
+via `mosquitto_pub`/`mosquitto_sub` on TheFlea itself — doesn't need
+Mosquitto's listener widened yet, since nothing off-box is involved.
+Requires: a scoped MQTT identity + ACL for this daemon (per
+`bridge-daemon-spec.md`'s identity model).
 
-**Phase 2 — Telemetry via `event_command`.** Requires the deployment
-prerequisite noted above (adding `event_command` to pianobar's config,
-which means quitting and relaunching pianobar — schedule this
-deliberately, it interrupts whatever's playing). Daemon gains an
-`event_command` script publishing state topics (now playing, station,
-rating, cover art) and the availability/LWT topic. `usergetstations`
-firing makes Tier 2's `select_source` drivable for the first time, since
-the daemon now has the station list it needs to operate blind.
+**Phase 2 — Telemetry via `event_command`.** Since Phase 1 already spawns
+pianobar with `event_command` configured, there's no separate
+quit-and-relaunch step here — this phase is just writing the script that
+consumes it. Daemon gains an `event_command` script publishing state
+topics (now playing, station, rating, cover art) and the availability/LWT
+topic. `usergetstations` firing makes Tier 2's `select_source` drivable
+for the first time, since the daemon now has the station list it needs to
+operate blind.
 
 **Phase 3 — Home Assistant integration.** Publish MQTT-discovery config
 topics so entities auto-create in HA — either the sensor/button/select/
