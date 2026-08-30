@@ -1,11 +1,11 @@
 import { execFileSync } from "node:child_process";
-import { constants } from "node:fs";
+import { constants, statSync, writeFileSync } from "node:fs";
 import { mkdtempSync, rmSync } from "node:fs";
 import { open } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { writeFifoKey } from "../src/fifoWriter.js";
+import { ensureFifo, writeFifoKey } from "../src/fifoWriter.js";
 
 describe("writeFifoKey", () => {
   let dir: string;
@@ -43,5 +43,40 @@ describe("writeFifoKey", () => {
     execFileSync("mkfifo", [fifoPath]);
 
     await expect(writeFifoKey(fifoPath, "n")).rejects.toThrow();
+  });
+});
+
+describe("ensureFifo", () => {
+  let dir: string;
+
+  beforeAll(() => {
+    dir = mkdtempSync(join(tmpdir(), "gomac-pianobar-ensurefifo-"));
+  });
+
+  afterAll(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("creates a fifo, including parent directories, when nothing exists yet", () => {
+    const fifoPath = join(dir, "nested", "ctl");
+
+    ensureFifo(fifoPath);
+
+    expect(statSync(fifoPath).isFIFO()).toBe(true);
+  });
+
+  it("is a no-op when a fifo already exists at the path", () => {
+    const fifoPath = join(dir, "already-there");
+    execFileSync("mkfifo", [fifoPath]);
+
+    expect(() => ensureFifo(fifoPath)).not.toThrow();
+    expect(statSync(fifoPath).isFIFO()).toBe(true);
+  });
+
+  it("throws rather than silently replacing a non-fifo file at the path", () => {
+    const notAFifo = join(dir, "regular-file");
+    writeFileSync(notAFifo, "not a fifo");
+
+    expect(() => ensureFifo(notAFifo)).toThrow(/non-FIFO/);
   });
 });

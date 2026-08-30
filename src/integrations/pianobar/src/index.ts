@@ -1,5 +1,6 @@
 import { loadConfig } from "./config.js";
 import { ensureEventCommandScript } from "./eventCommand.js";
+import { ensureFifo } from "./fifoWriter.js";
 import { consoleLogger as logger } from "./logger.js";
 import { connectMqtt } from "./mqttClient.js";
 import { ensurePianobarConfig } from "./pianobarConfig.js";
@@ -9,6 +10,7 @@ function main(): void {
   const config = loadConfig();
 
   ensureEventCommandScript(config.pianobar.eventCommandPath);
+  ensureFifo(config.pianobar.fifoPath);
   ensurePianobarConfig(config.pianobar.configPath, {
     fifo: config.pianobar.fifoPath,
     eventCommand: config.pianobar.eventCommandPath,

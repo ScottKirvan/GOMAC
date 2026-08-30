@@ -1,10 +1,11 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { spawn } from "node:child_process";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DaemonConfig } from "../src/config.js";
 import { readPid } from "../src/pidfile.js";
-import { type ProcessOps, PianobarProcessManager } from "../src/processManager.js";
+import { nodeProcessOps, type ProcessOps, PianobarProcessManager } from "../src/processManager.js";
 
 function baseConfig(dir: string): DaemonConfig {
   return {
@@ -31,6 +32,7 @@ function fakeOps(overrides: Partial<ProcessOps> = {}): ProcessOps & { spawnDetac
   return {
     spawnDetached,
     isAlive: vi.fn().mockReturnValue(false),
+    isExpectedProcess: vi.fn().mockReturnValue(true),
     kill: vi.fn(),
     sleep: vi.fn().mockResolvedValue(undefined),
     ...overrides,
@@ -85,6 +87,21 @@ describe("PianobarProcessManager", () => {
     expect(ops.spawnDetached.mock.calls.length).toBe(spawnCallsBefore);
   });
 
+  it("spawns fresh instead of adopting when the pidfile's pid has been reused by an unrelated process", () => {
+    const config = baseConfig(dir);
+    new PianobarProcessManager(config, fakeOps()).adoptOrSpawn();
+
+    const ops = fakeOps({
+      isAlive: vi.fn().mockReturnValue(true),
+      isExpectedProcess: vi.fn().mockReturnValue(false),
+    });
+    const manager = new PianobarProcessManager(config, ops);
+
+    manager.adoptOrSpawn();
+
+    expect(ops.spawnDetached).toHaveBeenCalledOnce();
+  });
+
   it("restart sends SIGTERM, waits for exit, and spawns a new process", async () => {
     const config = baseConfig(dir);
     let aliveAfterTerm = true;
@@ -128,5 +145,38 @@ describe("PianobarProcessManager", () => {
 
     expect(ops.kill).not.toHaveBeenCalled();
     expect(ops.spawnDetached).toHaveBeenCalledOnce();
+  });
+});
+
+describe("nodeProcessOps.isExpectedProcess", () => {
+  it("matches the real running process against its own executable name", () => {
+    expect(nodeProcessOps.isExpectedProcess(process.pid, process.execPath)).toBe(true);
+  });
+
+  it("returns false for a pid that does not exist", () => {
+    expect(nodeProcessOps.isExpectedProcess(999_999, "pianobar")).toBe(false);
+  });
+
+  it("returns false when the running process's name does not match", () => {
+    expect(nodeProcessOps.isExpectedProcess(process.pid, "pianobar")).toBe(false);
+  });
+
+  it("still matches a configured binary name longer than the kernel's 15-char comm limit", async () => {
+    // Regression test: found live during this daemon's own acceptance
+    // testing against a 16-character stand-in binary name, which the
+    // kernel truncates in /proc/<pid>/comm -- a naive untruncated
+    // comparison never matches, wrongly treating a live, correctly-named
+    // process as unrecognized.
+    const dir = mkdtempSync(join(tmpdir(), "gomac-pianobar-longname-"));
+    const scriptPath = join(dir, "a-sixteen-char-x"); // 16 chars, one over the limit
+    writeFileSync(scriptPath, "#!/bin/sh\nsleep 5\n", { mode: 0o755 });
+    const child = spawn(scriptPath, [], { stdio: "ignore" });
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      expect(nodeProcessOps.isExpectedProcess(child.pid as number, scriptPath)).toBe(true);
+    } finally {
+      child.kill();
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
