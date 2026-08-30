@@ -281,11 +281,15 @@ part of this work.
   restart) is needed now — no, resolved by the Process Model decision
   above: one daemon in scope today, plain `systemctl` covers it, revisit
   with a second daemon
-- [ ] Whether to adopt a custom **config-entry-based** HA `media_player`
+- [x] Whether to adopt a custom **config-entry-based** HA `media_player`
   integration instead of the sensor/button/select/image fallback below
-  (GitHub issue #24) — an ad hoc TheFlea-side integration already proves
-  this is feasible and gets a real unified player card; see
-  `src/integrations/pianobar/notes/pandora-mqtt-spec.md` for the concrete reconsideration
+  (GitHub issue #24) — **decided: no, stick with the native sensor/button/
+  select/image entities.** The ad hoc TheFlea-side integration proved a
+  unified player card is feasible, but Scott's call was that separate
+  entities are fine as long as they give real control and land under one
+  device — both already true of this plan (see Home Assistant Device/
+  Entity Conventions above). Simpler, no HA-side plugin code to write or
+  maintain, at the cost of a scattered dashboard instead of one card.
 
 ## References & Prior Art
 

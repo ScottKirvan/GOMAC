@@ -335,11 +335,13 @@ for the first time, since the daemon now has the station list it needs to
 operate blind.
 
 **Phase 3 — Home Assistant integration.** Publish MQTT-discovery config
-topics so entities auto-create in HA — either the sensor/button/select/
-image plan above, or the config-entry-based custom `media_player`
-integration under consideration per issue #24 (Open Questions below),
-whichever gets decided first. No dependency on Phase 2 beyond needing its
-state topics to exist to point discovery configs at.
+topics so entities auto-create in HA, per the sensor/button/select/image
+plan above — **decided over the config-entry-based custom `media_player`
+integration considered per issue #24**: separate entities under one
+device are fine as long as they give real control, which they already
+do; simpler than writing and maintaining HA plugin code for a nicer
+single-card look. No dependency on Phase 2 beyond needing its state
+topics to exist to point discovery configs at.
 
 **Phase 4 — Network exposure + app integration.** Widen Mosquitto's
 listener to LAN + Tailscale (`bridge-daemon-spec.md`'s Network Exposure
