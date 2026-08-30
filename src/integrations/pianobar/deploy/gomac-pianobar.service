@@ -1,0 +1,15 @@
+[Unit]
+Description=GOMAC pianobar bridge daemon
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/scott/gomac-deploy/src/integrations/pianobar
+ExecStart=/usr/bin/node dist/index.js
+Environment=MQTT_USERNAME=pianobar
+Environment=MQTT_PASSWORD_FILE=/etc/pianobar-bridge/mqtt_password
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
