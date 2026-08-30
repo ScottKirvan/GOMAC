@@ -32,6 +32,7 @@ function main(): void {
   ensurePianobarConfig(config.pianobar.configPath, {
     fifo: config.pianobar.fifoPath,
     eventCommand: config.pianobar.eventCommandPath,
+    autostartStationId: config.pianobar.autostartStationId,
   });
 
   const processManager = new PianobarProcessManager(config);

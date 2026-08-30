@@ -64,6 +64,7 @@ config file, or both (env vars always win).
 | `PIANOBAR_EVENT_COMMAND_PATH` | `~/.local/state/gomac-pianobar/eventcmd.sh` | Owned entirely by this daemon; safe to point anywhere. |
 | `PIANOBAR_EVENT_SOCKET_PATH` | `~/.local/state/gomac-pianobar/eventcmd.sock` | Unix domain socket the daemon listens on for telemetry handoffs from each `event_command` invocation. Owned entirely by this daemon. |
 | `PIANOBAR_PIDFILE_PATH` | `~/.local/state/gomac-pianobar/pianobar.pid` | |
+| `PIANOBAR_AUTOSTART_STATION_ID` | `970427846688346580` (Tool Radio) | Real, verified-working station ID, not a placeholder guess — see "Why `autostart_station` is managed" below. The default is arbitrary and expected to be overridden once a real preference is picked. |
 | `RESTART_SIGTERM_TIMEOUT_MS` | `5000` | How long `restart` waits after `SIGTERM` before escalating to `SIGKILL`. |
 | `GOMAC_PIANOBAR_CONFIG_FILE` | *(none)* | Optional path to a JSON file providing any of the above as defaults (env vars still take precedence). Shape: `{"mqtt": {...}, "pianobar": {...}, "pidFilePath": "...", "restartSigtermTimeoutMs": ...}` — see `src/config.ts` for the exact keys. |
 
@@ -75,6 +76,46 @@ reads `$XDG_CONFIG_HOME/pianobar/config` (falling back to
 config this daemon manages, the daemon derives `XDG_CONFIG_HOME` from
 `PIANOBAR_CONFIG_PATH` by stripping the trailing `pianobar/config`. If you
 override this path, keep that suffix.
+
+### Why `autostart_station` is managed
+
+**Found live during this daemon's own acceptance testing against a real
+pianobar login, not assumed up front**: without `autostart_station` set,
+pianobar doesn't play anything after logging in at all — it drops straight
+into an interactive numbered station-selection prompt and waits there.
+That silently defeats the entire point of the `restart` command (Process
+Ownership, above): restarting to recover from a lockup would leave music
+*stopped*, not resumed, since pianobar would just be sitting at that prompt
+again with nothing driving it forward.
+
+It also broke `select_source` in a specific, confirmed way: at that prompt,
+pianobar expects a **bare** station number (no leading `s` — it's already
+showing the list), while `select_source`'s normal implementation always
+sends `s<index>` because that's correct once pianobar is in its regular
+playback loop, where `s` is what enters selection mode in the first place.
+Verified directly: sending a bare number to a pianobar sitting at this
+prompt selected and played the right station; the daemon's actual `s<N>`
+sequence did nothing, silently.
+
+pianobar has no "resume last station" mode to fall back on instead — see
+`pianobarConfig.ts`'s doc comment for why (no station ID is ever exposed
+via `event_command`, only display names, and the only place an ID appears
+is pianobar's own interactive stdout, which this daemon deliberately
+doesn't capture). So a fixed default is configured instead: real, verified
+live (selecting it by index actually started playback correctly during
+testing), not an arbitrary guess — but still just a placeholder pending an
+actual preference, easily changed via `PIANOBAR_AUTOSTART_STATION_ID`.
+
+With `autostart_station` set, pianobar goes straight into its normal
+playback loop on login/restart, so this whole prompt state — and the
+`select_source` failure mode above — shouldn't come up in practice anymore.
+The one caveat: for the narrow window between a `restart` command being
+issued and the autostart station's first song actually starting, pianobar
+could theoretically still be in a transitional state where a same-instant
+`select_source` might not land correctly. Not fixed here — the daemon has
+no way to observe pianobar's internal UI state over the one-way FIFO, and
+this window is narrow enough in practice not to warrant the complexity of
+solving it now.
 
 ## How telemetry gets from pianobar to MQTT
 
@@ -153,6 +194,17 @@ PianoJsonStrdup(s, "albumArtUrl")`. It is passed through unmodified to the
 (Also verified while in the source: `rating` is printed as pianobar's raw
 `PianoSongRating_t` integer — 0 none, 1 love, 2 ban, 3 tired — not a word;
 this daemon maps it to `none`/`love`/`ban`/`tired` before publishing.
+
+### Known caveat: `song_duration_ms` at `songstart` looked wrong in live testing
+
+Confirmed against a real pianobar login, not just unit tests: `songstart`'s
+`song_duration_ms` was observed as `275` for a multi-minute track — clearly
+not the real length. Not investigated further or fixed here, since it
+doesn't affect any command functionality, but flagging it rather than
+letting it look like a solid, verified value: `songDuration` is read from
+`player->songDuration` at the moment the event fires, and pianobar may not
+have that populated accurately yet this early in playback. Worth checking
+whether it's reliable by `songfinish` before depending on it for anything.
 `songDuration`/`songPlayed` are milliseconds, confirmed by pianobar's own
 `contrib/eventcmd-examples/eventcmd.sh` dividing `songDuration` by 1000
 before handing it to a scrobbler expecting seconds — published here as

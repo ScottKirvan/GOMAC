@@ -4,15 +4,17 @@ import { dirname } from "node:path";
 export interface ManagedPianobarSettings {
   fifo: string;
   eventCommand: string;
+  autostartStationId: string;
 }
 
-const MANAGED_KEYS = ["fifo", "event_command"] as const;
+const MANAGED_KEYS = ["fifo", "event_command", "autostart_station"] as const;
 type ManagedKey = (typeof MANAGED_KEYS)[number];
 
 function managedLineFor(settings: ManagedPianobarSettings): Record<ManagedKey, string> {
   return {
     fifo: `fifo = ${settings.fifo}`,
     event_command: `event_command = ${settings.eventCommand}`,
+    autostart_station: `autostart_station = ${settings.autostartStationId}`,
   };
 }
 
@@ -25,9 +27,23 @@ function matchedManagedKey(line: string): ManagedKey | undefined {
 }
 
 /**
- * Rewrites only the `fifo` / `event_command` lines this daemon owns, leaving
- * every other line (crucially: pianobar's stored credentials) untouched.
- * Pure function so the merge logic is testable without touching disk.
+ * Rewrites only the `fifo` / `event_command` / `autostart_station` lines
+ * this daemon owns, leaving every other line (crucially: pianobar's stored
+ * credentials) untouched. Pure function so the merge logic is testable
+ * without touching disk.
+ *
+ * `autostart_station` earns its place here for a reason discovered during
+ * this daemon's own live acceptance testing, not assumed up front: without
+ * it, pianobar doesn't play anything on login at all -- it sits at an
+ * interactive numbered station-selection prompt instead. That silently
+ * defeats the whole point of the `restart` command (Process Ownership):
+ * restarting to recover from a lockup would leave music stopped, not
+ * resumed. pianobar has no "resume last station" mode -- `event_command`
+ * never exposes a station's raw ID (only its display name), and the only
+ * place a station ID is ever printed is pianobar's own interactive
+ * stdout, which this daemon deliberately doesn't capture (see Process
+ * Ownership's stdio handling) -- so a fixed default is configured instead
+ * of a dynamically-remembered one.
  */
 export function renderManagedPianobarConfig(existingContents: string, settings: ManagedPianobarSettings): string {
   const lines = existingContents.length > 0 ? existingContents.split(/\r?\n/) : [];
