@@ -198,7 +198,7 @@ Events most relevant to this adapter's state topics:
 | `usergetstations` | Full station list — also what Tier 2's `s`/`x` commands need to operate blind |
 | `stationfetchplaylist` | Confirms a station change succeeded |
 
-## HA Entity Plan
+## HA Entity Plan (superseded — see below)
 
 One HA device (per `notes/dev/bridge-daemon-spec.md`'s convention — its own
 `identifiers`, not folded into a larger device), entities:
@@ -207,9 +207,69 @@ One HA device (per `notes/dev/bridge-daemon-spec.md`'s convention — its own
 - `image` — album art, sourced from the `coverArt` field
 - `button` — skip, love, ban, tired, play, pause, volume up, volume down (Tier 1 only), restart player (Process Ownership above)
 - `select` — station (Tier 2, populated from `usergetstations`)
+- `number` — system volume slider (added later, see below — also superseded)
 
 Tier 3 actions are **not** exposed as HA entities in this version — they
 aren't reliably drivable yet (see above), so there's nothing to wire up.
+
+**This plan shipped (Phase 3) and turned out fragmented and unintuitive in
+actual use** — 16+ separate boxes under one device, no unified player card.
+GitHub issue #24 was closed citing this plan over a custom `media_player`
+integration; that call is reversed below based on real usage, not
+speculation.
+
+## Media Player Entity (current plan, supersedes HA Entity Plan above)
+
+**One phase, one PR** — not split into sub-phases; a partial media_player
+integration isn't independently useful the way the daemon's own Phase 1-4
+split was.
+
+**What**: a real Home Assistant custom integration (Python, config-entry
+based — the config-entry-vs-legacy-platform gotcha already documented
+above still applies) with an entity class inheriting `MediaPlayerEntity`
+(`homeassistant.components.media_player`), matching the ad hoc TheFlea
+integration's proven architecture (see "Lessons From the Ad Hoc TheFlea
+Integration" below) but built against this daemon's full command/telemetry
+surface instead of MPRIS's limited one.
+
+**No daemon changes** — reads the same `gomac/pandora/state/*` topics,
+writes the same `gomac/pandora/cmd` topic this daemon already
+publishes/subscribes. The Python integration is just another MQTT client,
+same as the app will eventually be.
+
+**Maps onto `MediaPlayerEntity`'s standard properties**: title, artist,
+album, volume (`volume_level`, `VOLUME_SET`), station (as `source`/
+`source_list`/`SELECT_SOURCE` — this replaces the standalone `select`
+entity above, since it's now a native media_player feature), album art
+(`entity_picture`). `previous` has no pianobar support (documented above)
+and isn't exposed.
+
+**Stays as separate entities alongside the media_player entity** — no
+standard `media_player` concept exists for these: `love`, `ban`, `tired`,
+`restart`. Keep the existing `button` discovery entities for these
+(`haDiscovery.ts`); only the `sensor`/`image`/`select`/`number` entities
+above get retired once the media_player entity is live and verified.
+
+**Why this fixes the live-drag volume slider issue** the `number` entity
+couldn't: verified directly in HA's own frontend source — the generic
+`number` entity's dashboard row only commits on the native `change` event
+(release only, hard-coded, not configurable). `media_player`'s own volume
+control uses the native `input` event with debounced live updates
+(`VolumeSliderController` in HA's frontend). This is tied to which entity
+domain/base class is used, not anything our MQTT config can influence.
+
+**Repo location**: proposed `src/integrations/pianobar/homeassistant/custom_components/gomac_pandora/`
+— colocated with the daemon it pairs with (this is pianobar-specific, not
+generic, per the earlier "don't generalize before a second instance"
+call), structured so deployment is a straightforward copy into HA's own
+`custom_components/` directory. Not firm — a dev agent building this can
+adjust if there's a more idiomatic layout.
+
+**Retirement, not part of this repo's work**: the ad hoc TheFlea
+integration (`custom_components/mediaplayer_mqtt/`,
+`mediaplayer-mqtt-bridge.py`, its systemd service) gets retired once this
+is live and verified — TheFlea-side cleanup, a request to hand off, not a
+GOMAC-repo change.
 
 ## Lessons From the Ad Hoc TheFlea Integration
 
