@@ -200,16 +200,34 @@ Events most relevant to this adapter's state topics:
 
 ## HA Entity Plan
 
-One HA device (per `notes/dev/bridge-daemon-spec.md`'s convention — its own
-`identifiers`, not folded into a larger device), entities:
+One custom-integration `media_player` entity
+(`homeassistant/custom_components/gomac_pandora/`, config-entry-based — see
+"Lessons From the Ad Hoc TheFlea Integration" below for why config-entry is
+required) plus a custom Lovelace card, replacing the earlier plan of
+standalone `sensor`/`image`/`select`/`number` MQTT-discovery entities:
 
-- `sensor` — now-playing title, artist, album, station name, rating
-- `image` — album art, sourced from the `coverArt` field
-- `button` — skip, love, ban, tired, play, pause, volume up, volume down (Tier 1 only), restart player (Process Ownership above)
-- `select` — station (Tier 2, populated from `usergetstations`)
+- **`media_player` entity** — title, artist, album, station (as `source`),
+  cover art, and volume, backed by standard HA services
+  (`media_player.media_play`/`media_pause`/`media_next_track`,
+  `volume_set`, `select_source`). HA's `MediaPlayerEntityFeature` enum has
+  no love/ban/tired equivalent — that's a fixed set HA core's frontend
+  renders buttons from, not something a custom integration can extend.
+- **Custom Lovelace card** — frontend-only (no daemon or Python-integration
+  changes): renders the media_player entity's info/controls plus
+  love/ban/tired/restart buttons in one unified card. The buttons call the
+  standard `button.press` service against the button entities below — no
+  new custom services needed on the integration.
+- **`button` entities** (still published via `haDiscovery.ts`'s MQTT
+  discovery) — `love`, `ban`, `tired`, `restart` only. These exist purely
+  for the custom card to invoke via `button.press`; they aren't meant to be
+  placed on a dashboard directly once the card exists.
+- **Retired**: `sensor` (title/artist/album/station/rating), `image`
+  (cover art), `select` (station), `number` (volume), and the
+  `skip`/`play`/`pause`/`volume_up`/`volume_down` buttons — all fully
+  superseded by the media_player entity + custom card.
 
-Tier 3 actions are **not** exposed as HA entities in this version — they
-aren't reliably drivable yet (see above), so there's nothing to wire up.
+Tier 3 actions are **not** exposed anywhere in this version — they aren't
+reliably drivable yet (see above), so there's nothing to wire up.
 
 ## Lessons From the Ad Hoc TheFlea Integration
 
@@ -334,14 +352,20 @@ topic. `usergetstations` firing makes Tier 2's `select_source` drivable
 for the first time, since the daemon now has the station list it needs to
 operate blind.
 
-**Phase 3 — Home Assistant integration.** Publish MQTT-discovery config
-topics so entities auto-create in HA, per the sensor/button/select/image
-plan above — **decided over the config-entry-based custom `media_player`
-integration considered per issue #24**: separate entities under one
-device are fine as long as they give real control, which they already
-do; simpler than writing and maintaining HA plugin code for a nicer
-single-card look. No dependency on Phase 2 beyond needing its state
-topics to exist to point discovery configs at.
+**Phase 3 — Home Assistant integration.** A config-entry-based custom
+`media_player` integration (`custom_components/gomac_pandora/`) plus a
+custom Lovelace card — see "HA Entity Plan" above for what each piece
+covers and what's retired. No dependency on Phase 2 beyond needing its
+state topics to exist to point at.
+
+**Phase 3b — Custom Lovelace card.** Frontend-only (no daemon or
+Python-integration changes): a single custom card rendering the
+media_player entity's info/controls plus love/ban/tired/restart buttons
+(via `button.press` against the retained button entities) in one unified
+card — including a live-updating-while-dragging volume slider, matching
+HA's own `media_player` more-info dialog's approach (debounced `input`
+event, not release-only), since this card owns its own frontend code and
+isn't limited by HA's generic `number`-entity card.
 
 **Phase 4 — Network exposure + app integration.** Widen Mosquitto's
 listener to LAN + Tailscale (`bridge-daemon-spec.md`'s Network Exposure
