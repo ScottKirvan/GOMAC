@@ -1,0 +1,13 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up GOMAC Pandora (pianobar)",
+        "description": "This adds a single media_player entity that talks to the pianobar bridge daemon over MQTT. It needs no configuration of its own -- it reuses Home Assistant's already-configured MQTT broker connection. Only one instance can be set up."
+      }
+    },
+    "abort": {
+      "already_configured": "GOMAC Pandora is already set up."
+    }
+  }
+}
