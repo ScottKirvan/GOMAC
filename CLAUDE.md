@@ -81,6 +81,7 @@ Scott previously kept a separate `notes/dev/CLAUDE.md` for Claude-specific domai
 | `rv-automation-research.md` | Prior research on RV/12V home-automation state of the art. |
 | `esp32.md` | ESP32 vs. Teensy 4.1 comparison notes. |
 | `GOMAC Architecture.canvas` | Obsidian canvas — visual architecture diagram. |
+| `mistakes.md` | Dated log of process failures (agent or human) — wasted time, avoidable back-and-forth, fatiguing loops — with what changed as a result. Not a blame file. Add an entry whenever a real one happens; written for humans and any agent, not just Claude Code. |
 
 ## Repo layout
 
