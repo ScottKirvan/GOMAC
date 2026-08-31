@@ -135,3 +135,27 @@ logged mistake worse than an ordinary inaccuracy elsewhere.
 concrete facts and, where given, the user's own characterization of it —
 not a rephrased version that minimizes scope, reframes intent, or reads
 more benign than what was actually said at the time.
+
+## 2026-08-31 — Let a hung subagent sit for 5 hours without checking
+
+**What happened:** A subagent tasked with building a custom Lovelace card
+hung almost immediately after starting — its worktree never checked out
+the branch it was told to, and its output file stopped growing at 123
+bytes. It sat "running" for five hours with no progress and no completion
+notification, since a truly hung process never fires one. Scott had to ask
+"agent still working?" before it was checked on at all.
+
+**Why it's a real mistake:** background delegation assumed a notification
+would always eventually arrive, with no fallback for the case where the
+subagent dies silently instead of finishing or erroring cleanly. Waiting
+passively for something that will never come wastes real wall-clock time
+on a task the user is blocked on.
+
+**Cost:** roughly 5 hours before the stall was caught, entirely because the
+user asked rather than because the process caught it.
+
+**What changes:** for any backgrounded subagent expected to take more than
+a few minutes, periodically check for real signs of life (output file
+still growing, worktree has commits or working-tree changes) rather than
+only waiting on the completion notification — especially past whatever
+duration the task should plausibly take.
