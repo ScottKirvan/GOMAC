@@ -38,3 +38,72 @@ not only when asked "what do we lose." This is now recorded as a standing
 process rule in Claude's own memory for this project
 (`feedback_surface_custom_build_alternatives` if you're an agent with
 access to that memory system), not just here.
+
+## 2026-08-31 — Split one concern into two PRs, again, after already being corrected once
+
+**What happened:** Immediately after the entry above, two separate docs-only
+PRs were opened back to back — #34 (this mistakes log) and #35 (a note in
+`gomac-project-overview.md` about the same incident's architectural
+stakes) — when they were really one concern: documenting the same incident.
+Scott had already corrected this exact over-fragmentation pattern once
+earlier in this same session (folding a volume-control PR into the systemd
+deploy PR it belonged with, converting two PRs tracking one feature into
+one) and said plainly at the time that branches/PRs felt "purely
+performative." It recurred anyway, on unrelated work, days later.
+
+**Why it's a real mistake:** CLAUDE.md's "one concern per branch and PR"
+rule is meant to stop genuinely unrelated changes from being bundled — it
+is not a mandate to fragment naturally-related, same-incident work into
+separate PRs by file touched. Over-applying it in that direction produces
+the same reviewer overhead and "performative branching" friction as
+under-applying it the other way.
+
+**Cost:** two PRs to review, merge, and delete for what should have been
+one edit; Scott having to repeat guidance already given once this session.
+
+**What changes:** default to one PR per actual body of work or decision,
+not one PR per file or per doc section touched. Only split when the
+concerns are genuinely independent of each other, not merely in different
+files. When in doubt mid-task, batch related docs/code changes into the
+same branch before opening a PR rather than opening one as each file is
+touched.
+
+## 2026-08-29 to 2026-08-31 — Other process breakdowns this session
+
+Shorter entries for patterns that came up earlier in the same working
+session on the pianobar MQTT bridge and its HA integration, recorded
+together rather than as separate files since each is a smaller instance of
+"the process became fatiguing to push through":
+
+- **Implemented a fix before verifying the assumption behind it.** Added a
+  cubic volume curve to fix "no perceptible change" on a slider, assuming
+  the audio device applied a non-linear curve. Never checked first. The
+  real cause was the opposite: `wpctl set-volume` already applies a cubic
+  curve internally, so the added curve compounded into a 9th-power
+  relationship and made the bug worse. Only caught because Scott pushed for
+  real-device testing rather than accepting the fix on faith. *What
+  changes:* verify empirically against the real system before writing a
+  fix for a suspected root cause, especially anything perceptual/curve
+  shaped — don't implement the plausible-sounding explanation first.
+- **Answered a yes/no question in a way that inverted its meaning.** Asked
+  "is this a single phase?", the answer opened with "No —" while meaning
+  "no, don't split it into phases" (i.e., yes, single phase) — read as the
+  opposite. Scott had to re-ask. *What changes:* answer yes/no questions
+  with the literal word first, then explain; never lead with a qualifier
+  that can invert the meaning.
+- **Reused a phrase the user had already claimed for something else.**
+  Called the new HA `media_player` entity "the real media_player entity"
+  to distinguish it from older native entities — colliding with Scott's own
+  reserved term "the real media player" (the not-yet-built Android app).
+  *What changes:* don't attach "real" or similar loaded qualifiers to a
+  technical term without checking the user isn't already using that word
+  for something else.
+- **Kept superseded spec content annotated as history instead of deleting
+  it.** After a plan changed, the old plan was kept in the spec marked
+  "(superseded — see below)" rather than removed. Scott: "delete the parts
+  of the spec that are no longer relevant - a historic record isn't
+  necessary." *What changes:* delete replaced spec/plan content outright
+  when a decision changes; git history is the record, not the doc.
+- **Marked a PR as draft without being asked.** Required an explicit
+  correction ("don't use that draft flag"). *What changes:* never set
+  draft status unless asked to.
