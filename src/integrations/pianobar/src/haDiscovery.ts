@@ -113,14 +113,46 @@ function buildButtonDiscoveryConfigs(config: DaemonConfig): DiscoveryConfigMessa
 }
 
 /**
+ * A real slider, not the volume_up/volume_down nudge buttons this
+ * replaces -- system volume (systemVolume.ts) is an absolute 0-1 value,
+ * so HA's `number` entity (mode: slider) can drive it directly via
+ * `command_template`, the same way the station `select` renders into
+ * select_source's payload shape.
+ */
+function buildVolumeDiscoveryConfig(config: DaemonConfig): DiscoveryConfigMessage {
+  return {
+    topic: discoveryTopic("number", "volume"),
+    payload: {
+      name: "Volume",
+      unique_id: "gomac_pandora_volume",
+      object_id: "pandora_volume",
+      command_topic: config.mqtt.commandTopic,
+      command_template: '{"action": "volume_set", "volume": {{ value }}}',
+      state_topic: `${STATE_TOPIC_PREFIX}/volume`,
+      min: 0,
+      max: 1,
+      step: 0.01,
+      mode: "slider",
+      availability_topic: config.mqtt.availabilityTopic,
+      device: haDevice(),
+    },
+  };
+}
+
+/**
  * The entities that never change shape after startup: sensors, the image,
- * and the buttons. The station `select` is deliberately excluded here --
- * its `options` list is runtime data (see buildSelectDiscoveryConfig's doc
- * comment) and is built/republished separately whenever the known station
- * list changes.
+ * the volume slider, and the buttons. The station `select` is deliberately
+ * excluded here -- its `options` list is runtime data (see
+ * buildSelectDiscoveryConfig's doc comment) and is built/republished
+ * separately whenever the known station list changes.
  */
 export function buildStaticDiscoveryConfigs(config: DaemonConfig): DiscoveryConfigMessage[] {
-  return [...buildSensorDiscoveryConfigs(config), buildImageDiscoveryConfig(config), ...buildButtonDiscoveryConfigs(config)];
+  return [
+    ...buildSensorDiscoveryConfigs(config),
+    buildImageDiscoveryConfig(config),
+    buildVolumeDiscoveryConfig(config),
+    ...buildButtonDiscoveryConfigs(config),
+  ];
 }
 
 /**

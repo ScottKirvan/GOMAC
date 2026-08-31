@@ -110,6 +110,21 @@ describe("buildStaticDiscoveryConfigs", () => {
   it("does not include the station select entity", () => {
     expect(configs.some((c) => c.topic.startsWith("homeassistant/select/"))).toBe(false);
   });
+
+  it("publishes a volume slider alongside the existing nudge buttons, not instead of them", () => {
+    const volume = configs.find((c) => c.topic === "homeassistant/number/gomac_pandora_volume/config");
+    expect(volume).toBeDefined();
+    expect(volume?.payload.mode).toBe("slider");
+    expect(volume?.payload.min).toBe(0);
+    expect(volume?.payload.max).toBe(1);
+    expect(volume?.payload.state_topic).toBe("gomac/pandora/state/volume");
+    expect(volume?.payload.command_template).toContain("volume_set");
+
+    const buttons = configs.filter((c) => c.topic.startsWith("homeassistant/button/"));
+    const actions = buttons.map((c) => JSON.parse(c.payload.payload_press as string).action);
+    expect(actions).toContain("volume_up");
+    expect(actions).toContain("volume_down");
+  });
 });
 
 describe("buildSelectDiscoveryConfig", () => {
