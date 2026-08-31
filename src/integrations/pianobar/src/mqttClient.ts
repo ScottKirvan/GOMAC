@@ -6,7 +6,7 @@ import type { Logger } from "./logger.js";
 import type { PianobarProcessManager } from "./processManager.js";
 import type { StationDirectory } from "./stationDirectory.js";
 import { STATE_TOPIC_PREFIX } from "./telemetry.js";
-import { rawToPerceptualVolume, wpctlSystemVolume, type SystemVolumeOps } from "./systemVolume.js";
+import { wpctlSystemVolume, type SystemVolumeOps } from "./systemVolume.js";
 
 export function connectMqtt(
   config: DaemonConfig,
@@ -49,7 +49,7 @@ export function connectMqtt(
       .getVolume()
       .then((volume) => {
         if (volume !== undefined) {
-          publishState("volume", rawToPerceptualVolume(volume).toFixed(2));
+          publishState("volume", volume.toFixed(2));
         }
       })
       .catch((err: unknown) => {
