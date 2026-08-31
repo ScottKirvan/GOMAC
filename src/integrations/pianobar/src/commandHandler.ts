@@ -3,16 +3,20 @@ import { writeFifoKey } from "./fifoWriter.js";
 import type { Logger } from "./logger.js";
 import type { PianobarProcessManager } from "./processManager.js";
 import type { StationDirectory } from "./stationDirectory.js";
+import type { SystemVolumeOps } from "./systemVolume.js";
 
 export interface CommandPayload {
   action?: unknown;
   station?: unknown;
+  volume?: unknown;
 }
 
 export interface CommandHandlerDeps {
   fifoPath: string;
   processManager: Pick<PianobarProcessManager, "restart">;
   stationDirectory: Pick<StationDirectory, "getStations">;
+  systemVolume: SystemVolumeOps;
+  publishState: (metric: string, value: string) => void;
   logger: Logger;
   writeKey?: typeof writeFifoKey;
 }
@@ -55,6 +59,11 @@ export async function handleCommand(payload: CommandPayload, deps: CommandHandle
 
   if (action === "select_source") {
     await handleSelectSource(payload, deps);
+    return;
+  }
+
+  if (action === "volume_set") {
+    await handleVolumeSet(payload, deps);
     return;
   }
 
@@ -104,5 +113,31 @@ async function handleSelectSource(payload: CommandPayload, deps: CommandHandlerD
     deps.logger.info(`selected station "${station}" (index ${index}) via fifo`);
   } catch (err) {
     deps.logger.error(`failed to select station "${station}": ${(err as Error).message}`);
+  }
+}
+
+/**
+ * Sets the system/PipeWire output level via wpctl (systemVolume.ts), not
+ * pianobar's own internal gain -- see systemVolume.ts's doc comment. After
+ * setting, reports back whatever wpctl actually reports as the current
+ * level rather than assuming the requested value applied exactly (rounding,
+ * clamping), the same "report reality, not intent" approach the ad hoc
+ * TheFlea media_player integration already uses.
+ */
+async function handleVolumeSet(payload: CommandPayload, deps: CommandHandlerDeps): Promise<void> {
+  const { volume } = payload;
+  if (typeof volume !== "number" || !Number.isFinite(volume)) {
+    deps.logger.warn(`ignoring volume_set with missing/invalid "volume": ${JSON.stringify(payload)}`);
+    return;
+  }
+
+  try {
+    await deps.systemVolume.setVolume(volume);
+    const actual = await deps.systemVolume.getVolume();
+    const reported = actual ?? Math.max(0, Math.min(1, volume));
+    deps.publishState("volume", reported.toFixed(2));
+    deps.logger.info(`set system volume to ${reported.toFixed(2)}`);
+  } catch (err) {
+    deps.logger.error(`failed to set system volume: ${(err as Error).message}`);
   }
 }

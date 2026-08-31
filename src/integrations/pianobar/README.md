@@ -43,8 +43,15 @@ quickmix-toggle command (`x`), or the bookmark command (`b`) — see
 - Connects to a local MQTT broker under its own scoped identity, subscribes
   to `gomac/pandora/cmd`, and for each `{"action": "<name>"}` message either
   writes the corresponding single keystroke to pianobar's control FIFO
-  (Tier 1 actions), selects a station (`select_source`), or performs a
-  managed restart (`restart`).
+  (Tier 1 actions), selects a station (`select_source`), sets the system
+  output volume (`volume_set`), or performs a managed restart (`restart`).
+- Controls **system/PipeWire output volume** via `wpctl`, not pianobar's own
+  internal gain (`volume_up`/`volume_down`/`volume_reset`, which only nudge
+  relatively and have no absolute "set to X" concept — see `systemVolume.ts`).
+  Publishes the actual resulting level to `gomac/pandora/state/volume` on
+  every change and once at startup, following the same "report reality, not
+  intent" approach already proven by the ad hoc TheFlea `media_player`
+  integration this replaces.
 - Publishes Home Assistant MQTT-discovery config so all of the above shows
   up as real, controllable HA entities under one device — see "Home
   Assistant integration" below.
@@ -330,7 +337,13 @@ mosquitto_pub -h 127.0.0.1 -u your-scoped-user -P yourpassword \
 
 Supported `action` values: `love`, `ban`, `next`, `pause`, `resume` (alias
 `play`), `toggle` (pause/resume toggle), `tired`, `volume_down`,
-`volume_up`, `volume_reset`, `restart`, `select_source`.
+`volume_up`, `volume_reset`, `restart`, `select_source`, `volume_set`.
+
+`volume_set` takes a `volume` field — a number from `0.0` to `1.0` (values
+outside that range are clamped), setting the **system** output level via
+`wpctl`, not pianobar's own `volume_down`/`volume_up`/`volume_reset`
+keystrokes above (a different, relative-only mechanism — see "What it
+does").
 
 `select_source` takes a `station` field — the station's name, matched
 case-insensitively against the most recently published station list (see
