@@ -18,6 +18,8 @@ function baseDeps(overrides: Partial<Parameters<typeof handleCommand>[1]> = {}) 
     fifoPath: "/tmp/ctl",
     processManager: { restart: vi.fn() },
     stationDirectory: createStationDirectory(),
+    systemVolume: { getVolume: vi.fn().mockResolvedValue(0.5), setVolume: vi.fn().mockResolvedValue(undefined) },
+    publishState: vi.fn(),
     logger: fakeLogger(),
     writeKey: vi.fn().mockResolvedValue(undefined),
     ...overrides,
@@ -170,6 +172,47 @@ describe("handleCommand", () => {
 
       expect(deps.writeKey).not.toHaveBeenCalled();
       expect(deps.logger.calls.some((c) => c.level === "warn")).toBe(true);
+    });
+  });
+
+  describe("volume_set", () => {
+    it("sets the system volume and publishes whatever wpctl actually reports back", async () => {
+      const systemVolume = { getVolume: vi.fn().mockResolvedValue(0.73), setVolume: vi.fn().mockResolvedValue(undefined) };
+      const deps = baseDeps({ systemVolume });
+
+      await handleCommand({ action: "volume_set", volume: 0.7 }, deps);
+
+      expect(systemVolume.setVolume).toHaveBeenCalledWith(0.7);
+      expect(deps.publishState).toHaveBeenCalledWith("volume", "0.73");
+      expect(deps.writeKey).not.toHaveBeenCalled();
+    });
+
+    it("falls back to the clamped requested value if reading it back fails", async () => {
+      const systemVolume = { getVolume: vi.fn().mockResolvedValue(undefined), setVolume: vi.fn().mockResolvedValue(undefined) };
+      const deps = baseDeps({ systemVolume });
+
+      await handleCommand({ action: "volume_set", volume: 1.5 }, deps);
+
+      expect(deps.publishState).toHaveBeenCalledWith("volume", "1.00");
+    });
+
+    it("warns and does not call setVolume when the volume field is missing or not a number", async () => {
+      const deps = baseDeps();
+
+      await handleCommand({ action: "volume_set" }, deps);
+
+      expect(deps.systemVolume.setVolume).not.toHaveBeenCalled();
+      expect(deps.logger.calls.some((c) => c.level === "warn")).toBe(true);
+    });
+
+    it("logs an error rather than throwing when setVolume rejects", async () => {
+      const systemVolume = { getVolume: vi.fn().mockResolvedValue(0.5), setVolume: vi.fn().mockRejectedValue(new Error("wpctl not found")) };
+      const deps = baseDeps({ systemVolume });
+
+      await expect(handleCommand({ action: "volume_set", volume: 0.5 }, deps)).resolves.toBeUndefined();
+
+      expect(deps.logger.calls.some((c) => c.level === "error")).toBe(true);
+      expect(deps.publishState).not.toHaveBeenCalled();
     });
   });
 });

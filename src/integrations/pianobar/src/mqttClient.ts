@@ -5,13 +5,20 @@ import { buildSelectDiscoveryConfig, buildStaticDiscoveryConfigs, publishDiscove
 import type { Logger } from "./logger.js";
 import type { PianobarProcessManager } from "./processManager.js";
 import type { StationDirectory } from "./stationDirectory.js";
+import { STATE_TOPIC_PREFIX } from "./telemetry.js";
+import { wpctlSystemVolume, type SystemVolumeOps } from "./systemVolume.js";
 
 export function connectMqtt(
   config: DaemonConfig,
   processManager: PianobarProcessManager,
   stationDirectory: StationDirectory,
   logger: Logger,
+  systemVolume: SystemVolumeOps = wpctlSystemVolume,
 ): MqttClient {
+  const publishState = (metric: string, value: string): void => {
+    client.publish(`${STATE_TOPIC_PREFIX}/${metric}`, value, { qos: 1, retain: true });
+  };
+
   const client = mqtt.connect({
     host: config.mqtt.host,
     port: config.mqtt.port,
@@ -38,6 +45,16 @@ export function connectMqtt(
     });
     publishDiscoveryConfigs(client, buildStaticDiscoveryConfigs(config), logger);
     publishDiscoveryConfigs(client, [buildSelectDiscoveryConfig(config, stationDirectory.getStations() ?? [])], logger);
+    systemVolume
+      .getVolume()
+      .then((volume) => {
+        if (volume !== undefined) {
+          publishState("volume", volume.toFixed(2));
+        }
+      })
+      .catch((err: unknown) => {
+        logger.error(`failed to read initial system volume: ${(err as Error).message}`);
+      });
   });
 
   /**
@@ -72,6 +89,8 @@ export function connectMqtt(
       fifoPath: config.pianobar.fifoPath,
       processManager,
       stationDirectory,
+      systemVolume,
+      publishState,
       logger,
     }).catch((err: unknown) => {
       logger.error(`unhandled error processing command: ${(err as Error).message}`);
