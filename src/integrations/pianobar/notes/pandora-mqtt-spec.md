@@ -198,27 +198,7 @@ Events most relevant to this adapter's state topics:
 | `usergetstations` | Full station list — also what Tier 2's `s`/`x` commands need to operate blind |
 | `stationfetchplaylist` | Confirms a station change succeeded |
 
-## HA Entity Plan (superseded — see below)
-
-One HA device (per `notes/dev/bridge-daemon-spec.md`'s convention — its own
-`identifiers`, not folded into a larger device), entities:
-
-- `sensor` — now-playing title, artist, album, station name, rating
-- `image` — album art, sourced from the `coverArt` field
-- `button` — skip, love, ban, tired, play, pause, volume up, volume down (Tier 1 only), restart player (Process Ownership above)
-- `select` — station (Tier 2, populated from `usergetstations`)
-- `number` — system volume slider (added later, see below — also superseded)
-
-Tier 3 actions are **not** exposed as HA entities in this version — they
-aren't reliably drivable yet (see above), so there's nothing to wire up.
-
-**This plan shipped (Phase 3) and turned out fragmented and unintuitive in
-actual use** — 16+ separate boxes under one device, no unified player card.
-GitHub issue #24 was closed citing this plan over a custom `media_player`
-integration; that call is reversed below based on real usage, not
-speculation.
-
-## Media Player Entity (current plan, supersedes HA Entity Plan above)
+## Media Player Entity
 
 **One phase, one PR** — not split into sub-phases; a partial media_player
 integration isn't independently useful the way the daemon's own Phase 1-4
@@ -239,16 +219,15 @@ same as the app will eventually be.
 
 **Maps onto `MediaPlayerEntity`'s standard properties**: title, artist,
 album, volume (`volume_level`, `VOLUME_SET`), station (as `source`/
-`source_list`/`SELECT_SOURCE` — this replaces the standalone `select`
-entity above, since it's now a native media_player feature), album art
-(`entity_picture`). `previous` has no pianobar support (documented above)
-and isn't exposed.
+`source_list`/`SELECT_SOURCE`), album art (`entity_picture`). `previous`
+has no pianobar support (documented above) and isn't exposed.
 
 **Stays as separate entities alongside the media_player entity** — no
 standard `media_player` concept exists for these: `love`, `ban`, `tired`,
 `restart`. Keep the existing `button` discovery entities for these
-(`haDiscovery.ts`); only the `sensor`/`image`/`select`/`number` entities
-above get retired once the media_player entity is live and verified.
+(`haDiscovery.ts`); retire the rest of `haDiscovery.ts`'s entities
+(`sensor`/`image`/`select`/`number`) once the media_player entity is live
+and verified.
 
 **Why this fixes the live-drag volume slider issue** the `number` entity
 couldn't: verified directly in HA's own frontend source — the generic
