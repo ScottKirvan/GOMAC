@@ -10,6 +10,14 @@ Environment=MQTT_USERNAME=pianobar
 Environment=MQTT_PASSWORD_FILE=/etc/pianobar-bridge/mqtt_password
 Restart=on-failure
 RestartSec=5
+# Systemd's default (control-group) kills every process in the service's
+# cgroup on stop/restart -- including pianobar, even though it's spawned
+# detached specifically to survive the daemon restarting (Process
+# Ownership, pandora-mqtt-spec.md). "process" limits the kill to the
+# tracked main PID only. Confirmed live: without this, `systemctl restart`
+# killed pianobar and started a new session, defeating the entire point
+# of the `restart` command existing.
+KillMode=process
 
 [Install]
 WantedBy=default.target
