@@ -3,7 +3,7 @@ import { writeFifoKey } from "./fifoWriter.js";
 import type { Logger } from "./logger.js";
 import type { PianobarProcessManager } from "./processManager.js";
 import type { StationDirectory } from "./stationDirectory.js";
-import { perceptualToRawVolume, rawToPerceptualVolume, type SystemVolumeOps } from "./systemVolume.js";
+import type { SystemVolumeOps } from "./systemVolume.js";
 
 export interface CommandPayload {
   action?: unknown;
@@ -118,13 +118,10 @@ async function handleSelectSource(payload: CommandPayload, deps: CommandHandlerD
 
 /**
  * Sets the system/PipeWire output level via wpctl (systemVolume.ts), not
- * pianobar's own internal gain -- see systemVolume.ts's doc comment. The
- * incoming `volume` is treated as a perceptual position (what a slider
- * feels like), mapped through systemVolume.ts's cubic curve to the raw
- * amplitude wpctl actually wants -- see that module's doc comment for why.
- * After setting, reports back whatever wpctl actually reports (converted
- * back to perceptual) rather than assuming the requested value applied
- * exactly, the same "report reality, not intent" approach the ad hoc
+ * pianobar's own internal gain -- see systemVolume.ts's doc comment. After
+ * setting, reports back whatever wpctl actually reports as the current
+ * level rather than assuming the requested value applied exactly (rounding,
+ * clamping), the same "report reality, not intent" approach the ad hoc
  * TheFlea media_player integration already uses.
  */
 async function handleVolumeSet(payload: CommandPayload, deps: CommandHandlerDeps): Promise<void> {
@@ -135,11 +132,11 @@ async function handleVolumeSet(payload: CommandPayload, deps: CommandHandlerDeps
   }
 
   try {
-    await deps.systemVolume.setVolume(perceptualToRawVolume(volume));
-    const actualRaw = await deps.systemVolume.getVolume();
-    const reported = actualRaw !== undefined ? rawToPerceptualVolume(actualRaw) : Math.max(0, Math.min(1, volume));
+    await deps.systemVolume.setVolume(volume);
+    const actual = await deps.systemVolume.getVolume();
+    const reported = actual ?? Math.max(0, Math.min(1, volume));
     deps.publishState("volume", reported.toFixed(2));
-    deps.logger.info(`set system volume to ${reported.toFixed(2)} (perceptual)`);
+    deps.logger.info(`set system volume to ${reported.toFixed(2)}`);
   } catch (err) {
     deps.logger.error(`failed to set system volume: ${(err as Error).message}`);
   }

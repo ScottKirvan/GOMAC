@@ -176,18 +176,18 @@ describe("handleCommand", () => {
   });
 
   describe("volume_set", () => {
-    it("maps the perceptual volume through the cubic curve before calling setVolume, and the raw result back before publishing", async () => {
+    it("sets the system volume and publishes whatever wpctl actually reports back", async () => {
       const systemVolume = { getVolume: vi.fn().mockResolvedValue(0.73), setVolume: vi.fn().mockResolvedValue(undefined) };
       const deps = baseDeps({ systemVolume });
 
       await handleCommand({ action: "volume_set", volume: 0.7 }, deps);
 
-      expect(systemVolume.setVolume).toHaveBeenCalledWith(expect.closeTo(0.343, 5));
-      expect(deps.publishState).toHaveBeenCalledWith("volume", "0.90");
+      expect(systemVolume.setVolume).toHaveBeenCalledWith(0.7);
+      expect(deps.publishState).toHaveBeenCalledWith("volume", "0.73");
       expect(deps.writeKey).not.toHaveBeenCalled();
     });
 
-    it("falls back to the clamped requested perceptual value if reading it back fails", async () => {
+    it("falls back to the clamped requested value if reading it back fails", async () => {
       const systemVolume = { getVolume: vi.fn().mockResolvedValue(undefined), setVolume: vi.fn().mockResolvedValue(undefined) };
       const deps = baseDeps({ systemVolume });
 
