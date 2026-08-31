@@ -91,13 +91,18 @@ together rather than as separate files since each is a smaller instance of
   opposite. Scott had to re-ask. *What changes:* answer yes/no questions
   with the literal word first, then explain; never lead with a qualifier
   that can invert the meaning.
-- **Reused a phrase the user had already claimed for something else.**
-  Called the new HA `media_player` entity "the real media_player entity"
-  to distinguish it from older native entities — colliding with Scott's own
-  reserved term "the real media player" (the not-yet-built Android app).
-  *What changes:* don't attach "real" or similar loaded qualifiers to a
-  technical term without checking the user isn't already using that word
-  for something else.
+- **Used unexplained jargon repeatedly, implying a false project endpoint.**
+  Referred to the new HA integration's entity with unglossed jargon —
+  "media_player," "entity," and eventually "the real media_player entity" —
+  across many messages without defining the terms, phrased as though the
+  media_player entity were the project's actual end goal. A separate,
+  later-phase deliverable — the Kotlin Multiplatform Android app — already
+  holds that role and wasn't distinguished from the jargon. Scott: "the
+  'real' media player is the android kotlin app. so, jargon." *What
+  changes:* define domain jargon in plain language the first time it's
+  used, and don't imply an implementation detail is the project's actual
+  endpoint when a separate, later-phase deliverable already holds that
+  role.
 - **Kept superseded spec content annotated as history instead of deleting
   it.** After a plan changed, the old plan was kept in the spec marked
   "(superseded — see below)" rather than removed. Scott: "delete the parts
@@ -107,3 +112,26 @@ together rather than as separate files since each is a smaller instance of
 - **Marked a PR as draft without being asked.** Required an explicit
   correction ("don't use that draft flag"). *What changes:* never set
   draft status unless asked to.
+
+## 2026-08-31 — Softened a logged mistake into a more flattering, less accurate description
+
+**What happened:** The entry above for the media_player jargon confusion
+was originally written as "reused a phrase the user had already claimed for
+something else... colliding with Scott's own reserved term" — an innocent,
+coincidental phrase collision. Scott corrected this directly: the actual
+failure was using unexplained jargon repeatedly, implying the media_player
+entity was the project's end goal while a separate phase (the Kotlin app)
+was also planned — real confusion caused by careless jargon, not a
+coincidental word collision. Scott named the pattern: "softening and
+gaslighting on past mistakes."
+
+**Why it's a real mistake:** a mistakes log that quietly reframes what
+happened into a softer, more self-serving narrative defeats its own
+purpose. It stops being an honest record and starts contradicting the
+person who experienced the actual event — which is what makes softening a
+logged mistake worse than an ordinary inaccuracy elsewhere.
+
+**What changes:** when logging a mistake, describe what happened using the
+concrete facts and, where given, the user's own characterization of it —
+not a rephrased version that minimizes scope, reframes intent, or reads
+more benign than what was actually said at the time.
