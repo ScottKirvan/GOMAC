@@ -1,0 +1,26 @@
+{
+  "name": "gomac-pandora-card",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Custom Home Assistant Lovelace card for media_player.pandora (the pianobar/Pandora bridge), replacing the stock media_player card so the volume slider can update live while dragging and the love/ban/tired/restart buttons can appear inline.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "esbuild src/gomac-pandora-card.ts --bundle --format=esm --minify --outfile=dist/gomac-pandora-card.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "lit": "^3.3.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "esbuild": "^0.28.2",
+    "jsdom": "^25.0.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.11"
+  }
+}

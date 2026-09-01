@@ -1,0 +1,13 @@
+{
+  "domain": "gomac_pandora",
+  "name": "GOMAC Pandora (pianobar)",
+  "version": "0.1.0",
+  "documentation": "https://github.com/ScottKirvan/GOMAC/blob/main/src/integrations/pianobar/homeassistant/README.md",
+  "issue_tracker": "https://github.com/ScottKirvan/GOMAC/issues",
+  "codeowners": [],
+  "config_flow": true,
+  "dependencies": ["mqtt"],
+  "integration_type": "device",
+  "iot_class": "local_push",
+  "requirements": []
+}

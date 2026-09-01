@@ -1,0 +1,8 @@
+node_modules/
+coverage/
+
+# The daemon's .gitignore (src/integrations/pianobar/.gitignore) ignores
+# dist/ everywhere below it -- this card's bundled output is committed on
+# purpose (no build step required on Scott's end), so un-ignore it here.
+!dist/
+!dist/*.js
