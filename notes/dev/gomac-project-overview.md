@@ -79,6 +79,17 @@ Lovelace card decision for the first concrete test of this. Treat any "HA's
 stock X can't do this" finding as a decision point about that assumption,
 not a settled fact to quietly work around.
 
+This isn't a binary between "stock HA" and "abandon HA entirely," either.
+Home Assistant Core and its frontend are both open source (Apache-2.0 /
+MIT) — forking or patching HA's own frontend to add a missing extension
+point (e.g. a real custom device-page renderer, which doesn't exist today
+the way `window.customCards` does for dashboards) is an available
+escalation path, in scope, not ruled out by default. Maintaining a fork is
+real ongoing cost worth weighing against the alternatives, but it's a
+middle option between working within HA's existing plugin points and
+rebuilding the whole platform from scratch — don't treat "HA core doesn't
+expose that" as a hard stop without naming this option too.
+
 **GOMAC — the Hub**: a standalone service (not an HA add-on, not embedded in HA) that wraps the **Claude Code CLI** (or the Claude Agent SDK it's built on) as the reasoning engine, and exposes a small, deliberate toolset to it — e.g. `get_tank_level`, `run_automation`, `query_battery_soc`, `set_scene` — implemented as calls into Home Assistant's API/MQTT. Modeled directly on [BojuBot](https://github.com/ScottKirvan/BojuBot) (see References & Prior Art): where BojuBot wraps Claude Code CLI with a toolset for controlling Obsidian, GOMAC wraps it with a toolset for controlling Home Assistant. Wrapping the CLI/SDK rather than calling the raw Anthropic API directly means inheriting its agentic tool-use loop instead of building one from scratch. This is the component this repo exists to build — see the naming note above, and see `gomac-hub-spec.md` for the implementation-level design spec (license, multi-provider AI routing, permission model, open implementation questions).
 
 One role worth calling out here since it's product-facing: **Puka Shell Tour Guide** — local exploration/tourist queries ("find me a dive bar nearby," "alt-culture things to do in Montreal," using current GPS location as context). Deliberately lower-stakes than GOMAC's core reasoning, which is why the hub spec designs it to potentially route to a different, cheaper AI backend rather than spend Claude usage on it. Full detail in `gomac-hub-spec.md`.
