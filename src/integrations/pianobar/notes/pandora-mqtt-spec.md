@@ -198,33 +198,52 @@ Events most relevant to this adapter's state topics:
 | `usergetstations` | Full station list — also what Tier 2's `s`/`x` commands need to operate blind |
 | `stationfetchplaylist` | Confirms a station change succeeded |
 
-## HA Entity Plan
+## Media Player Entity
 
-One custom-integration `media_player` entity
-(`homeassistant/custom_components/gomac_pandora/`, config-entry-based — see
+A real Home Assistant custom integration (Python, config-entry based — see
 "Lessons From the Ad Hoc TheFlea Integration" below for why config-entry is
-required) plus a custom Lovelace card, replacing the earlier plan of
-standalone `sensor`/`image`/`select`/`number` MQTT-discovery entities:
+required), with an entity class inheriting `MediaPlayerEntity`
+(`homeassistant.components.media_player`), plus a custom Lovelace card —
+both built, living in `src/integrations/pianobar/homeassistant/`:
+`custom_components/gomac_pandora/` (the integration) and
+`www/gomac-pandora-card/` (the card).
 
-- **`media_player` entity** — title, artist, album, station (as `source`),
-  cover art, and volume, backed by standard HA services
-  (`media_player.media_play`/`media_pause`/`media_next_track`,
-  `volume_set`, `select_source`). HA's `MediaPlayerEntityFeature` enum has
-  no love/ban/tired equivalent — that's a fixed set HA core's frontend
-  renders buttons from, not something a custom integration can extend.
-- **Custom Lovelace card** — frontend-only (no daemon or Python-integration
-  changes): renders the media_player entity's info/controls plus
-  love/ban/tired/restart buttons in one unified card. The buttons call the
-  standard `button.press` service against the button entities below — no
-  new custom services needed on the integration.
-- **`button` entities** (still published via `haDiscovery.ts`'s MQTT
-  discovery) — `love`, `ban`, `tired`, `restart` only. These exist purely
-  for the custom card to invoke via `button.press`; they aren't meant to be
-  placed on a dashboard directly once the card exists.
-- **Retired**: `sensor` (title/artist/album/station/rating), `image`
-  (cover art), `select` (station), `number` (volume), and the
-  `skip`/`play`/`pause`/`volume_up`/`volume_down` buttons — all fully
-  superseded by the media_player entity + custom card.
+**No daemon changes** — reads the same `gomac/pandora/state/*` topics,
+writes the same `gomac/pandora/cmd` topic this daemon already
+publishes/subscribes. Both the integration and the card are just MQTT/HA-
+service clients, same as the app will eventually be.
+
+**Maps onto `MediaPlayerEntity`'s standard properties**: title, artist,
+album, volume (`volume_level`, `VOLUME_SET`), station (as `source`/
+`source_list`/`SELECT_SOURCE`), album art (`entity_picture`). `previous`
+has no pianobar support (documented above) and isn't exposed.
+
+**Why a custom Lovelace card, not the stock media_player card**: HA's
+`MediaPlayerEntityFeature` enum has no love/ban/tired equivalent — a
+fixed, HA-core-owned set the stock card renders buttons from, not
+something a custom integration can extend. The card renders the
+media_player entity's info/controls plus love/ban/tired/restart buttons in
+one unified box; those buttons call the standard `button.press` service
+against the `button` entities `haDiscovery.ts` still publishes for exactly
+this (`love`, `ban`, `tired`, `restart` only — no new custom services
+needed; they're not meant to be placed on a dashboard directly once the
+card exists). The card also matches HA's own media_player more-info
+dialog's live-drag volume behavior (debounced native `input` event),
+unlike the generic `number` entity's release-only behavior — tied to
+entity domain/base class, not anything MQTT config can influence.
+
+**Retired from `haDiscovery.ts`**: `sensor` (title/artist/album/station/
+rating), `image` (cover art), `select` (station), `number` (volume), and
+the `skip`/`play`/`pause`/`volume_up`/`volume_down` buttons — all
+superseded by the media_player entity + custom card. Not yet removed from
+the code as of this writing — held pending cross-testing against the new
+card.
+
+**Retirement, not part of this repo's work**: the ad hoc TheFlea
+integration (`custom_components/mediaplayer_mqtt/`,
+`mediaplayer-mqtt-bridge.py`, its systemd service) gets retired once this
+is live and verified — TheFlea-side cleanup, a request to hand off, not a
+GOMAC-repo change.
 
 Tier 3 actions are **not** exposed anywhere in this version — they aren't
 reliably drivable yet (see above), so there's nothing to wire up.
@@ -354,7 +373,7 @@ operate blind.
 
 **Phase 3 — Home Assistant integration.** A config-entry-based custom
 `media_player` integration (`custom_components/gomac_pandora/`) plus a
-custom Lovelace card — see "HA Entity Plan" above for what each piece
+custom Lovelace card — see "Media Player Entity" above for what each piece
 covers and what's retired. No dependency on Phase 2 beyond needing its
 state topics to exist to point at.
 

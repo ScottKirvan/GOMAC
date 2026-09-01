@@ -65,6 +65,20 @@ No Jetson is currently planned. (Previously the plan was Laptop → RPi → Jets
 
 **Home Assistant install**: **HA Container (Docker), not Home Assistant OS.** HAOS is a locked-down appliance image — its Supervisor manages everything as Docker "Add-ons," and HA Core is just one of those add-ons. Packaging GOMAC as a HAOS add-on would mean building this repo's primary deliverable to fit someone else's plugin contract. Running plain HA Core in Docker on a normal OS (Raspberry Pi OS/Debian) instead lets HA be one sibling service among several — HA, Mosquitto, and GOMAC all run as peers, talking over HA's REST/WebSocket API and MQTT, the same way ESP32 nodes and the Victron GX already do. Keeps HA swappable and keeps GOMAC from being a guest in HA's house.
 
+**HA extensibility is a load-bearing assumption, not a nice-to-have.**
+GOMAC's actual use case — a voice-first, van-specific automation platform —
+is a non-standard use of Home Assistant almost everywhere it touches HA:
+custom entities, custom dashboards/cards, and non-consumer integrations
+(pianobar, Victron, the ESP32 mesh) that don't match what HA ships stock
+support for. If HA's stock components can't be extended to cover a case
+like this, that's a signal the whole architecture above isn't viable, not
+just a gap to route around for one integration — going back to
+first-principles custom builds instead of HA would mean writing the entire
+automation platform from scratch. See `pandora-mqtt-spec.md`'s custom
+Lovelace card decision for the first concrete test of this. Treat any "HA's
+stock X can't do this" finding as a decision point about that assumption,
+not a settled fact to quietly work around.
+
 **GOMAC — the Hub**: a standalone service (not an HA add-on, not embedded in HA) that wraps the **Claude Code CLI** (or the Claude Agent SDK it's built on) as the reasoning engine, and exposes a small, deliberate toolset to it — e.g. `get_tank_level`, `run_automation`, `query_battery_soc`, `set_scene` — implemented as calls into Home Assistant's API/MQTT. Modeled directly on [BojuBot](https://github.com/ScottKirvan/BojuBot) (see References & Prior Art): where BojuBot wraps Claude Code CLI with a toolset for controlling Obsidian, GOMAC wraps it with a toolset for controlling Home Assistant. Wrapping the CLI/SDK rather than calling the raw Anthropic API directly means inheriting its agentic tool-use loop instead of building one from scratch. This is the component this repo exists to build — see the naming note above, and see `gomac-hub-spec.md` for the implementation-level design spec (license, multi-provider AI routing, permission model, open implementation questions).
 
 One role worth calling out here since it's product-facing: **Puka Shell Tour Guide** — local exploration/tourist queries ("find me a dive bar nearby," "alt-culture things to do in Montreal," using current GPS location as context). Deliberately lower-stakes than GOMAC's core reasoning, which is why the hub spec designs it to potentially route to a different, cheaper AI backend rather than spend Claude usage on it. Full detail in `gomac-hub-spec.md`.
