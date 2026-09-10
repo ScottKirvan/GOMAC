@@ -86,18 +86,45 @@ export class PianobarProcessManager {
     return this.pid;
   }
 
-  /** Startup entry point: reattach to an already-running owned pianobar, or spawn a fresh one. */
-  adoptOrSpawn(): number {
+  private findOwnedAlivePid(): number | undefined {
     const existingPid = readPid(this.config.pidFilePath);
     if (
       existingPid !== undefined &&
       this.ops.isAlive(existingPid) &&
       this.ops.isExpectedProcess(existingPid, this.config.pianobar.binary)
     ) {
+      return existingPid;
+    }
+    return undefined;
+  }
+
+  /** True if an owned pianobar process is currently alive, without adopting or spawning. */
+  isRunning(): boolean {
+    return this.findOwnedAlivePid() !== undefined;
+  }
+
+  /** Explicit "play" entry point: reattach to an already-running owned pianobar, or spawn a fresh one. */
+  adoptOrSpawn(): number {
+    const existingPid = this.findOwnedAlivePid();
+    if (existingPid !== undefined) {
       this.pid = existingPid;
       return existingPid;
     }
     return this.spawn();
+  }
+
+  /**
+   * Daemon startup entry point: reattach to an already-running owned
+   * pianobar, but never spawn a fresh one. A reboot or daemon restart must
+   * not start playback on its own -- only an explicit play/resume/toggle
+   * command (which calls adoptOrSpawn) should.
+   */
+  adoptIfRunning(): number | undefined {
+    const existingPid = this.findOwnedAlivePid();
+    if (existingPid !== undefined) {
+      this.pid = existingPid;
+    }
+    return existingPid;
   }
 
   async restart(): Promise<number> {

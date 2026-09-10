@@ -13,7 +13,7 @@ export interface CommandPayload {
 
 export interface CommandHandlerDeps {
   fifoPath: string;
-  processManager: Pick<PianobarProcessManager, "restart">;
+  processManager: Pick<PianobarProcessManager, "restart" | "isRunning" | "adoptOrSpawn">;
   stationDirectory: Pick<StationDirectory, "getStations">;
   systemVolume: SystemVolumeOps;
   publishState: (metric: string, value: string) => void;
@@ -69,6 +69,20 @@ export async function handleCommand(payload: CommandPayload, deps: CommandHandle
 
   if (!isTier1Action(action)) {
     deps.logger.warn(`ignoring unsupported action "${action}"`);
+    return;
+  }
+
+  /**
+   * pianobar is never auto-started at daemon startup (see index.ts's
+   * adoptIfRunning) so a reboot can't start audio unattended. play/resume/
+   * toggle are the actions that mean "start listening" -- if nothing's
+   * running, start it here instead of writing a keystroke into a FIFO with
+   * no reader. Spawning already begins playback via pianobar's own
+   * configured autostart station, so no keystroke is needed afterward.
+   */
+  if ((action === "play" || action === "resume" || action === "toggle") && !deps.processManager.isRunning()) {
+    const pid = deps.processManager.adoptOrSpawn();
+    deps.logger.info(`action "${action}" received with pianobar not running; started it as pid ${pid}`);
     return;
   }
 

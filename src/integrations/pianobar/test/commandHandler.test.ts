@@ -16,7 +16,7 @@ function fakeLogger(): Logger & { calls: { level: string; message: string }[] } 
 function baseDeps(overrides: Partial<Parameters<typeof handleCommand>[1]> = {}) {
   return {
     fifoPath: "/tmp/ctl",
-    processManager: { restart: vi.fn() },
+    processManager: { restart: vi.fn(), isRunning: vi.fn().mockReturnValue(true), adoptOrSpawn: vi.fn() },
     stationDirectory: createStationDirectory(),
     systemVolume: { getVolume: vi.fn().mockResolvedValue(0.5), setVolume: vi.fn().mockResolvedValue(undefined) },
     publishState: vi.fn(),
@@ -119,6 +119,49 @@ describe("handleCommand", () => {
     await expect(handleCommand({ action: "love" }, deps)).resolves.toBeUndefined();
 
     expect(deps.logger.calls.some((c) => c.level === "error")).toBe(true);
+  });
+
+  describe("starting pianobar on demand", () => {
+    it("spawns pianobar instead of writing a keystroke when play arrives and nothing is running", async () => {
+      const processManager = { restart: vi.fn(), isRunning: vi.fn().mockReturnValue(false), adoptOrSpawn: vi.fn().mockReturnValue(123) };
+      const deps = baseDeps({ processManager });
+
+      await handleCommand({ action: "play" }, deps);
+
+      expect(processManager.adoptOrSpawn).toHaveBeenCalledOnce();
+      expect(deps.writeKey).not.toHaveBeenCalled();
+    });
+
+    it("does the same for resume and toggle when nothing is running", async () => {
+      const processManager = { restart: vi.fn(), isRunning: vi.fn().mockReturnValue(false), adoptOrSpawn: vi.fn().mockReturnValue(123) };
+      const deps = baseDeps({ processManager });
+
+      await handleCommand({ action: "resume" }, deps);
+      await handleCommand({ action: "toggle" }, deps);
+
+      expect(processManager.adoptOrSpawn).toHaveBeenCalledTimes(2);
+      expect(deps.writeKey).not.toHaveBeenCalled();
+    });
+
+    it("writes the normal keystroke for play when pianobar is already running", async () => {
+      const processManager = { restart: vi.fn(), isRunning: vi.fn().mockReturnValue(true), adoptOrSpawn: vi.fn() };
+      const deps = baseDeps({ processManager });
+
+      await handleCommand({ action: "play" }, deps);
+
+      expect(processManager.adoptOrSpawn).not.toHaveBeenCalled();
+      expect(deps.writeKey).toHaveBeenCalledWith("/tmp/ctl", "P");
+    });
+
+    it("does not spawn for non-start actions like love when nothing is running", async () => {
+      const processManager = { restart: vi.fn(), isRunning: vi.fn().mockReturnValue(false), adoptOrSpawn: vi.fn() };
+      const deps = baseDeps({ processManager });
+
+      await handleCommand({ action: "love" }, deps);
+
+      expect(processManager.adoptOrSpawn).not.toHaveBeenCalled();
+      expect(deps.writeKey).toHaveBeenCalledWith("/tmp/ctl", "+");
+    });
   });
 
   describe("select_source", () => {

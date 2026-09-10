@@ -36,8 +36,12 @@ function main(): void {
   });
 
   const processManager = new PianobarProcessManager(config);
-  const pid = processManager.adoptOrSpawn();
-  logger.info(`pianobar running as pid ${pid}`);
+  const pid = processManager.adoptIfRunning();
+  if (pid !== undefined) {
+    logger.info(`adopted already-running pianobar as pid ${pid}`);
+  } else {
+    logger.info("pianobar not running; waiting for a play command before starting it");
+  }
 
   const stationDirectory = createStationDirectory();
   const client = connectMqtt(config, processManager, stationDirectory, logger);
