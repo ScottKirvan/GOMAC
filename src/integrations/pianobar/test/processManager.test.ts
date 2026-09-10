@@ -146,6 +146,48 @@ describe("PianobarProcessManager", () => {
     expect(ops.kill).not.toHaveBeenCalled();
     expect(ops.spawnDetached).toHaveBeenCalledOnce();
   });
+
+  it("adoptIfRunning does not spawn when no pidfile exists", () => {
+    const config = baseConfig(dir);
+    const ops = fakeOps();
+    const manager = new PianobarProcessManager(config, ops);
+
+    const pid = manager.adoptIfRunning();
+
+    expect(pid).toBeUndefined();
+    expect(ops.spawnDetached).not.toHaveBeenCalled();
+  });
+
+  it("adoptIfRunning reattaches to an already-running owned pianobar without spawning", () => {
+    const config = baseConfig(dir);
+    new PianobarProcessManager(config, fakeOps()).adoptOrSpawn();
+
+    const ops = fakeOps({ isAlive: vi.fn().mockReturnValue(true) });
+    const manager = new PianobarProcessManager(config, ops);
+
+    const pid = manager.adoptIfRunning();
+
+    expect(pid).toBe(111);
+    expect(ops.spawnDetached).not.toHaveBeenCalled();
+  });
+
+  it("isRunning reflects an owned alive process without adopting or spawning", () => {
+    const config = baseConfig(dir);
+    new PianobarProcessManager(config, fakeOps()).adoptOrSpawn();
+
+    const ops = fakeOps({ isAlive: vi.fn().mockReturnValue(true) });
+    const manager = new PianobarProcessManager(config, ops);
+
+    expect(manager.isRunning()).toBe(true);
+    expect(ops.spawnDetached).not.toHaveBeenCalled();
+  });
+
+  it("isRunning is false when nothing owned is alive", () => {
+    const config = baseConfig(dir);
+    const manager = new PianobarProcessManager(config, fakeOps());
+
+    expect(manager.isRunning()).toBe(false);
+  });
 });
 
 describe("nodeProcessOps.isExpectedProcess", () => {
