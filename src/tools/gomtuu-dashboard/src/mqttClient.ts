@@ -1,9 +1,12 @@
 import mqtt, { type MqttClient } from "mqtt";
+import { handleConnectivityMessage, summarizeConnectivity } from "./connectivityState.js";
+import { recordConnectivitySample } from "./connectivityHistory.js";
 import type { DashboardConfig } from "./config.js";
 import type { DashboardStores } from "./dashboardState.js";
 import { recordPowerSample } from "./history.js";
 import type { Logger } from "./logger.js";
 import { handlePandoraMessage } from "./pandoraState.js";
+import { handlePositionMessage } from "./positionState.js";
 import { handleVictronMessage, summarizePower } from "./victronState.js";
 
 export function connectMqtt(
@@ -22,7 +25,13 @@ export function connectMqtt(
 
   client.on("connect", () => {
     logger.info(`connected to mqtt broker at ${config.mqtt.host}:${config.mqtt.port}`);
-    for (const topic of [config.mqtt.victronTopicFilter, `${config.mqtt.pandoraTopicPrefix}/#`]) {
+    const topics = [
+      config.mqtt.victronTopicFilter,
+      `${config.mqtt.pandoraTopicPrefix}/#`,
+      `${config.mqtt.positionTopicPrefix}/#`,
+      config.mqtt.connectivityTopicFilter,
+    ];
+    for (const topic of topics) {
       client.subscribe(topic, { qos: 0 }, (err) => {
         if (err) {
           logger.error(`failed to subscribe to ${topic}: ${err.message}`);
@@ -49,6 +58,19 @@ export function connectMqtt(
 
     if (topic.startsWith(`${config.mqtt.pandoraTopicPrefix}/`)) {
       handlePandoraMessage(stores.nowPlaying, topic, payload);
+      onUpdate();
+      return;
+    }
+
+    if (topic.startsWith(`${config.mqtt.positionTopicPrefix}/`)) {
+      handlePositionMessage(stores.position, topic, payload);
+      onUpdate();
+      return;
+    }
+
+    if (topic.startsWith("ping-monitor/")) {
+      handleConnectivityMessage(stores.connectivity, topic, payload);
+      recordConnectivitySample(stores.connectivityHistory, summarizeConnectivity(stores.connectivity));
       onUpdate();
     }
   });

@@ -43,6 +43,47 @@ export interface UnwiredSource {
   reason: string;
 }
 
+/**
+ * `gps/phone/<metric>` -- per the IT-side report confirming this is live:
+ * latitude, longitude, accuracy_m, altitude_m, speed_mps, course_deg,
+ * retained, updated on every phone location report.
+ */
+export interface PositionState {
+  latitude?: number;
+  longitude?: number;
+  accuracyM?: number;
+  altitudeM?: number;
+  speedMps?: number;
+  courseDeg?: number;
+  updatedAt?: number;
+}
+
+/**
+ * `ping-monitor/<target>/<metric>` for target in 8.8.8.8 / 1.1.1.1 /
+ * gateway, metric in rtt_ms / success -- per the IT-side report, retained,
+ * on ping-monitor's existing minutely timer.
+ */
+export interface PingTargetState {
+  rttMs?: number;
+  success?: boolean;
+  updatedAt?: number;
+}
+
+export interface ConnectivityState {
+  targets: Record<string, PingTargetState>;
+}
+
+export interface ConnectivitySummary {
+  successPct?: number;
+  avgRttMs?: number;
+}
+
+export interface ConnectivitySample {
+  t: number;
+  successPct?: number;
+  avgRttMs?: number;
+}
+
 export interface DashboardSnapshot {
   victron: {
     devices: Record<string, VictronDeviceState>;
@@ -50,9 +91,13 @@ export interface DashboardSnapshot {
     history: PowerSample[];
   };
   nowPlaying: NowPlayingState;
-  position: UnwiredSource;
+  position: PositionState;
   weather: UnwiredSource;
-  connectivity: UnwiredSource;
+  connectivity: {
+    targets: Record<string, PingTargetState>;
+    summary: ConnectivitySummary;
+    history: ConnectivitySample[];
+  };
   serverTime: number;
 }
 
