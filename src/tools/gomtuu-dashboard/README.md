@@ -1,10 +1,18 @@
 # GOMAC Dashboard
 
 A small web dashboard for Gomtuu's live telemetry: subscribes to Mosquitto,
-serves a browser UI over HTTP + WebSocket. Not a bridge daemon in the
-`src/integrations/<adapter>/` sense (it doesn't publish anything or expose
-Home Assistant MQTT discovery) — it's a read-only consumer of what those
-adapters already publish, so it lives under `src/tools/` instead.
+polls Open-Meteo, and serves a plain JSON snapshot (`GET /snapshot.json`)
+that the static frontend polls every 10s and re-renders. Deliberately not a
+live push (no WebSocket) — this is a one-way read-only viewer, not
+bidirectional, so plain HTTP polling is enough and there's nothing a
+persistent connection buys here. Something still has to hold the live MQTT
+connection (that's inherent to MQTT, not a choice), so this remains a small
+Node process, not something GitHub Pages could serve on its own end to end.
+
+Not a bridge daemon in the `src/integrations/<adapter>/` sense (it doesn't
+publish anything or expose Home Assistant MQTT discovery) — it's a
+read-only consumer of what those adapters already publish, so it lives
+under `src/tools/` instead.
 
 ## Running it
 
@@ -86,4 +94,15 @@ and adjust the patterns in `src/victronState.ts` if they don't match.
 Not deployed anywhere yet. Per `notes/dev/compute-hub-current-state.md`'s
 domain-separation model, getting this onto TheFlea (systemd unit, etc.) is
 a deliberate, narrow deployment step outside this repo's own session — not
-something to do from here without that being the explicit task.
+something to do from here without that being the explicit task. It also
+genuinely can't be deployed from a GOMAC Claude Code Remote session
+directly — no network path to TheFlea exists from that sandbox (no SSH, no
+Tailscale, `theflea` doesn't resolve).
+
+**GitHub Pages** was considered for hosting the frontend, but Pages only
+serves static files — it can't run this process at all, and polling
+`/snapshot.json` from a page hosted on Pages would mean exposing this
+service (or at least that one endpoint) to the public internet, which is a
+separate decision from anything built so far. For now this runs locally on
+whatever machine can reach Mosquitto (i.e. TheFlea), reachable over LAN or
+Tailscale, not the public internet.

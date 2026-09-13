@@ -386,8 +386,10 @@ function render(snapshot) {
   renderWeather(snapshot.weather);
 
   document.getElementById("serverTime").textContent = new Date(snapshot.serverTime).toLocaleTimeString();
-  document.getElementById("footerNote").textContent = "live from Mosquitto over WebSocket, weather via Open-Meteo";
+  document.getElementById("footerNote").textContent = "polling /snapshot.json, weather via Open-Meteo";
 }
+
+const POLL_INTERVAL_MS = 10000;
 
 function setConnState(state) {
   const el = document.getElementById("connState");
@@ -398,29 +400,23 @@ function setConnState(state) {
   } else if (state === "connecting") {
     el.textContent = "connecting…";
   } else {
-    el.textContent = "disconnected — retrying";
+    el.textContent = "unreachable — retrying";
     el.classList.add("err");
   }
 }
 
-function connect() {
-  setConnState("connecting");
-  const proto = location.protocol === "https:" ? "wss:" : "ws:";
-  const ws = new WebSocket(`${proto}//${location.host}/ws`);
-
-  ws.addEventListener("open", () => setConnState("live"));
-  ws.addEventListener("message", (event) => {
-    try {
-      render(JSON.parse(event.data));
-    } catch (err) {
-      console.error("failed to parse dashboard snapshot", err);
-    }
-  });
-  ws.addEventListener("close", () => {
+async function poll() {
+  try {
+    const res = await fetch("snapshot.json", { cache: "no-store" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    render(await res.json());
+    setConnState("live");
+  } catch (err) {
+    console.error("failed to fetch dashboard snapshot", err);
     setConnState("disconnected");
-    setTimeout(connect, 3000);
-  });
-  ws.addEventListener("error", () => ws.close());
+  }
 }
 
-connect();
+setConnState("connecting");
+poll();
+setInterval(poll, POLL_INTERVAL_MS);
