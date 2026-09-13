@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en" style="color-scheme: dark;">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Gomtuu Instrument Panel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="brand">
+        <div class="name">Gomtuu &middot; Instrument Panel</div>
+        <div class="sub">GOMAC telemetry &middot; victron-ble &middot; pianobar</div>
+      </div>
+      <div class="header-right">
+        <span id="connState" class="badge">connecting&hellip;</span>
+        <span id="serverTime" class="mono">&mdash;</span>
+      </div>
+    </header>
+
+    <div class="hero-grid">
+      <div class="panel">
+        <div class="panel-head">
+          <span class="panel-title"><span class="swatch" style="background:var(--battery)"></span>Power Gauge</span>
+          <span id="powerSourceMac" class="panel-meta mono">no data yet</span>
+        </div>
+        <div class="hero-body">
+          <div class="dial-wrap">
+            <svg viewBox="0 0 108 108">
+              <circle class="dial-track" cx="54" cy="54" r="47" stroke-width="9" />
+              <circle id="socRing" cx="54" cy="54" r="47" stroke="var(--battery)" stroke-width="9" stroke-linecap="round" fill="none" stroke-dasharray="0 295.3" transform="rotate(-90 54 54)" />
+              <circle class="dial-track" cx="54" cy="54" r="34" stroke-width="7" />
+              <circle id="solarRing" cx="54" cy="54" r="34" stroke="var(--solar)" stroke-width="7" stroke-linecap="round" fill="none" stroke-dasharray="0 213.6" transform="rotate(-90 54 54)" />
+            </svg>
+            <div class="dial-center">
+              <span id="socNum" class="num">&mdash;</span>
+              <span id="solarSub" class="sub">no solar data</span>
+            </div>
+          </div>
+          <div class="hero-stats mono">
+            <div class="stat-row"><span class="k">Voltage</span><span id="voltageVal" class="v">&mdash;</span></div>
+            <div class="stat-row"><span class="k">Current</span><span id="currentVal" class="v">&mdash;</span></div>
+            <div class="stat-row"><span class="k">Net power</span><span id="powerVal" class="v">&mdash;</span></div>
+            <div class="stat-row"><span class="k">Solar in</span><span id="solarVal" class="v">&mdash;</span></div>
+            <div class="stat-row"><span class="k">Temp</span><span id="tempVal" class="v">&mdash;</span></div>
+            <div class="stat-row"><span class="k">Charger</span><span id="chargerVal" class="v">&mdash;</span></div>
+          </div>
+        </div>
+        <div class="dial-legend">
+          <span><i style="background:var(--battery)"></i>SOC (outer)</span>
+          <span><i style="background:var(--solar)"></i>solar % of recent peak (inner)</span>
+        </div>
+      </div>
+
+      <div class="panel unwired">
+        <div class="panel-head">
+          <span class="panel-title"><span class="swatch" style="background:var(--position)"></span>Position</span>
+          <span class="panel-meta mono">not wired</span>
+        </div>
+        <div class="unwired-body" id="positionReason"></div>
+      </div>
+
+      <div class="panel unwired">
+        <div class="panel-head">
+          <span class="panel-title"><span class="swatch" style="background:var(--solar)"></span>Weather &amp; Sun</span>
+          <span class="panel-meta mono">not wired</span>
+        </div>
+        <div class="unwired-body" id="weatherReason"></div>
+      </div>
+    </div>
+
+    <div class="trend-grid">
+      <div class="panel">
+        <div class="panel-head">
+          <span class="panel-title">Solar Input vs Battery Power</span>
+          <span id="historyMeta" class="panel-meta mono">0 samples</span>
+        </div>
+        <div class="legend-row">
+          <span><i style="background:var(--solar)"></i>Solar input</span>
+          <span><i style="background:var(--battery)"></i>Battery net</span>
+        </div>
+        <div class="chart-body" id="powerChart"></div>
+      </div>
+
+      <div class="panel unwired">
+        <div class="panel-head">
+          <span class="panel-title"><span class="swatch" style="background:var(--connectivity)"></span>Connectivity</span>
+          <span class="panel-meta mono">not wired</span>
+        </div>
+        <div class="unwired-body" id="connectivityReason"></div>
+      </div>
+    </div>
+
+    <div id="sensorTables" class="table-grid"></div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title"><span class="swatch" style="background:var(--audio)"></span>Pandora &middot; Now Playing</span>
+        <span class="panel-meta mono">pianobar</span>
+      </div>
+      <div id="nowPlaying" class="np-body"></div>
+    </div>
+
+    <footer id="footerNote">connecting to dashboard server&hellip;</footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
