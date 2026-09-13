@@ -13,6 +13,9 @@ export interface DashboardConfig {
   http: {
     port: number;
   };
+  weather: {
+    pollIntervalMs: number;
+  };
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): DashboardConfig {
@@ -30,6 +33,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): DashboardConfi
     },
     http: {
       port: Number(env.HTTP_PORT ?? 8090),
+    },
+    weather: {
+      pollIntervalMs: Number(env.WEATHER_POLL_INTERVAL_MS ?? 15 * 60 * 1000),
     },
   };
 }

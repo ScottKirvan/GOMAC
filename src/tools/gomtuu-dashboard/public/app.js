@@ -321,6 +321,61 @@ function renderConnectivity(connectivity) {
   `;
 }
 
+function renderWeather(weather) {
+  const body = document.getElementById("weatherBody");
+  const meta = document.getElementById("weatherMeta");
+
+  if (weather.temperatureC === undefined) {
+    body.innerHTML = `<div class="empty-state">no weather data yet</div>`;
+    meta.textContent = "no data yet";
+    return;
+  }
+
+  meta.textContent = `updated ${formatAge(weather.updatedAt)}`;
+
+  let barSection = "";
+  // Open-Meteo's timezone=auto returns naive local-time strings for the
+  // queried location; the browser parses them in ITS OWN local timezone,
+  // so this drifts if the dashboard is viewed from a different timezone
+  // than Gomtuu is currently in. Acceptable for now -- same person near
+  // the van in the common case -- not worth the extra complexity yet.
+  if (weather.sunrise && weather.sunset) {
+    const sunrise = new Date(weather.sunrise);
+    const sunset = new Date(weather.sunset);
+    const now = new Date();
+    const totalMs = sunset - sunrise;
+    const pct = Math.min(100, Math.max(0, ((now - sunrise) / totalMs) * 100));
+    const sunriseLabel = sunrise.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    const sunsetLabel = sunset.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+
+    let note;
+    if (now < sunrise) {
+      note = `before sunrise — ${formatDuration(sunrise - now)} to go`;
+    } else if (now > sunset) {
+      note = "after sunset";
+    } else {
+      note = `daylight ${pct.toFixed(0)}% elapsed · ${formatDuration(sunset - now)} to sunset`;
+    }
+
+    barSection = `
+      <div class="wx-bar-row">
+        <span>${sunriseLabel}</span>
+        <div class="wx-bar"><div class="wx-bar-fill" style="width:${pct}%"></div><div class="wx-bar-dot" style="left:${pct}%"></div></div>
+        <span>${sunsetLabel}</span>
+      </div>
+      <div class="wx-note">${note}</div>
+    `;
+  }
+
+  body.innerHTML = `
+    <div class="wx-top">
+      <span class="wx-temp">${Math.round(weather.temperatureC)}°C</span>
+      <span class="wx-cond">${weather.condition ?? "—"}${weather.apparentTemperatureC !== undefined ? ` · feels ${Math.round(weather.apparentTemperatureC)}°` : ""}</span>
+    </div>
+    ${barSection}
+  `;
+}
+
 function render(snapshot) {
   renderPowerGauge(snapshot.victron.power, snapshot.victron.history);
   renderChart(snapshot.victron.history);
@@ -328,12 +383,10 @@ function render(snapshot) {
   renderNowPlaying(snapshot.nowPlaying);
   renderPosition(snapshot.position);
   renderConnectivity(snapshot.connectivity);
-
-  document.getElementById("weatherReason").textContent = snapshot.weather.reason;
+  renderWeather(snapshot.weather);
 
   document.getElementById("serverTime").textContent = new Date(snapshot.serverTime).toLocaleTimeString();
-  document.getElementById("footerNote").textContent =
-    "live from Mosquitto over WebSocket — weather not wired yet";
+  document.getElementById("footerNote").textContent = "live from Mosquitto over WebSocket, weather via Open-Meteo";
 }
 
 function setConnState(state) {

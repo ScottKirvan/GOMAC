@@ -14,7 +14,7 @@
     <header>
       <div class="brand">
         <div class="name">Gomtuu &middot; Instrument Panel</div>
-        <div class="sub">GOMAC telemetry &middot; victron-ble &middot; pianobar &middot; phone GPS &middot; ping-monitor</div>
+        <div class="sub">GOMAC telemetry &middot; victron-ble &middot; pianobar &middot; phone GPS &middot; ping-monitor &middot; Open-Meteo</div>
       </div>
       <div class="header-right">
         <span id="connState" class="badge">connecting&hellip;</span>
@@ -64,12 +64,12 @@
         <div id="positionBody" class="pos-body"></div>
       </div>
 
-      <div class="panel unwired">
+      <div class="panel">
         <div class="panel-head">
           <span class="panel-title"><span class="swatch" style="background:var(--solar)"></span>Weather &amp; Sun</span>
-          <span class="panel-meta mono">not wired</span>
+          <span id="weatherMeta" class="panel-meta mono">no data yet</span>
         </div>
-        <div class="unwired-body" id="weatherReason"></div>
+        <div id="weatherBody" class="wx-body"></div>
       </div>
     </div>
 
