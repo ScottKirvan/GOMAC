@@ -26,31 +26,35 @@ empty state until it can reach a broker with real traffic.
 | Solar vs. battery power trend | **live** | same, sampled into an in-memory ring buffer as readings come in |
 | All-sensors tables | **live** | same, one table per device MAC, every metric it publishes |
 | Now Playing | **live** | `gomac/pandora/state/<metric>` (verified against `src/integrations/pianobar/src/telemetry.ts`) |
-| Position | **not wired** | see Open Questions |
+| Position (speed, heading, coords) | **live** | `gps/phone/<metric>` (phone GPS, rides HA's MQTT connection) |
+| Connectivity (ping success, RTT) | **live** | `ping-monitor/<target>/<metric>`, sampled into an in-memory ring buffer |
 | Weather & Sun | **not wired** | see Open Questions |
-| Connectivity | **not wired** | see Open Questions |
 
-The three unwired panels render the reason they're unwired rather than
-fabricated numbers — the whole point of moving past the mockup stage was
-to stop showing sample data as if it were real.
+Position and Connectivity were confirmed live by the IT-side agent handling
+TheFlea (see Open Questions below for the one field-name caveat on each).
+Weather still renders the reason it's unwired rather than fabricated
+numbers — the whole point of moving past the mockup stage was to stop
+showing sample data as if it were real.
 
-## Open questions (blocking the three unwired panels)
+## Open questions
 
-1. **Position.** The phone GPS → HA home-location pipeline mentioned when
-   this was scoped isn't in `notes/dev/compute-hub-current-state.md` yet,
-   and GPS sourcing is still listed as an open item in
-   `gomac-project-overview.md`. Needs an answer on: is it live now, and if
-   so is it an HA `device_tracker`/`person` entity (read via HA's REST/WebSocket
-   API, needing a long-lived access token) or has it been bridged onto MQTT
-   the way Victron/pianobar are?
-2. **Weather.** No provider is wired up anywhere yet. Needs a provider
-   choice — Open-Meteo (free, no key) would need nothing from Scott; a
-   commercial provider would need an existing account/key.
-3. **Connectivity.** `ping-monitor` writes to `/var/log/ping-monitor/ping.csv`
-   on TheFlea, not MQTT. Either this service needs direct file access to that
-   path (implies running on TheFlea with read access to that log), or
-   `ping-monitor` needs a small addition to publish onto MQTT the way the
-   other adapters do.
+1. **Weather** — no provider decided yet. Two live options now that GPS is
+   real: reuse Home Assistant's `weather.home` entity (read via HA's
+   REST/WebSocket API, needs a long-lived access token; only as accurate as
+   whatever location that entity actually tracks — worth checking it moves
+   with Gomtuu's GPS and isn't just a static home zone), or call Open-Meteo
+   directly against the live `gps/phone/latitude,longitude` coordinates
+   (free, no key, no HA dependency, and guaranteed to follow the van's real
+   position). Scott's call.
+2. **Field names for `gps/phone/#` and `ping-monitor/#` are per the IT
+   agent's report, not independently re-verified against the live broker
+   from this repo** — same posture as the Victron metric names below.
+   `ping-monitor`'s `success` payload encoding in particular wasn't
+   specified, so `src/connectivityState.ts` parses it leniently (numeric
+   non-zero, or "true"/"1"/"up"/"ok") rather than assuming one exact
+   string. Worth a `mosquitto_sub -h 127.0.0.1 -t 'gps/phone/#' -v` /
+   `-t 'ping-monitor/#' -v` check before relying on these for anything
+   real.
 
 ## Victron metric names are a best-effort guess, not verified
 

@@ -58,7 +58,7 @@ function renderPowerGauge(power, history) {
 
   document.getElementById("socNum").textContent = soc === undefined ? "—" : `${Math.round(soc)}%`;
   document.getElementById("solarSub").textContent =
-    power.solarPower === undefined ? "no solar data" : `${Math.round(power.solarPower)}W solar`;
+    power.solarPower === undefined ? "no solar" : `${Math.round(power.solarPower)}W`;
 
   document.getElementById("voltageVal").textContent = fmt(power.voltage, 2, " V");
   document.getElementById("currentVal").textContent = fmtSigned(power.current, 1, " A");
@@ -211,19 +211,129 @@ function renderNowPlaying(np) {
   `;
 }
 
+const COMPASS_POINTS = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+
+function compassLabel(deg) {
+  if (deg === undefined) return "—";
+  const idx = Math.round(((deg % 360) + 360) % 360 / 45) % 8;
+  return COMPASS_POINTS[idx];
+}
+
+function renderPosition(position) {
+  const body = document.getElementById("positionBody");
+  const hasFix = position.latitude !== undefined && position.longitude !== undefined;
+
+  if (!hasFix) {
+    body.innerHTML = `<div class="empty-state">no GPS fix yet</div>`;
+    document.getElementById("positionMeta").textContent = "no fix yet";
+    return;
+  }
+
+  const mph = position.speedMps !== undefined ? position.speedMps * 2.23694 : undefined;
+  const heading = position.courseDeg;
+
+  body.innerHTML = `
+    <div class="pos-top">
+      <svg class="pos-compass" viewBox="0 0 64 64">
+        <circle cx="32" cy="32" r="28" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="1.5" />
+        <text x="32" y="10" text-anchor="middle" class="chart-axis-label">N</text>
+        ${
+          heading === undefined
+            ? ""
+            : `<line x1="32" y1="32" x2="32" y2="10" stroke="var(--position)" stroke-width="2.5" stroke-linecap="round" transform="rotate(${heading} 32 32)" />
+               <circle cx="32" cy="32" r="3" fill="var(--position)" />`
+        }
+      </svg>
+      <div class="pos-stats">
+        <div class="pos-big"><span class="num">${mph === undefined ? "—" : Math.round(mph)}</span><span class="unit">mph</span></div>
+        <div class="pos-sub">heading ${heading === undefined ? "—" : `${Math.round(heading)}° ${compassLabel(heading)}`}${mph !== undefined && mph > 1 ? " · moving" : ""}</div>
+      </div>
+    </div>
+    <div class="pos-coords mono">${position.latitude.toFixed(4)}°, ${position.longitude.toFixed(4)}°${position.accuracyM !== undefined ? ` ±${Math.round(position.accuracyM)}m` : ""} · fix ${formatAge(position.updatedAt)}</div>
+  `;
+  document.getElementById("positionMeta").textContent = "phone GPS";
+}
+
+function buildRttSparkline(history) {
+  const pts = history.filter((s) => s.avgRttMs !== undefined).slice(-20);
+  if (pts.length < 2) return undefined;
+
+  const max = Math.max(...pts.map((p) => p.avgRttMs), 10) * 1.15;
+  const xStep = 200 / (pts.length - 1);
+  const points = pts.map((p, i) => `${(i * xStep).toFixed(1)},${(46 - (p.avgRttMs / max) * 42).toFixed(1)}`).join(" ");
+  const last = pts[pts.length - 1];
+  const lastX = ((pts.length - 1) * xStep).toFixed(1);
+  const lastY = (46 - (last.avgRttMs / max) * 42).toFixed(1);
+
+  return `
+    <svg viewBox="0 0 200 50" preserveAspectRatio="none">
+      <polyline points="${points}" fill="none" stroke="var(--connectivity)" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round" />
+      <circle cx="${lastX}" cy="${lastY}" r="2.75" fill="var(--connectivity)" />
+    </svg>
+  `;
+}
+
+function renderConnectivity(connectivity) {
+  const body = document.getElementById("connectivityBody");
+  const { targets, summary, history } = connectivity;
+  const targetNames = Object.keys(targets);
+
+  document.getElementById("connectivityMeta").textContent = `${history.length} sample${history.length === 1 ? "" : "s"}`;
+
+  if (targetNames.length === 0) {
+    body.innerHTML = `<div class="empty-state">no ping-monitor data seen yet</div>`;
+    return;
+  }
+
+  const cells = history
+    .slice(-48)
+    .map((s) => {
+      const cls = s.successPct === undefined ? "" : s.successPct >= 90 ? "" : s.successPct >= 50 ? "warn" : "crit";
+      return `<div class="conn-cell ${cls}"></div>`;
+    })
+    .join("");
+
+  const rttSvg = buildRttSparkline(history);
+  const rttNow = targetNames
+    .map((name) => targets[name].rttMs)
+    .filter((v) => v !== undefined)
+    .reduce((sum, v, _, arr) => sum + v / arr.length, 0);
+
+  const targetPills = targetNames
+    .map((name) => {
+      const t = targets[name];
+      const cls = t.success === undefined ? "warn" : t.success ? "good" : "crit";
+      const rtt = t.rttMs !== undefined ? ` ${Math.round(t.rttMs)}ms` : "";
+      return `<span class="status-pill ${cls}"><span class="dot"></span>${name}${rtt}</span>`;
+    })
+    .join("");
+
+  body.innerHTML = `
+    ${cells ? `<div class="conn-strip">${cells}</div><div class="conn-labels"><span>oldest shown</span><span>now</span></div>` : `<div class="empty-state">collecting history…</div>`}
+    <div class="conn-rtt-row">
+      ${rttSvg ?? ""}
+      <div class="conn-rtt-meta">
+        ${summary.successPct !== undefined ? `success <span class="v">${summary.successPct.toFixed(0)}%</span>` : ""}
+        ${rttNow ? ` · rtt <span class="v">${Math.round(rttNow)}ms</span>` : ""}
+      </div>
+    </div>
+    <div class="conn-targets">${targetPills}</div>
+  `;
+}
+
 function render(snapshot) {
   renderPowerGauge(snapshot.victron.power, snapshot.victron.history);
   renderChart(snapshot.victron.history);
   renderSensorTables(snapshot.victron.devices);
   renderNowPlaying(snapshot.nowPlaying);
+  renderPosition(snapshot.position);
+  renderConnectivity(snapshot.connectivity);
 
-  document.getElementById("positionReason").textContent = snapshot.position.reason;
   document.getElementById("weatherReason").textContent = snapshot.weather.reason;
-  document.getElementById("connectivityReason").textContent = snapshot.connectivity.reason;
 
   document.getElementById("serverTime").textContent = new Date(snapshot.serverTime).toLocaleTimeString();
   document.getElementById("footerNote").textContent =
-    "live from Mosquitto over WebSocket — position, weather, connectivity not wired yet";
+    "live from Mosquitto over WebSocket — weather not wired yet";
 }
 
 function setConnState(state) {

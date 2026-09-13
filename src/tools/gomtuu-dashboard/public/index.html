@@ -14,7 +14,7 @@
     <header>
       <div class="brand">
         <div class="name">Gomtuu &middot; Instrument Panel</div>
-        <div class="sub">GOMAC telemetry &middot; victron-ble &middot; pianobar</div>
+        <div class="sub">GOMAC telemetry &middot; victron-ble &middot; pianobar &middot; phone GPS &middot; ping-monitor</div>
       </div>
       <div class="header-right">
         <span id="connState" class="badge">connecting&hellip;</span>
@@ -38,7 +38,7 @@
             </svg>
             <div class="dial-center">
               <span id="socNum" class="num">&mdash;</span>
-              <span id="solarSub" class="sub">no solar data</span>
+              <span id="solarSub" class="sub">no solar</span>
             </div>
           </div>
           <div class="hero-stats mono">
@@ -56,12 +56,12 @@
         </div>
       </div>
 
-      <div class="panel unwired">
+      <div class="panel">
         <div class="panel-head">
           <span class="panel-title"><span class="swatch" style="background:var(--position)"></span>Position</span>
-          <span class="panel-meta mono">not wired</span>
+          <span id="positionMeta" class="panel-meta mono">no fix yet</span>
         </div>
-        <div class="unwired-body" id="positionReason"></div>
+        <div id="positionBody" class="pos-body"></div>
       </div>
 
       <div class="panel unwired">
@@ -86,12 +86,12 @@
         <div class="chart-body" id="powerChart"></div>
       </div>
 
-      <div class="panel unwired">
+      <div class="panel">
         <div class="panel-head">
           <span class="panel-title"><span class="swatch" style="background:var(--connectivity)"></span>Connectivity</span>
-          <span class="panel-meta mono">not wired</span>
+          <span id="connectivityMeta" class="panel-meta mono">0 samples</span>
         </div>
-        <div class="unwired-body" id="connectivityReason"></div>
+        <div id="connectivityBody" class="conn-body"></div>
       </div>
     </div>
 

@@ -99,6 +99,34 @@ header {
 .stat-row .k { color: var(--ink-mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .stat-row .v { color: var(--ink); font-weight: 500; white-space: nowrap; }
 
+.pos-body { padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+.pos-top { display: flex; gap: 14px; align-items: center; }
+.pos-compass { flex: 0 0 auto; width: 64px; height: 64px; }
+.pos-stats { flex: 1; min-width: 0; }
+.pos-big { display: flex; align-items: baseline; gap: 6px; }
+.pos-big .num { font-size: 1.9rem; font-weight: 700; }
+.pos-big .unit { font-size: 0.78rem; color: var(--ink-mute); }
+.pos-sub { font-size: 0.74rem; color: var(--ink-dim); margin-top: 2px; }
+.pos-coords { font-size: 0.72rem; color: var(--ink-mute); border-top: 1px solid rgba(255,255,255,0.05); padding-top: 8px; }
+
+.conn-body { padding: 12px 16px 14px; }
+.conn-strip { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(4px, 1fr); gap: 2px; margin-bottom: 4px; height: 18px; }
+.conn-cell { border-radius: 1px; background: var(--good); }
+.conn-cell.warn { background: var(--warn); }
+.conn-cell.crit { background: var(--crit); }
+.conn-labels { display: flex; justify-content: space-between; font-size: 0.62rem; color: var(--ink-mute); font-family: "IBM Plex Mono", monospace; margin-bottom: 12px; }
+.conn-rtt-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.conn-rtt-row svg { width: 140px; height: 34px; flex: 0 0 auto; }
+.conn-rtt-meta { font-size: 0.74rem; color: var(--ink-dim); }
+.conn-rtt-meta .v { color: var(--ink); font-family: "IBM Plex Mono", monospace; font-weight: 600; }
+.conn-targets { display: flex; gap: 16px; flex-wrap: wrap; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.05); font-size: 0.72rem; }
+
+.status-pill { display: inline-flex; align-items: center; gap: 5px; font-size: 0.68rem; font-weight: 600; }
+.status-pill .dot { width: 6px; height: 6px; border-radius: 50%; }
+.status-pill.good { color: var(--good); } .status-pill.good .dot { background: var(--good); }
+.status-pill.warn { color: var(--warn); } .status-pill.warn .dot { background: var(--warn); }
+.status-pill.crit { color: var(--crit); } .status-pill.crit .dot { background: var(--crit); }
+
 .chart-body { padding: 12px 16px 10px; }
 .chart-body svg { width: 100%; height: auto; display: block; }
 .chart-empty { padding: 30px 0; text-align: center; color: var(--ink-mute); font-size: 0.78rem; }
