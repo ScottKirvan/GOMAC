@@ -2,7 +2,7 @@
   "name": "gomac-dashboard",
   "version": "0.1.0",
   "private": true,
-  "description": "GOMAC telemetry dashboard: serves Gomtuu's live MQTT telemetry (Victron BLE, Pandora) to a browser over WebSocket.",
+  "description": "GOMAC telemetry dashboard: polls Gomtuu's live MQTT telemetry (Victron BLE, Pandora, GPS, ping-monitor) plus Open-Meteo, and serves it to a browser as a plain JSON snapshot.",
   "type": "module",
   "engines": {
     "node": ">=20"
@@ -16,12 +16,10 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "mqtt": "^5.15.2",
-    "ws": "^8.18.0"
+    "mqtt": "^5.15.2"
   },
   "devDependencies": {
     "@types/node": "^26.4.0",
-    "@types/ws": "^8.5.13",
     "tsx": "^4.23.13",
     "typescript": "^5.9.3",
     "vitest": "^4.1.11"

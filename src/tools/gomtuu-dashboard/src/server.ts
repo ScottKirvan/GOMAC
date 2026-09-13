@@ -2,7 +2,6 @@ import { createReadStream, existsSync, statSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import { dirname, extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
-import { WebSocketServer, type WebSocket } from "ws";
 import type { DashboardConfig } from "./config.js";
 import type { Logger } from "./logger.js";
 import type { DashboardSnapshot } from "./types.js";
@@ -33,33 +32,26 @@ function serveStatic(urlPath: string, res: import("node:http").ServerResponse): 
 
 export interface DashboardServer {
   httpServer: Server;
-  broadcast(snapshot: DashboardSnapshot): void;
   close(): Promise<void>;
 }
 
+/**
+ * Plain polling, not push: the browser fetches GET /snapshot.json on an
+ * interval (see public/app.js) instead of holding a WebSocket open.
+ * Something still has to hold the live MQTT connection and Open-Meteo
+ * poll -- that part can't go away, MQTT is inherently a persistent
+ * connection -- but nothing here needs bidirectional transport to the
+ * browser, so plain HTTP is enough.
+ */
 export function startServer(config: DashboardConfig, logger: Logger, getSnapshot: () => DashboardSnapshot): DashboardServer {
   const httpServer = createServer((req, res) => {
+    if (req.url === "/snapshot.json") {
+      res.writeHead(200, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
+      res.end(JSON.stringify(getSnapshot()));
+      return;
+    }
     serveStatic(req.url ?? "/", res);
   });
-
-  const wss = new WebSocketServer({ server: httpServer, path: "/ws" });
-  const clients = new Set<WebSocket>();
-
-  wss.on("connection", (socket) => {
-    clients.add(socket);
-    socket.send(JSON.stringify(getSnapshot()));
-    socket.on("close", () => clients.delete(socket));
-    socket.on("error", () => clients.delete(socket));
-  });
-
-  const broadcast = (snapshot: DashboardSnapshot): void => {
-    const payload = JSON.stringify(snapshot);
-    for (const client of clients) {
-      if (client.readyState === client.OPEN) {
-        client.send(payload);
-      }
-    }
-  };
 
   httpServer.listen(config.http.port, () => {
     logger.info(`dashboard listening at http://127.0.0.1:${config.http.port}`);
@@ -67,11 +59,6 @@ export function startServer(config: DashboardConfig, logger: Logger, getSnapshot
 
   return {
     httpServer,
-    broadcast,
-    close: () =>
-      new Promise((resolve, reject) => {
-        wss.close();
-        httpServer.close((err) => (err ? reject(err) : resolve()));
-      }),
+    close: () => new Promise((resolve, reject) => httpServer.close((err) => (err ? reject(err) : resolve()))),
   };
 }
