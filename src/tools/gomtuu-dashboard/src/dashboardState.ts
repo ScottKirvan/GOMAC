@@ -3,25 +3,14 @@ import { createConnectivityState, summarizeConnectivity } from "./connectivitySt
 import { createPowerHistory, type PowerHistory } from "./history.js";
 import { createNowPlayingState } from "./pandoraState.js";
 import { createPositionState } from "./positionState.js";
-import type { ConnectivityState, DashboardSnapshot, NowPlayingState, PositionState, UnwiredSource } from "./types.js";
+import type { ConnectivityState, DashboardSnapshot, NowPlayingState, PositionState, WeatherState } from "./types.js";
 import { createVictronStore, summarizePower, type VictronStore } from "./victronState.js";
-
-/**
- * Weather has no real data feed wired up yet -- see README.md's Open
- * Questions (HA's weather.home vs. standing up Open-Meteo directly
- * against the live GPS coords, still Scott's call). Position and
- * connectivity were unwired here too until the IT-side agent confirmed
- * both are now live over MQTT.
- */
-const WEATHER_UNWIRED: UnwiredSource = {
-  connected: false,
-  reason: "no weather provider decided yet -- HA's weather.home vs. Open-Meteo against live GPS, pending a decision",
-};
 
 export interface DashboardStores {
   victron: VictronStore;
   nowPlaying: NowPlayingState;
   position: PositionState;
+  weather: WeatherState;
   connectivity: ConnectivityState;
   powerHistory: PowerHistory;
   connectivityHistory: ConnectivityHistory;
@@ -32,6 +21,7 @@ export function createDashboardStores(): DashboardStores {
     victron: createVictronStore(),
     nowPlaying: createNowPlayingState(),
     position: createPositionState(),
+    weather: {},
     connectivity: createConnectivityState(),
     powerHistory: createPowerHistory(),
     connectivityHistory: createConnectivityHistory(),
@@ -48,7 +38,7 @@ export function buildSnapshot(stores: DashboardStores): DashboardSnapshot {
     },
     nowPlaying: stores.nowPlaying,
     position: stores.position,
-    weather: WEATHER_UNWIRED,
+    weather: stores.weather,
     connectivity: {
       targets: stores.connectivity.targets,
       summary: connectivitySummary,

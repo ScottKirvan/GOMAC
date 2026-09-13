@@ -28,25 +28,30 @@ empty state until it can reach a broker with real traffic.
 | Now Playing | **live** | `gomac/pandora/state/<metric>` (verified against `src/integrations/pianobar/src/telemetry.ts`) |
 | Position (speed, heading, coords) | **live** | `gps/phone/<metric>` (phone GPS, rides HA's MQTT connection) |
 | Connectivity (ping success, RTT) | **live** | `ping-monitor/<target>/<metric>`, sampled into an in-memory ring buffer |
-| Weather & Sun | **not wired** | see Open Questions |
+| Weather & Sun | **live** | Open-Meteo, polled against the live `gps/phone` coordinates |
 
-Position and Connectivity were confirmed live by the IT-side agent handling
-TheFlea (see Open Questions below for the one field-name caveat on each).
-Weather still renders the reason it's unwired rather than fabricated
-numbers — the whole point of moving past the mockup stage was to stop
-showing sample data as if it were real.
+Every panel is live now. Position and Connectivity were confirmed live by
+the IT-side agent handling TheFlea; Weather uses Open-Meteo (Scott's call
+over HA's `weather.home` — see below for why) polled every 15 minutes by
+default (`WEATHER_POLL_INTERVAL_MS`) whenever a GPS fix is known.
 
-## Open questions
+## Open questions / known caveats
 
-1. **Weather** — no provider decided yet. Two live options now that GPS is
-   real: reuse Home Assistant's `weather.home` entity (read via HA's
-   REST/WebSocket API, needs a long-lived access token; only as accurate as
-   whatever location that entity actually tracks — worth checking it moves
-   with Gomtuu's GPS and isn't just a static home zone), or call Open-Meteo
-   directly against the live `gps/phone/latitude,longitude` coordinates
-   (free, no key, no HA dependency, and guaranteed to follow the van's real
-   position). Scott's call.
-2. **Field names for `gps/phone/#` and `ping-monitor/#` are per the IT
+1. **Why Open-Meteo over `weather.home`**: HA's weather entity would need
+   a long-lived access token and is only as accurate as whatever location
+   it actually tracks — worth confirming separately whether it follows a
+   moving `device_tracker` or just a static home zone. Open-Meteo called
+   directly against live GPS needs no HA dependency and is guaranteed to
+   track Gomtuu's real position, so that's what's wired up. Revisit if
+   Scott wants HA-integration parity (e.g. showing the same forecast HA's
+   own dashboards use) badly enough to deal with the token.
+2. **Open-Meteo's sunrise/sunset times are naive local-time strings for the
+   queried location** (`timezone=auto`); the browser parses them in ITS
+   OWN timezone, so the daylight bar drifts if the dashboard is viewed from
+   a different timezone than Gomtuu is currently in. Fine for the common
+   case (same person, near the van); not fixed with extra timezone
+   handling yet.
+3. **Field names for `gps/phone/#` and `ping-monitor/#` are per the IT
    agent's report, not independently re-verified against the live broker
    from this repo** — same posture as the Victron metric names below.
    `ping-monitor`'s `success` payload encoding in particular wasn't

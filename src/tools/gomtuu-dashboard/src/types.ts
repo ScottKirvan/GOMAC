@@ -34,13 +34,22 @@ export interface NowPlayingState {
 }
 
 /**
- * Sources with no real data feed yet, honest per CLAUDE.md's "don't
- * fabricate" rule -- see the dashboard README's Open Questions for what's
- * blocking each one. `connected: false` always, until a real feed exists.
+ * Polled from Open-Meteo against the live `gps/phone` coordinates (Scott's
+ * call over reusing HA's weather.home -- see the README's Open Questions
+ * for why: this way it's guaranteed to track Gomtuu's actual position).
+ * Absent fields mean "no successful fetch yet", not zero.
  */
-export interface UnwiredSource {
-  connected: false;
-  reason: string;
+export interface WeatherState {
+  temperatureC?: number;
+  apparentTemperatureC?: number;
+  conditionCode?: number;
+  condition?: string;
+  windSpeedKph?: number;
+  sunrise?: string;
+  sunset?: string;
+  updatedAt?: number;
+  sourceLatitude?: number;
+  sourceLongitude?: number;
 }
 
 /**
@@ -92,7 +101,7 @@ export interface DashboardSnapshot {
   };
   nowPlaying: NowPlayingState;
   position: PositionState;
-  weather: UnwiredSource;
+  weather: WeatherState;
   connectivity: {
     targets: Record<string, PingTargetState>;
     summary: ConnectivitySummary;
