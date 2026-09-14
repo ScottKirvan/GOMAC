@@ -1,15 +1,13 @@
 # Data Sources
 
-| Source | Provides | Delivery | Frequency | Always on |
-|---|---|---|---|---|
-| Victron BLE | Battery, solar | Push (MQTT) | 1 min | Yes |
-| Pandora / pianobar | Now playing | Push (MQTT) | Event | No — playback only |
-| Position (phone GPS) | Location, speed, heading | Push (MQTT) | Event | No — phone app |
-| Connectivity (ping-monitor) | Ping success, RTT | Push (MQTT) | 1 min | Yes |
-| Starlink dish | Signal, throughput | None (ad hoc) | N/A | No — dish WiFi only |
-| Weather & Sun (Open-Meteo) | Temp, sunrise/sunset | Poll | 15 min | No — needs GPS fix |
-
-**Push** = source publishes to MQTT on its own. **Poll** = GOMAC requests it on an interval.
+| Source | Frequency | Always on |
+|---|---|---|
+| Victron BLE | 1 min | Yes |
+| Pandora / pianobar | Event | No — playback only |
+| Position (phone GPS) | Event | No — phone app |
+| Connectivity (ping-monitor) | 1 min | Yes |
+| Starlink dish | N/A | No — dish WiFi only |
+| Weather & Sun (Open-Meteo) | 15 min | No — needs GPS fix |
 
 ## Caveats
 
