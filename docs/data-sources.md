@@ -19,7 +19,10 @@
 | Pandora / pianobar | Song duration | Event | No — playback only |
 | Pandora / pianobar | Song position | Event | No — playback only |
 | Pandora / pianobar | Station list | Event | No — playback only |
-| Position (phone GPS) | Location | Event | No — phone app |
+| Position (phone GPS) | Latitude | Event | No — phone app |
+| Position (phone GPS) | Longitude | Event | No — phone app |
+| Position (phone GPS) | Accuracy | Event | No — phone app |
+| Position (phone GPS) | Altitude | Event | No — phone app |
 | Position (phone GPS) | Velocity | Event | No — phone app |
 | Position (phone GPS) | Direction | Event | No — phone app |
 | Connectivity (ping-monitor) | 8.8.8.8 RTT | 1 min | Yes |
