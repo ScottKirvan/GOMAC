@@ -2,14 +2,18 @@
 
 | Source | Field | Frequency | Always on |
 |---|---|---|---|
-| Victron BLE | State of charge | 1 min | Yes |
-| Victron BLE | Battery voltage | 1 min | Yes |
-| Victron BLE | Battery current | 1 min | Yes |
-| Victron BLE | Battery power | 1 min | Yes |
-| Victron BLE | Battery temperature | 1 min | Yes |
-| Victron BLE | Charger state | 1 min | Yes |
-| Victron BLE | Solar power | 1 min | Yes |
-| Victron BLE | *(~9 more fields — see caveat)* | 1 min | Yes |
+| Victron BLE | State of charge (BMV-712) | 1 min | Yes |
+| Victron BLE | Battery voltage (BMV-712) | 1 min | Yes |
+| Victron BLE | Battery current (BMV-712) | 1 min | Yes |
+| Victron BLE | Consumed, Ah (BMV-712) | 1 min | Yes |
+| Victron BLE | Remaining runtime (BMV-712) | 1 min | Yes |
+| Victron BLE | Alarm state (BMV-712) | 1 min | Yes |
+| Victron BLE | Solar power (MPPT) | 1 min | Yes |
+| Victron BLE | Solar yield, today (MPPT) | 1 min | Yes |
+| Victron BLE | Charger state (MPPT / Orion / AC charger) | 1 min | Yes |
+| Victron BLE | Charger error (MPPT / Orion / AC charger) | 1 min | Yes |
+| Victron BLE | DC-DC input/output voltage (Orion) | 1 min | Yes |
+| Victron BLE | AC charger output voltage/current | 1 min | Yes |
 | Pandora / pianobar | Title | Event | No — playback only |
 | Pandora / pianobar | Artist | Event | No — playback only |
 | Pandora / pianobar | Album | Event | No — playback only |
@@ -44,7 +48,7 @@
 
 ## Caveats
 
-- Victron BLE publishes 16 fields total (confirmed count, per HA's entity registry); only 7 are confirmed by exact name — the rest exist but aren't individually verified yet. Check with `mosquitto_sub -h 127.0.0.1 -t 'victron-ble/#' -v` for the full live list.
+- The Victron BLE row above is directly verified against the live broker across all four devices (BMV-712 battery monitor, MPPT solar charger, Orion DC-DC charger, AC charger) -- not the ~16-field, HA-entity-registry-derived guess this used to say. There is no battery power or battery temperature field: the BMV-712 doesn't compute/publish power, and nothing in this setup has a temperature sensor. Re-check with `mosquitto_sub -h 127.0.0.1 -t 'victron-ble/#' -v` if a device is added or changed.
 - MQTT field names elsewhere are as reported, not independently re-verified — same check applies: `mosquitto_sub -h 127.0.0.1 -t '<topic>/#' -v`.
 - Retained topics (Pandora, Position, Connectivity) return a last-known value even when stale — no freshness flag built in.
 - Starlink fields are known-available via the dish's local API but nothing currently logs or polls them.
