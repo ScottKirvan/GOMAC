@@ -46,7 +46,15 @@ export interface DashboardServer {
 export function startServer(config: DashboardConfig, logger: Logger, getSnapshot: () => DashboardSnapshot): DashboardServer {
   const httpServer = createServer((req, res) => {
     if (req.url === "/snapshot.json") {
-      res.writeHead(200, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
+      // Wildcard is fine here: read-only, no auth, no cookies -- there's
+      // nothing same-origin policy would otherwise be protecting. This is
+      // what lets a frontend hosted elsewhere (e.g. GitHub Pages) poll a
+      // copy of this service exposed publicly (e.g. via Tailscale Funnel).
+      res.writeHead(200, {
+        "content-type": "application/json; charset=utf-8",
+        "cache-control": "no-store",
+        "access-control-allow-origin": "*",
+      });
       res.end(JSON.stringify(getSnapshot()));
       return;
     }

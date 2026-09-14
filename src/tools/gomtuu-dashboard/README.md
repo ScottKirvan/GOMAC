@@ -99,10 +99,35 @@ genuinely can't be deployed from a GOMAC Claude Code Remote session
 directly — no network path to TheFlea exists from that sandbox (no SSH, no
 Tailscale, `theflea` doesn't resolve).
 
-**GitHub Pages** was considered for hosting the frontend, but Pages only
-serves static files — it can't run this process at all, and polling
-`/snapshot.json` from a page hosted on Pages would mean exposing this
-service (or at least that one endpoint) to the public internet, which is a
-separate decision from anything built so far. For now this runs locally on
-whatever machine can reach Mosquitto (i.e. TheFlea), reachable over LAN or
-Tailscale, not the public internet.
+**GitHub Pages hosts the frontend now** — `docs/public/dashboard` is a
+symlink to this package's `public/` directory, so the existing docs build
+(`docs.yml`, unchanged) picks it up automatically and publishes it at
+`https://scottkirvan.github.io/GOMAC/dashboard/`. That page is 100% static
+files; it still needs a live copy of this Node process to actually have
+data to show, reachable from the public internet since Pages is public.
+
+To wire it up for real:
+
+1. **This process still has to run somewhere that can reach Mosquitto** —
+   that's TheFlea, same requirement as always. See the "not deployed
+   anywhere yet" note above; this session has no path to do that step.
+2. **Expose it publicly.** [Tailscale Funnel](https://tailscale.com/kb/1223/funnel)
+   is the natural fit here (Tailscale's already on the project's roadmap) —
+   it gives one local port a real public HTTPS URL without opening up
+   anything else on TheFlea's network. Something like:
+   ```
+   tailscale funnel --bg 8090
+   ```
+   run on TheFlea, once this service is running there on port 8090 (or
+   whatever `HTTP_PORT` is set to).
+3. **Point the deployed page at that URL.** Edit
+   `src/tools/gomtuu-dashboard/public/config.js` (which the symlink also
+   carries into the docs build) to set:
+   ```js
+   window.GOMAC_API_BASE = "https://<the-funnel-url>";
+   ```
+   and push to `main` — the existing `docs.yml` workflow redeploys on any
+   push under `docs/**`, which the symlinked dashboard files count as.
+
+Until step 2 happens, the Pages copy renders fine but shows "unreachable"
+— it has nothing to poll yet, which is the honest state, not a bug.
