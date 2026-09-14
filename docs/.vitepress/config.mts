@@ -7,6 +7,7 @@ export default defineConfig({
   themeConfig: {
     nav: [
       { text: 'Home', link: '/' },
+      { text: 'Data Sources', link: '/data-sources' },
       { text: 'GitHub', link: 'https://github.com/ScottKirvan/GOMAC' }
     ],
     socialLinks: [
