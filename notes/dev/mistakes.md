@@ -136,6 +136,55 @@ concrete facts and, where given, the user's own characterization of it —
 not a rephrased version that minimizes scope, reframes intent, or reads
 more benign than what was actually said at the time.
 
+## 2026-09-14 — Built a bidirectional server for a one-way, occasionally-refreshing viewer
+
+**What happened:** Asked for "a quick, realtime http dashboard" for
+Gomtuu's telemetry — later clarified as "a little side project" — the
+response was a full Node/TypeScript service: an MQTT client, an in-memory
+state store, and a WebSocket server pushing live updates to the browser.
+None of that was wrong on its own, but nobody checked whether push/live
+updates were actually wanted before building all of it. After the dashboard
+was built, tested, and deployed as a PR, Scott had to spell out what he'd
+actually asked for: "i just wanted a static dashboard with refreshing
+components - wouldn't require node. node would be needed for bidirectional
+coms. if this is a quick fix, do it, else, drop it and today has been a
+waste of time and tokens." The fix — dropping the WebSocket for the browser
+polling a plain JSON endpoint every 10s — took a few minutes once the actual
+requirement was known, and was a *simplification* of the existing code, not
+new work.
+
+A related instance in the same session: after the dashboard was built and
+merged, deployment instructions were written as a technical walkthrough
+without checking whether the person on the other end wanted to run terminal
+commands themselves. Scott: "you've written something that I have no idea
+how to deploy or what to do with." Both instances share the same root
+cause — building and writing for an assumed audience/requirement instead of
+confirming it first.
+
+**Why it's a real mistake:** CLAUDE.md already says "Don't bake in
+assumptions that make a task easier without checking with him first" and
+"escalate only when something would change scope." Bidirectional transport
+vs. one-way polling is exactly that kind of scope decision — it changes the
+dependency footprint, the deploy story, and what "quick" even means — and
+it was never surfaced as a choice, just built.
+
+**Cost:** a full extra architecture (MQTT + WebSocket server, `ws`
+dependency, connection-state handling on both ends) built, tested, and
+shipped before the actual requirement was known, on what was explicitly
+framed as a small side project; a full round of "how do I even run this"
+confusion after that; real frustration ("today has been a waste of time and
+tokens").
+
+**What changes:** before building server-side infrastructure for a
+"dashboard," "viewer," or similar read-only-sounding request, check
+explicitly whether live/bidirectional updates are actually required, or
+whether periodic refresh is enough — don't default to the more capable
+architecture because it's more impressive or because "realtime" was used
+loosely in the original ask. Separately: when handing off something to run,
+default to asking how hands-on the person wants to be (run it themselves
+vs. a plain explanation of what it does and where it lives) rather than
+assuming either.
+
 ## 2026-08-31 — Let a hung subagent sit for 5 hours without checking
 
 **What happened:** A subagent tasked with building a custom Lovelace card

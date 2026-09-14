@@ -32,6 +32,28 @@ Scott is a senior software engineer and systems architect. He works from first p
 - **When a sub-agent takes a shortcut, or declares something "not a bug" without actually having implemented or verified it, call that out explicitly** rather than passing it through as if it were solid.
 - **You are not the only one working in this repo.** Human contributors and other coding agents touch it too, without this file loaded. Don't fold general project/domain documentation into Claude-only files (like this one) just because that's convenient — it has to stay readable and discoverable for everyone, in plain docs like `notes/dev/gomac-project-overview.md`. Reserve this file for guidance that's genuinely specific to Claude Code.
 
+## TheFlea access from a Claude Code session
+
+A GOMAC session running via Claude Code Remote/on the web is a fully
+isolated sandbox with **no network path to TheFlea** — confirmed directly
+(no SSH client, no Tailscale, `theflea` doesn't even resolve), not
+assumed. It can build, test, and push code that's meant to run on TheFlea,
+but it cannot deploy it, run it there, or verify it against real MQTT
+traffic. Don't attempt SSH/Tailscale commands against TheFlea from a
+session like this expecting them to work — they won't, regardless of
+credentials.
+
+Getting something onto TheFlea itself needs one of:
+- Scott running the steps directly (write them up as copy-paste commands)
+- Handing off to whatever session/agent already operates on TheFlea's side
+  of the domain-separation boundary (see `compute-hub-current-state.md`)
+
+This also means anything this session can't independently verify against
+live TheFlea state (exact MQTT field names, whether a service is actually
+running, etc.) should be flagged as unverified rather than assumed —
+several MQTT topic/field names in this codebase are exactly that: matched
+defensively in code, documented as unverified, not asserted as fact.
+
 ## GitHub Issues and PRs
 
 Issue and PR templates live in `ScottKirvan/.github` and apply to this repo automatically via GitHub's community health file fallback.
@@ -63,7 +85,7 @@ The actual substance of this project lives in **`notes/dev/`**, which documents 
 
 **Naming: GOMAC is the system, Gomtuu is the van.** Gomtuu is Scott's 2005 Mercedes T1N Sprinter (full-time live-aboard, off-grid) — named after the living ship in the Star Trek TNG episode "Tin Man." GOMAC is the automation/intelligence platform being built for her. Don't conflate the two in docs: hardware that belongs to the physical vehicle is "Gomtuu's," the software/systems platform is "GOMAC."
 
-It's currently in the **design/spec phase — no application code has been written yet, and no hardware purchases beyond what's listed as existing have been committed to.**
+It was in the **design/spec phase for most of its life — no hardware purchases beyond what's listed as existing have been committed to** — but real application code now exists under `src/`: a pianobar/Pandora bridge daemon (`src/integrations/pianobar/`) and a live telemetry dashboard (`src/tools/gomtuu-dashboard/`), both TypeScript/Node, both with real tests, both deployed and running on TheFlea. The much bigger centerpiece described in `gomac-hub-spec.md` — the actual Claude-Code-CLI-wrapped hub — is still just a spec; nothing there has been built yet.
 
 This file is now the single source of truth for repo/tooling guidance and Claude-Code-specific working rules. GOMAC's domain context (project overview, architecture, build phases, hardware, open questions, session log) lives in **`notes/dev/gomac-project-overview.md`** — that's the main project doc, written for human contributors and any coding agent, not just Claude Code, since not everyone working in this repo will have this file loaded. Read it first for GOMAC context; update it (not this file) as decisions are made and the design evolves.
 
@@ -81,6 +103,8 @@ Scott previously kept a separate `notes/dev/CLAUDE.md` for Claude-specific domai
 | `rv-automation-research.md` | Prior research on RV/12V home-automation state of the art. |
 | `esp32.md` | ESP32 vs. Teensy 4.1 comparison notes. |
 | `GOMAC Architecture.canvas` | Obsidian canvas — visual architecture diagram. |
+| `compute-hub-current-state.md` | **Ground truth for what's actually running on TheFlea right now** (vs. what's only planned) — Home Assistant, Mosquitto, Victron BLE telemetry, ping-monitor, Starlink reachability, and the domain-separation model between GOMAC-repo work and TheFlea's own IT/DevOps context. Explicitly a living doc that drifts — verify against the live machine before trusting a claim in it, don't just cite it. Read this before assuming anything about what's live. |
+| `bridge-daemon-spec.md` | Conventions every GOMAC bridge daemon follows — MQTT topic naming (`gomac/<adapter>/cmd`, `.../state/<metric>`, `.../availability`), HA MQTT discovery, one-daemon-per-integration process model, TypeScript/Node runtime, repo layout under `src/integrations/<adapter>/`. |
 | `mistakes.md` | Dated log of process failures (agent or human) — wasted time, avoidable back-and-forth, fatiguing loops — with what changed as a result. Not a blame file. Add an entry whenever a real one happens; written for humans and any agent, not just Claude Code. |
 
 ## Repo layout
@@ -96,13 +120,22 @@ GOMAC
 │   └── PULL_REQUEST_TEMPLATE.md
 ├── assets                  # Images/media, CSS for GitHub Pages
 ├── docs                     # VitePress site (deployed to GitHub Pages on push to main)
+│   └── public/dashboard     # symlink -> src/tools/gomtuu-dashboard/public (see below)
 ├── notes
 │   ├── CHANGELOG.md         # Auto-generated by release-please — do not hand-edit
 │   ├── TODO.md / VERSION.md
 │   └── dev/                 # GOMAC project docs — see above
+├── src
+│   ├── integrations/pianobar        # Pandora/pianobar bridge daemon -> MQTT (gomac/pandora/*)
+│   └── tools/gomtuu-dashboard        # Live telemetry dashboard -- polls MQTT + Open-Meteo,
+│                                      # serves GET /snapshot.json + a static frontend
 ├── CONTRIBUTING.md
 └── README.md
 ```
+
+Both `src/` packages are standalone npm packages (own `package.json`,
+`tsconfig.json`, `vitest.config.ts`) — there's no root-level workspace or
+shared `node_modules`. `cd` into a package before running its scripts.
 
 ## Commands
 
@@ -114,7 +147,23 @@ npm run docs:dev       # local dev server
 npm run docs:build     # production build
 npm run docs:preview   # preview the built site
 ```
-There is no application build/lint/test suite yet — no code has been written for the GOMAC platform itself.
+
+Each package under `src/` (e.g. `src/integrations/pianobar`,
+`src/tools/gomtuu-dashboard`) follows the same scripts — `cd` into it first:
+```
+npm install
+npm run dev         # tsx, runs straight from src/
+npm run build        # tsc -> dist/
+npm start             # node dist/index.js
+npm test               # vitest run
+npm run typecheck       # tsc --noEmit
+```
+
+**`npm install` in this environment can hit a known npm/arborist bug**
+(`Cannot read properties of null (reading 'edgesOut')`) that's unrelated
+to the package's own `package.json` — reproduces intermittently even on
+already-known-good lockfiles, confirmed not caused by anything project-side.
+Workaround: `npm install --legacy-peer-deps`.
 
 ## Conventions
 
@@ -124,6 +173,7 @@ There is no application build/lint/test suite yet — no code has been written f
 - **Prefer narrow, localised changes.** A fix or feature should not require touching unrelated parts of the codebase. If it does, that's a design signal worth surfacing.
 - **Refactoring is a first-class activity**, not something to defer. Improve structure as you go rather than accumulating technical debt for a later pass.
 - **In unfamiliar domain territory, prefer primary sources** — official docs, specs, RFCs — over general knowledge. Flag domain uncertainty explicitly rather than proceeding on an assumption.
-- **When application code exists:** Unit tests must be written alongside all new code. Bug fixes require a failing test that reproduces the bug, then the fix that makes it pass (red/green).
-- **When a build/test toolchain is established:** CI, lint, and formatting must all pass before committing or opening a PR. Discover the project's commands from the CI config, `Makefile`, or equivalent — do not assume they match another project's toolchain.
-- Docs deploy workflow (`.github/workflows/docs.yml`) only triggers on pushes to `main` under `docs/**` — irrelevant until the docs site has real content.
+- **Unit tests must be written alongside all new application code.** Bug fixes require a failing test that reproduces the bug, then the fix that makes it pass (red/green). See `src/integrations/pianobar` and `src/tools/gomtuu-dashboard` for the established pattern (vitest, `test/**/*.test.ts`).
+- **Typecheck/build/test must all pass before committing or opening a PR** for any package under `src/` — `npm run typecheck && npm test && npm run build`. Each package's own scripts are the source of truth; don't assume they match another project's toolchain.
+- Docs deploy workflow (`.github/workflows/docs.yml`) only triggers on pushes to `main` under `docs/**` — the docs site has real content now (`docs/data-sources.md`, the symlinked dashboard), so this actually matters; it calls a reusable workflow in `ScottKirvan/.github` (`reusable-docs-deploy.yml`) rather than defining its own steps — read that before changing docs CI, don't guess at what it does.
+- `docs/public/dashboard` is a symlink to `src/tools/gomtuu-dashboard/public/`, not a copy — editing the dashboard's frontend there is editing the deployed docs-site copy too, no separate sync step needed. VitePress's build follows the symlink automatically (confirmed by actually building and checking the output, not assumed).
