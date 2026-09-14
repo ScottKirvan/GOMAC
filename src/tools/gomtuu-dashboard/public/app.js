@@ -390,6 +390,7 @@ function render(snapshot) {
 }
 
 const POLL_INTERVAL_MS = 10000;
+const API_BASE = window.GOMAC_API_BASE || "";
 
 function setConnState(state) {
   const el = document.getElementById("connState");
@@ -407,7 +408,7 @@ function setConnState(state) {
 
 async function poll() {
   try {
-    const res = await fetch("snapshot.json", { cache: "no-store" });
+    const res = await fetch(`${API_BASE}/snapshot.json`, { cache: "no-store" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     render(await res.json());
     setConnState("live");
