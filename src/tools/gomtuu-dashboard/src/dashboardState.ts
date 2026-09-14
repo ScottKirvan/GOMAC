@@ -47,3 +47,21 @@ export function buildSnapshot(stores: DashboardStores): DashboardSnapshot {
     serverTime: Date.now(),
   };
 }
+
+/**
+ * Strips everything that reveals Gomtuu's real-world location, for the
+ * port meant to be published publicly (`tailscale funnel`). `position` is
+ * the obvious one; `weather.sourceLatitude/sourceLongitude` is a second,
+ * easy-to-miss leak of the exact same coordinates via a different field,
+ * since weather is fetched by querying Open-Meteo with the live GPS fix.
+ * The unredacted snapshot stays available on the private port
+ * (`tailscale serve`, tailnet-only) for anyone who actually needs position.
+ */
+export function redactPositionForPublic(snapshot: DashboardSnapshot): DashboardSnapshot {
+  const { sourceLatitude, sourceLongitude, ...weatherWithoutSource } = snapshot.weather;
+  return {
+    ...snapshot,
+    position: {},
+    weather: weatherWithoutSource,
+  };
+}

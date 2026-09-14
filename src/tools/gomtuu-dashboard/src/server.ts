@@ -32,19 +32,12 @@ function serveStatic(urlPath: string, res: import("node:http").ServerResponse): 
 
 export interface DashboardServer {
   httpServer: Server;
+  privateServer: Server;
   close(): Promise<void>;
 }
 
-/**
- * Plain polling, not push: the browser fetches GET /snapshot.json on an
- * interval (see public/app.js) instead of holding a WebSocket open.
- * Something still has to hold the live MQTT connection and Open-Meteo
- * poll -- that part can't go away, MQTT is inherently a persistent
- * connection -- but nothing here needs bidirectional transport to the
- * browser, so plain HTTP is enough.
- */
-export function startServer(config: DashboardConfig, logger: Logger, getSnapshot: () => DashboardSnapshot): DashboardServer {
-  const httpServer = createServer((req, res) => {
+function createHandler(getSnapshot: () => DashboardSnapshot) {
+  return (req: import("node:http").IncomingMessage, res: import("node:http").ServerResponse): void => {
     if (req.url === "/snapshot.json") {
       // Wildcard is fine here: read-only, no auth, no cookies -- there's
       // nothing same-origin policy would otherwise be protecting. This is
@@ -59,14 +52,44 @@ export function startServer(config: DashboardConfig, logger: Logger, getSnapshot
       return;
     }
     serveStatic(req.url ?? "/", res);
-  });
+  };
+}
 
-  httpServer.listen(config.http.port, () => {
-    logger.info(`dashboard listening at http://127.0.0.1:${config.http.port}`);
+/**
+ * Plain polling, not push: the browser fetches GET /snapshot.json on an
+ * interval (see public/app.js) instead of holding a WebSocket open.
+ * Something still has to hold the live MQTT connection and Open-Meteo
+ * poll -- that part can't go away, MQTT is inherently a persistent
+ * connection -- but nothing here needs bidirectional transport to the
+ * browser, so plain HTTP is enough.
+ *
+ * Two servers, two ports, both loopback-only: `config.http.port` gets the
+ * *redacted* snapshot (see dashboardState.redactPositionForPublic) and is
+ * the one meant for `tailscale funnel` (public internet); `privatePort`
+ * gets the full snapshot including position, meant for `tailscale serve`
+ * (tailnet-only). Deliberately two ports rather than two paths on one --
+ * Tailscale's serve/funnel don't reliably mix per-path on a single port
+ * (whichever command runs last wins for the whole port), so port-level
+ * separation is the only isolation that's actually load-bearing here.
+ */
+export function startServer(config: DashboardConfig, logger: Logger, getSnapshot: () => DashboardSnapshot, getPublicSnapshot: () => DashboardSnapshot): DashboardServer {
+  const httpServer = createServer(createHandler(getPublicSnapshot));
+  const privateServer = createServer(createHandler(getSnapshot));
+
+  httpServer.listen(config.http.port, config.http.host, () => {
+    logger.info(`public (position-redacted) dashboard listening at http://${config.http.host}:${config.http.port}`);
+  });
+  privateServer.listen(config.http.privatePort, config.http.host, () => {
+    logger.info(`private (full, incl. position) dashboard listening at http://${config.http.host}:${config.http.privatePort} -- publish this one with 'tailscale serve', never 'funnel'`);
   });
 
   return {
     httpServer,
-    close: () => new Promise((resolve, reject) => httpServer.close((err) => (err ? reject(err) : resolve()))),
+    privateServer,
+    close: () =>
+      Promise.all([
+        new Promise<void>((resolve, reject) => httpServer.close((err) => (err ? reject(err) : resolve()))),
+        new Promise<void>((resolve, reject) => privateServer.close((err) => (err ? reject(err) : resolve()))),
+      ]).then(() => undefined),
   };
 }
