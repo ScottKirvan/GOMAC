@@ -101,6 +101,47 @@ boost while driving" and "catch a new code within a second or two of it
 firing" -- just worth setting expectations against, since it's a
 different order of magnitude than a CAN-based setup would give.
 
+## Data availability with the vehicle off
+
+Directly relevant to boondocking -- Scott wants infrequent/on-demand
+battery voltage checks on a parked, not-running vehicle. Two genuinely
+different things determine what's available, easy to conflate:
+
+**The vehicle's ECU** -- required by spec to answer Mode 01/03 queries
+whenever ignition is in the "ON" position, even with the engine not
+running (current-data PIDs like RPM/boost would just read zero, but
+stored DTCs and other static data come through fine). With the key
+fully out, this is genuinely uncertain for this specific vehicle --
+not confirmed by anything found so far. The OBDLink MX+'s own sleep
+behavior (below) tracks engine shutdown rather than key position, which
+is suggestive of most vehicles' ECUs going quiet on the bus shortly
+after -- but that's an inference, not a confirmed fact for this T1N.
+
+**The adapter itself** -- OBDLink's BatterySaver Technology: 2mA draw
+asleep vs. 69mA active, sleeps within roughly 10 minutes of engine
+shutdown (exact timing unspecified, vehicle-dependent), wakes on a
+Bluetooth connection attempt, a door unlock, or cranking the engine.
+Negligible battery impact either way -- not a concern for the
+overvoltage question (a charging-system/alternator problem, unrelated
+to current draw) or for long-term parking (2mA over weeks is trivial
+against any lead-acid or lithium starter battery's capacity).
+
+**The actual answer for boondocked voltage checks**: there's a third
+option better than both of the above. `AT RV` (Read Voltage) is a
+standard ELM327 AT command, present since firmware v1.3 -- meaning the
+MX+ almost certainly supports it -- that reads voltage **directly at
+the adapter's own power pin**, a pure hardware ADC measurement with no
+OBD-II protocol request to the vehicle's ECU at all. That pin is wired
+to the OBD connector's constant-12V line (pin 16 on this vehicle's
+connector, confirmed un-switched by ignition), so the reading should be
+available regardless of ECU/ignition state. The only thing that has to
+be awake is the adapter, and a Bluetooth connection attempt wakes it
+from its own sleep per the BatterySaver behavior above. Practical flow:
+connect -> `AT RV` -> real voltage, no engine, no ignition, no ECU
+response needed. This is a materially better fit for on-demand
+boondocked checks than PID `0x42` (Control Module Voltage), which does
+require the ECU to answer a real OBD-II request.
+
 ## Bottom line
 
 - Raw CAN sniffing: not available via Gomtuu's OBD-II port on this
@@ -126,3 +167,7 @@ different order of magnitude than a CAN-based setup would give.
 - [Keyword Protocol 2000 -- Wikipedia](https://en.wikipedia.org/wiki/Keyword_Protocol_2000)
 - [iDoka/awesome-automotive-can-id -- community CAN ID index](https://github.com/iDoka/awesome-automotive-can-id)
 - [Sprinter-Source.com -- Sprinter turbo upgrades thread (OM647 boost sensor discussion)](https://sprinter-source.com/forums/index.php?threads/51304/page-4)
+- [ELM327 AT Commands reference (SparkFun-hosted PDF) -- AT RV](https://cdn.sparkfun.com/assets/4/e/5/0/2/ELM327_AT_Commands.pdf)
+- [MacFJA/OBD2 -- ELM327 command reference](https://github.com/MacFJA/OBD2/blob/master/src/main/java/io/github/macfja/obd2/elm327/command/Commands.md)
+- [OBDLink support -- Understand OBDLink Bluetooth Adapter LEDs (BatterySaver behavior)](https://support.obdlink.com/support/solutions/articles/43000722033-understand-obdlink-bluetooth-adapter-leds)
+- [bluetoothobd2.com -- OBDLink MX not going to sleep (real-world sleep timing observations)](https://bluetoothobd2.com/obdlink-mx-not-going-to-sleep)
