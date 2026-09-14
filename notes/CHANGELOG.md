@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.1.0](https://github.com/ScottKirvan/GOMAC/compare/v0.0.0...v0.1.0) (2026-09-14)
+
+
+### Features
+
+* add real-time telemetry dashboard for Gomtuu ([db42cbf](https://github.com/ScottKirvan/GOMAC/commit/db42cbf8285a83299b16b28dbd8ee153af19e0df))
+* auto-detect tailnet reachability instead of a separate private URL ([daf55c7](https://github.com/ScottKirvan/GOMAC/commit/daf55c727b193a889071a3495781f493411b73d2))
+* publish the dashboard frontend through GitHub Pages ([3d2c848](https://github.com/ScottKirvan/GOMAC/commit/3d2c848b8cf4dfa8d653f51de50b3fa6fa529934))
+* wire position and connectivity into the dashboard ([76858b9](https://github.com/ScottKirvan/GOMAC/commit/76858b98bedd4d1080b3f0324e4008a6d338a5ba))
+* wire weather into the dashboard via Open-Meteo ([7d00b45](https://github.com/ScottKirvan/GOMAC/commit/7d00b450dd871662efccc866f5ac81456bb11495))
+
+
+### Bug Fixes
+
+* bind dashboard to loopback and isolate position to a tailnet-only port ([9cbebab](https://github.com/ScottKirvan/GOMAC/commit/9cbebabb568cc7a442aa50081462e67337d99f8d))
+* point public dashboard at Funnel's actual supported port ([457113a](https://github.com/ScottKirvan/GOMAC/commit/457113aa1939faa5b1f6ed96b7675db8137e02e5))
+* replace WebSocket push with plain JSON polling ([ed118c6](https://github.com/ScottKirvan/GOMAC/commit/ed118c6098b8e78dd12d1529f9e5a66080b447be))
+
 ## 0.0.0 (2026-09-01)
 
 
