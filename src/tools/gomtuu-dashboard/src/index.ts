@@ -1,5 +1,5 @@
 import { loadConfig } from "./config.js";
-import { buildSnapshot, createDashboardStores } from "./dashboardState.js";
+import { buildSnapshot, createDashboardStores, redactPositionForPublic } from "./dashboardState.js";
 import { consoleLogger } from "./logger.js";
 import { connectMqtt } from "./mqttClient.js";
 import { startServer } from "./server.js";
@@ -11,7 +11,12 @@ const stores = createDashboardStores();
 // Polling, not push: the browser fetches /snapshot.json on an interval
 // (see public/app.js), so nothing here needs to notify it of changes --
 // the stores are just kept current for whenever the next poll lands.
-const server = startServer(config, consoleLogger, () => buildSnapshot(stores));
+const server = startServer(
+  config,
+  consoleLogger,
+  () => buildSnapshot(stores),
+  () => redactPositionForPublic(buildSnapshot(stores)),
+);
 
 connectMqtt(config, stores, consoleLogger, () => {});
 
