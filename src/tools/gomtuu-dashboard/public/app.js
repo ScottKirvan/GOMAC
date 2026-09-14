@@ -390,7 +390,7 @@ function render(snapshot) {
 }
 
 const POLL_INTERVAL_MS = 10000;
-const API_BASE = window.GOMAC_API_BASE || "";
+const PROBE_TIMEOUT_MS = 3000;
 
 function setConnState(state) {
   const el = document.getElementById("connState");
@@ -406,9 +406,47 @@ function setConnState(state) {
   }
 }
 
+/**
+ * Resolved once at startup, not per-poll: tries the tailnet-only base
+ * first (real position included) with a short timeout, falls back to
+ * the public base if that's unreachable -- which is the expected,
+ * non-error outcome for any visitor not on the tailnet, not a fetch
+ * failure to log or alarm on. When neither is configured (running
+ * locally on TheFlea itself, or `npm run dev`), same-origin is already
+ * correct and there's nothing to probe.
+ */
+async function resolveApiBase() {
+  const privateBase = window.GOMAC_API_BASE_PRIVATE;
+  const publicBase = window.GOMAC_API_BASE_PUBLIC;
+  if (!privateBase && !publicBase) {
+    return "";
+  }
+
+  if (privateBase) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS);
+    try {
+      const res = await fetch(`${privateBase}/snapshot.json`, { cache: "no-store", signal: controller.signal });
+      if (res.ok) {
+        return privateBase;
+      }
+    } catch {
+      // Not reachable -- most likely this visitor isn't on the tailnet.
+      // Fall through to the public base below; this is the expected
+      // path for the vast majority of visitors, not a failure.
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  return publicBase ?? "";
+}
+
+let apiBase = "";
+
 async function poll() {
   try {
-    const res = await fetch(`${API_BASE}/snapshot.json`, { cache: "no-store" });
+    const res = await fetch(`${apiBase}/snapshot.json`, { cache: "no-store" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     render(await res.json());
     setConnState("live");
@@ -418,6 +456,11 @@ async function poll() {
   }
 }
 
-setConnState("connecting");
-poll();
-setInterval(poll, POLL_INTERVAL_MS);
+async function start() {
+  setConnState("connecting");
+  apiBase = await resolveApiBase();
+  poll();
+  setInterval(poll, POLL_INTERVAL_MS);
+}
+
+start();
