@@ -143,18 +143,23 @@ completely unreachable from TheFlea -- not just a failed
 pair/authenticate, but invisible to a raw HCI inquiry scan, meaning it
 wasn't responding to *any* Bluetooth-level activity at all. Scott
 independently confirmed the same thing with OBDLink's own official
-phone app: it also can't connect while the key is off. So "wakes on a
-Bluetooth connection attempt" either doesn't apply to a generic
-connection attempt (perhaps it needs some other OBDLink-app-specific
-wake sequence that neither a plain Linux scan nor the app's normal
-connect flow triggers), or the documented behavior is simply
-inaccurate/overstated for this unit. Either way: **on-demand boondocked
-voltage checks via this adapter are not currently possible with the key
-out**, contradicting the optimistic read of the BatterySaver docs
-above. `AT RV` may still be the right command once the adapter *is*
-reachable (e.g. key in ON/accessory position) -- that part is untested,
-not disproven -- but it doesn't solve the "car's been sitting for days,
-what's my starter battery doing" case this was meant to address.
+phone app: it also can't connect while the key is off.
+
+**This is a "not yet achieved," not a "confirmed impossible."** Two
+plain, untried explanations before assuming the capability doesn't
+exist: the real wake trigger might be something neither a Linux scan
+nor the app's normal connect flow happens to send (some OBDLink-app
+-specific sequence, or a physical trigger like unplug/replug), or there
+may be a settings/mode on the adapter itself (BLE vs. classic radio,
+a power-save level, etc.) that needs configuring first. A device
+failing to respond the way its docs implied is an ordinary, expected
+outcome to hit while working through a new adapter's real behavior --
+not evidence of a deeper problem worth writing this off over. **Needs
+more digging, not a conclusion.** `AT RV` itself is still likely the
+right command once the adapter is reachable (e.g. key in ON/accessory
+position) -- that part is untested, not disproven -- it just doesn't
+yet solve the "car's been sitting for days, what's my starter battery
+doing" case this was meant to address.
 
 ## Bottom line
 
@@ -167,12 +172,14 @@ what's my starter battery doing" case this was meant to address.
   real-time-ish battery voltage, and immediate DTC detection -- the
   actual goals discussed. Recommend proceeding on that basis rather than
   chasing raw CAN access for this vehicle.
-- Confirmed live (2026-09-19): the adapter is unreachable with the key
-  out -- not a theory, tested directly and independently confirmed via
-  OBDLink's own app. Boondocked/on-demand voltage monitoring while
-  parked is **not** achievable via this adapter as currently understood;
-  don't design around the optimistic "AT RV works regardless of
-  ignition" read above without re-testing if that need comes up again.
+- Confirmed live (2026-09-19): the adapter didn't respond with the key
+  out -- tested directly and independently reproduced via OBDLink's own
+  app, so not a testing artifact on TheFlea's end. That's a "not yet
+  achieved," not a "proven impossible" -- a device not behaving the way
+  its docs implied is ordinary while working through real hardware, not
+  evidence the capability doesn't exist. Boondocked/on-demand voltage
+  monitoring while parked needs more digging (wake trigger, adapter
+  settings) before either building on it or ruling it out.
 - Revisit if Gomtuu's OBD-II adapter/vehicle ever changes (e.g. a
   CAN-equipped Sprinter generation) -- the OBDLink MX+'s raw CAN
   capability would then actually be usable, with the buffer/filtering
