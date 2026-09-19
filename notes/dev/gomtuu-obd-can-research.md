@@ -126,38 +126,36 @@ overvoltage question (a charging-system/alternator problem, unrelated
 to current draw) or for long-term parking (2mA over weeks is trivial
 against any lead-acid or lithium starter battery's capacity).
 
-**The theory**: `AT RV` (Read Voltage) is a standard ELM327 AT command,
-present since firmware v1.3 -- meaning the MX+ almost certainly supports
-it -- that reads voltage **directly at the adapter's own power pin**, a
-pure hardware ADC measurement with no OBD-II protocol request to the
-vehicle's ECU at all. That pin is wired to the OBD connector's
-constant-12V line (pin 16 on this vehicle's connector, confirmed
-un-switched by ignition), so the reading should, in theory, be available
-regardless of ECU/ignition state -- the only thing that has to be awake
-is the adapter itself, and OBDLink's own BatterySaver documentation
-claims a Bluetooth connection attempt wakes it from sleep.
+**Tested live, 2026-09-19: with the vehicle parked and the key out, the
+adapter did not respond at all.** Not a failed pair/authenticate --
+invisible to a raw HCI inquiry scan, no Bluetooth-level response of any
+kind. Scott independently reproduced the same failure with OBDLink's
+own official phone app, ruling out a testing artifact on TheFlea's end.
+This is a "not yet achieved," not a "confirmed impossible" -- a device
+not behaving the way its own docs implied is an ordinary outcome to hit
+while working through real hardware, not evidence the capability
+doesn't exist. Needs more digging, not a conclusion.
 
-**Tested live, 2026-09-19, and the theory doesn't hold up in
-practice.** With the vehicle parked and the key out, the adapter was
-completely unreachable from TheFlea -- not just a failed
-pair/authenticate, but invisible to a raw HCI inquiry scan, meaning it
-wasn't responding to *any* Bluetooth-level activity at all. Scott
-independently confirmed the same thing with OBDLink's own official
-phone app: it also can't connect while the key is off.
+The plan going in, for reference: `AT RV` (Read Voltage) is a standard
+ELM327 AT command, present since firmware v1.3, that reads voltage
+directly at the adapter's own power pin -- a hardware ADC measurement
+with no OBD-II protocol request to the vehicle's ECU at all. That pin
+is wired to the OBD connector's constant-12V line (pin 16 on this
+vehicle's connector, confirmed un-switched by ignition), so the reading
+*would* be independent of ECU/ignition state -- the only open question
+was always going to be whether the adapter itself is awake, and
+OBDLink's BatterySaver documentation claims a Bluetooth connection
+attempt wakes it from sleep. That specific claim is what didn't hold up
+in this test.
 
-**This is a "not yet achieved," not a "confirmed impossible."** Two
-plain, untried explanations before assuming the capability doesn't
-exist: the real wake trigger might be something neither a Linux scan
-nor the app's normal connect flow happens to send (some OBDLink-app
--specific sequence, or a physical trigger like unplug/replug), or there
-may be a settings/mode on the adapter itself (BLE vs. classic radio,
-a power-save level, etc.) that needs configuring first. A device
-failing to respond the way its docs implied is an ordinary, expected
-outcome to hit while working through a new adapter's real behavior --
-not evidence of a deeper problem worth writing this off over. **Needs
-more digging, not a conclusion.** `AT RV` itself is still likely the
-right command once the adapter is reachable (e.g. key in ON/accessory
-position) -- that part is untested, not disproven -- it just doesn't
+Two untried angles before writing this off: the real wake trigger might
+be something neither a Linux scan nor the app's normal connect flow
+sends (some OBDLink-app-specific sequence, or a physical trigger like
+unplug/replug), or there may be a settings/mode on the adapter itself
+(BLE vs. classic radio, a power-save level, etc.) that needs configuring
+first. `AT RV` itself is still likely the right command once the
+adapter is reachable (e.g. key in ON/accessory position) -- that part
+is untested, not disproven -- it just doesn't
 yet solve the "car's been sitting for days, what's my starter battery
 doing" case this was meant to address.
 
