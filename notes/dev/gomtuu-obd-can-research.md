@@ -126,21 +126,35 @@ overvoltage question (a charging-system/alternator problem, unrelated
 to current draw) or for long-term parking (2mA over weeks is trivial
 against any lead-acid or lithium starter battery's capacity).
 
-**The actual answer for boondocked voltage checks**: there's a third
-option better than both of the above. `AT RV` (Read Voltage) is a
-standard ELM327 AT command, present since firmware v1.3 -- meaning the
-MX+ almost certainly supports it -- that reads voltage **directly at
-the adapter's own power pin**, a pure hardware ADC measurement with no
-OBD-II protocol request to the vehicle's ECU at all. That pin is wired
-to the OBD connector's constant-12V line (pin 16 on this vehicle's
-connector, confirmed un-switched by ignition), so the reading should be
-available regardless of ECU/ignition state. The only thing that has to
-be awake is the adapter, and a Bluetooth connection attempt wakes it
-from its own sleep per the BatterySaver behavior above. Practical flow:
-connect -> `AT RV` -> real voltage, no engine, no ignition, no ECU
-response needed. This is a materially better fit for on-demand
-boondocked checks than PID `0x42` (Control Module Voltage), which does
-require the ECU to answer a real OBD-II request.
+**The theory**: `AT RV` (Read Voltage) is a standard ELM327 AT command,
+present since firmware v1.3 -- meaning the MX+ almost certainly supports
+it -- that reads voltage **directly at the adapter's own power pin**, a
+pure hardware ADC measurement with no OBD-II protocol request to the
+vehicle's ECU at all. That pin is wired to the OBD connector's
+constant-12V line (pin 16 on this vehicle's connector, confirmed
+un-switched by ignition), so the reading should, in theory, be available
+regardless of ECU/ignition state -- the only thing that has to be awake
+is the adapter itself, and OBDLink's own BatterySaver documentation
+claims a Bluetooth connection attempt wakes it from sleep.
+
+**Tested live, 2026-09-19, and the theory doesn't hold up in
+practice.** With the vehicle parked and the key out, the adapter was
+completely unreachable from TheFlea -- not just a failed
+pair/authenticate, but invisible to a raw HCI inquiry scan, meaning it
+wasn't responding to *any* Bluetooth-level activity at all. Scott
+independently confirmed the same thing with OBDLink's own official
+phone app: it also can't connect while the key is off. So "wakes on a
+Bluetooth connection attempt" either doesn't apply to a generic
+connection attempt (perhaps it needs some other OBDLink-app-specific
+wake sequence that neither a plain Linux scan nor the app's normal
+connect flow triggers), or the documented behavior is simply
+inaccurate/overstated for this unit. Either way: **on-demand boondocked
+voltage checks via this adapter are not currently possible with the key
+out**, contradicting the optimistic read of the BatterySaver docs
+above. `AT RV` may still be the right command once the adapter *is*
+reachable (e.g. key in ON/accessory position) -- that part is untested,
+not disproven -- but it doesn't solve the "car's been sitting for days,
+what's my starter battery doing" case this was meant to address.
 
 ## Bottom line
 
@@ -153,6 +167,12 @@ require the ECU to answer a real OBD-II request.
   real-time-ish battery voltage, and immediate DTC detection -- the
   actual goals discussed. Recommend proceeding on that basis rather than
   chasing raw CAN access for this vehicle.
+- Confirmed live (2026-09-19): the adapter is unreachable with the key
+  out -- not a theory, tested directly and independently confirmed via
+  OBDLink's own app. Boondocked/on-demand voltage monitoring while
+  parked is **not** achievable via this adapter as currently understood;
+  don't design around the optimistic "AT RV works regardless of
+  ignition" read above without re-testing if that need comes up again.
 - Revisit if Gomtuu's OBD-II adapter/vehicle ever changes (e.g. a
   CAN-equipped Sprinter generation) -- the OBDLink MX+'s raw CAN
   capability would then actually be usable, with the buffer/filtering
