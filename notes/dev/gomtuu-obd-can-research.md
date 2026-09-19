@@ -159,6 +159,18 @@ is untested, not disproven -- it just doesn't
 yet solve the "car's been sitting for days, what's my starter battery
 doing" case this was meant to address.
 
+**The actual long-term plan for this doesn't depend on the OBD adapter
+at all.** The BMV-712 battery monitor (already deployed, always-on,
+Victron BLE) has an auxiliary input built for exactly this -- monitoring
+a second battery's voltage, currently sitting unused (`aux_mode:
+DISABLED` in the live MQTT data). Once physically wired to Gomtuu's
+starter battery, starter voltage flows through the same reliable,
+already-working Victron BLE pipeline as everything else -- no
+Bluetooth-wake uncertainty, no adapter sleep behavior to fight. That's
+the real fix for "starter battery voltage while boondocked"; the
+OBD/`AT RV` angle above is a secondary, lower-priority path now, not
+the primary plan.
+
 ## Bottom line
 
 - Raw CAN sniffing: not available via Gomtuu's OBD-II port on this
