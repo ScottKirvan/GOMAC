@@ -21,6 +21,16 @@ const AMP_GAUGE_FULL_SCALE_A = 30;
 const AMP_GAUGE_CENTER = DIAL_CENTER;
 const AMP_GAUGE_RADIUS = 58;
 
+/**
+ * Battery pack nominal capacity, used to convert the BMV-712's hardware
+ * consumed_ah reading into the SOC ring's "Ah remaining" center readout.
+ * A named, tunable constant like AMP_GAUGE_FULL_SCALE_A above -- this is
+ * Scott's stated assumption for his system, not a value read off the
+ * device itself (the BMV-712 has its own internally configured capacity
+ * setting, which this may not exactly match -- see renderPowerGauge).
+ */
+const BATTERY_CAPACITY_AH = 200;
+
 function fmt(value, digits, unit) {
   if (value === undefined || value === null || Number.isNaN(value)) return "—";
   return `${value.toFixed(digits)}${unit ?? ""}`;
@@ -81,14 +91,48 @@ function renderPowerGauge(power, history) {
     `${solarDash.toFixed(1)} ${(SOLAR_RING_CIRCUMFERENCE - solarDash).toFixed(1)}`,
   );
 
-  document.getElementById("socNum").textContent = soc === undefined ? "—" : `${Math.round(soc)}%`;
+  /**
+   * Ah remaining is derived from the BMV-712's own consumed_ah reading
+   * (Victron's negative-since-full convention -- e.g. -31.0 means 31Ah
+   * drawn since the last full charge), not from soc% * capacity: the two
+   * can disagree. Confirmed live: soc=85.2% would naively imply 170.4Ah
+   * of a 200Ah pack, but consumed_ah=-31.0 against the same 200Ah
+   * assumption gives 169Ah -- because the BMV-712's own internally
+   * configured capacity setting isn't necessarily exactly
+   * BATTERY_CAPACITY_AH. consumed_ah is the more faithful source for
+   * "Ah left out of a 200Ah pack" as Scott defined it.
+   *
+   * Falls back to the soc%-derived estimate (flagged as such in the
+   * tooltip) only if consumed_ah itself isn't being reported -- still
+   * shows a number rather than going blank, since soc is otherwise
+   * present whenever this dial has anything to render at all.
+   */
+  const consumedAh = power.consumedAh;
+  let remainingAh;
+  let remainingAhIsEstimate = false;
+  if (consumedAh !== undefined && !Number.isNaN(consumedAh)) {
+    remainingAh = BATTERY_CAPACITY_AH - Math.abs(consumedAh);
+  } else if (soc !== undefined) {
+    remainingAh = (socPct / 100) * BATTERY_CAPACITY_AH;
+    remainingAhIsEstimate = true;
+  }
+
+  const socNum = document.getElementById("socNum");
+  if (remainingAh === undefined) {
+    socNum.textContent = "—";
+    socNum.title = "";
+  } else {
+    const clampedAh = Math.min(BATTERY_CAPACITY_AH, Math.max(0, remainingAh));
+    socNum.textContent = `${Math.round(clampedAh)}Ah`;
+    socNum.title = remainingAhIsEstimate
+      ? `Estimated as ${Math.round(soc)}% of a ${BATTERY_CAPACITY_AH}Ah nominal pack -- the battery monitor isn't reporting consumed_ah right now, which is the more accurate source this normally uses.`
+      : `${BATTERY_CAPACITY_AH}Ah nominal capacity minus ${Math.abs(consumedAh).toFixed(1)}Ah consumed since last full charge (consumed_ah).`;
+  }
+
   document.getElementById("solarSub").textContent =
     power.solarPower === undefined ? "no solar" : `${Math.round(power.solarPower)}W`;
 
   document.getElementById("voltageVal").textContent = fmt(power.voltage, 2, " V");
-  document.getElementById("currentVal").textContent = fmtSigned(power.current, 1, " A");
-  document.getElementById("powerVal").textContent = fmtSigned(power.power, 0, " W");
-  document.getElementById("solarVal").textContent = fmt(power.solarPower, 0, " W");
 
   /**
    * "Recent peak" is NOT a fixed clock window -- it's the max solarPower

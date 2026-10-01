@@ -101,7 +101,10 @@ header {
 .dial-center .sub.amp-reading.is-charge { color: var(--good); }
 .dial-center .sub.amp-reading.is-draw { color: var(--crit); }
 
-.hero-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; flex: 1 1 200px; min-width: 0; }
+/* Single column: only 3 rows remain (Voltage / Recent peak / Charger) since
+   Current/Solar in/Net power moved out -- a 2-column grid would leave a
+   ragged empty cell with an odd row count. */
+.hero-stats { display: grid; grid-template-columns: 1fr; gap: 6px 14px; flex: 1 1 200px; min-width: 0; }
 .stat-row {
   display: flex; justify-content: space-between; align-items: baseline; gap: 8px;
   font-size: 0.76rem; padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,0.05);

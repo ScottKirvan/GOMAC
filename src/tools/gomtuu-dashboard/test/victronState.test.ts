@@ -35,6 +35,15 @@ describe("handleVictronMessage + summarizePower", () => {
     expect(summary.temperature).toBe(24.1);
   });
 
+  it("reads consumed_ah off the battery device, Victron's negative-since-full convention intact", () => {
+    const store = createVictronStore();
+    handleVictronMessage(store, "victron-ble/BMV:MAC/soc", "85.2");
+    handleVictronMessage(store, "victron-ble/BMV:MAC/consumed_ah", "-31.0");
+
+    const summary = summarizePower(store);
+    expect(summary.consumedAh).toBe(-31.0);
+  });
+
   it("reads solar power off a different device than the battery monitor", () => {
     const store = createVictronStore();
     handleVictronMessage(store, "victron-ble/BMV:MAC/soc", "82");
