@@ -30,8 +30,9 @@ empty state until it can reach a broker with real traffic.
 
 | Panel | Status | Source |
 |---|---|---|
-| Power Gauge (SOC, voltage, current, solar) | **live** | `victron-ble/<mac>/<metric>` |
-| Amp gauge (bidirectional draw/charge ring) | **live** | same `power.current` field the Power Gauge's "Current" stat row already showed -- no new plumbing, just a new visualization. Outermost of the Power Gauge dial's three concentric rings (amp outer, SOC middle, solar inner, all sharing one center). 0A at top dead center, charge fills clockwise (green), draw fills counter-clockwise (red), full ring = `AMP_GAUGE_FULL_SCALE_A` in `public/app.js` (currently ±30A, tune there) |
+| Power Gauge (Ah remaining, voltage, solar, amp flow, charger) | **live** | `victron-ble/<mac>/<metric>` |
+| Amp gauge (bidirectional draw/charge ring) | **live** | `power.current`, surfaced live as the dial center's `ampReading` line (no separate stat row) -- no new plumbing, just a visualization of a field the backend already summarized. Outermost of the Power Gauge dial's three concentric rings (amp outer, SOC middle, solar inner, all sharing one center). 0A at top dead center, charge fills clockwise (green), draw fills counter-clockwise (red), full ring = `AMP_GAUGE_FULL_SCALE_A` in `public/app.js` (currently ±30A, tune there) |
+| SOC ring center readout (Ah remaining) | **live** | `power.consumedAh` (BMV-712's `consumed_ah`, newly captured in `victronState.ts`) against a `BATTERY_CAPACITY_AH` (200Ah) nominal pack assumption in `public/app.js` -- deliberately not derived from `soc`%, since the two don't necessarily agree (the BMV-712's own internally configured capacity setting may differ from 200Ah). Falls back to a soc%-derived estimate, flagged as such in the number's tooltip, only if `consumed_ah` itself isn't being reported. The ring's fill is unchanged and still driven by `soc`% directly. |
 | Solar vs. battery power trend | **live** | same, sampled into an in-memory ring buffer as readings come in |
 | All-sensors tables | **live** | same, one table per device MAC, every metric it publishes |
 | Now Playing | **live** | `gomac/pandora/state/<metric>` (verified against `src/integrations/pianobar/src/telemetry.ts`) |

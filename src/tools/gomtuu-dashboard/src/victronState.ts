@@ -24,6 +24,11 @@ const METRIC_PATTERNS = {
   temperature: /temp/i,
   chargerState: /charge_?state|charging_?state|charger_?state/i,
   solarPower: /solar_?power|panel_?power|pv_?power/i,
+  // Victron's own "amp-hours consumed since last full charge" reading
+  // (BMV-712's `consumed_ah` field, confirmed live) -- negative-since-full
+  // convention, i.e. more negative = more drawn down. Doesn't collide with
+  // any pattern above (no other field name contains "ah" or "consumed").
+  consumedAh: /consumed_?ah/i,
 } as const;
 
 export interface VictronStore {
@@ -80,9 +85,9 @@ function toNumber(value: string | undefined): number | undefined {
 
 /**
  * Picks "the battery device" as whichever device publishes something
- * matching the SOC pattern, then reads voltage/current/power/temperature
- * from that same device -- and separately scans every device for a
- * solar-power-shaped metric, since that's expected to live on a
+ * matching the SOC pattern, then reads voltage/current/power/consumedAh/
+ * temperature from that same device -- and separately scans every device
+ * for a solar-power-shaped metric, since that's expected to live on a
  * different device (the MPPT) than the SOC-reporting one (the shunt).
  */
 export function summarizePower(store: VictronStore): PowerSummary {
@@ -95,6 +100,7 @@ export function summarizePower(store: VictronStore): PowerSummary {
     summary.voltage = toNumber(findMetric(batteryDevice, METRIC_PATTERNS.voltage)?.value);
     summary.current = toNumber(findMetric(batteryDevice, METRIC_PATTERNS.current)?.value);
     summary.power = toNumber(findMetric(batteryDevice, METRIC_PATTERNS.power)?.value);
+    summary.consumedAh = toNumber(findMetric(batteryDevice, METRIC_PATTERNS.consumedAh)?.value);
     summary.temperature = toNumber(findMetric(batteryDevice, METRIC_PATTERNS.temperature)?.value);
     summary.chargerState = findMetric(batteryDevice, METRIC_PATTERNS.chargerState)?.value;
   }

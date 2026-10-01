@@ -13,6 +13,16 @@ export interface PowerSummary {
   voltage?: number;
   current?: number;
   power?: number;
+  /**
+   * Victron's "amp-hours consumed since last full charge" reading
+   * (BMV-712's `consumed_ah`), negative-since-full -- e.g. -31.0 means
+   * 31Ah drawn down from a full charge. Used by the dashboard to derive
+   * Ah remaining against an assumed nominal pack capacity, in preference
+   * to deriving it from `soc` (the two don't necessarily agree, since the
+   * BMV-712's own internally configured capacity setting may not match
+   * the dashboard's assumption).
+   */
+  consumedAh?: number;
   temperature?: number;
   chargerState?: string;
   solarPower?: number;
