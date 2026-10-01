@@ -1,5 +1,15 @@
-const SOC_RING_CIRCUMFERENCE = 2 * Math.PI * 47;
-const SOLAR_RING_CIRCUMFERENCE = 2 * Math.PI * 34;
+/**
+ * Shared concentric-ring dial geometry: amp (outer) / SOC (middle) / solar
+ * (inner), all centered on the same point. Radii/stroke-widths are chosen
+ * for even breathing room between all three rings at the current viewBox
+ * size -- see public/index.html's <svg viewBox="0 0 128 128"> for the
+ * matching static markup (track circles, initial dasharray values).
+ */
+const DIAL_CENTER = 64;
+const SOC_RING_RADIUS = 47;
+const SOC_RING_CIRCUMFERENCE = 2 * Math.PI * SOC_RING_RADIUS;
+const SOLAR_RING_RADIUS = 35;
+const SOLAR_RING_CIRCUMFERENCE = 2 * Math.PI * SOLAR_RING_RADIUS;
 
 /**
  * Amp gauge geometry/scale. Deliberately a named constant, not a magic
@@ -8,8 +18,8 @@ const SOLAR_RING_CIRCUMFERENCE = 2 * Math.PI * 34;
  * not a hard spec. +-AMP_GAUGE_FULL_SCALE_A maps to a full 360 degree fill.
  */
 const AMP_GAUGE_FULL_SCALE_A = 30;
-const AMP_GAUGE_CENTER = 54;
-const AMP_GAUGE_RADIUS = 47;
+const AMP_GAUGE_CENTER = DIAL_CENTER;
+const AMP_GAUGE_RADIUS = 58;
 
 function fmt(value, digits, unit) {
   if (value === undefined || value === null || Number.isNaN(value)) return "—";
@@ -58,6 +68,11 @@ function renderPowerGauge(power, history) {
   );
 
   const solarSamples = history.map((h) => h.solarPower).filter((v) => v !== undefined);
+  const hasSolarData = power.solarPower !== undefined || solarSamples.length > 0;
+  // Math.max(1, ...) keeps the ratio below well-defined (no div-by-zero)
+  // even when every reading so far has been 0 -- the floor is just for the
+  // ring's fill percentage, so it's kept separate from hasSolarData, which
+  // decides whether the Recent Peak stat row below has anything real to show.
   const recentPeak = Math.max(1, power.solarPower ?? 0, ...solarSamples);
   const solarPct = power.solarPower === undefined ? 0 : Math.min(1, power.solarPower / recentPeak);
   const solarDash = solarPct * SOLAR_RING_CIRCUMFERENCE;
@@ -65,6 +80,15 @@ function renderPowerGauge(power, history) {
     "stroke-dasharray",
     `${solarDash.toFixed(1)} ${(SOLAR_RING_CIRCUMFERENCE - solarDash).toFixed(1)}`,
   );
+
+  document.getElementById("socNum").textContent = soc === undefined ? "—" : `${Math.round(soc)}%`;
+  document.getElementById("solarSub").textContent =
+    power.solarPower === undefined ? "no solar" : `${Math.round(power.solarPower)}W`;
+
+  document.getElementById("voltageVal").textContent = fmt(power.voltage, 2, " V");
+  document.getElementById("currentVal").textContent = fmtSigned(power.current, 1, " A");
+  document.getElementById("powerVal").textContent = fmtSigned(power.power, 0, " W");
+  document.getElementById("solarVal").textContent = fmt(power.solarPower, 0, " W");
 
   /**
    * "Recent peak" is NOT a fixed clock window -- it's the max solarPower
@@ -78,26 +102,20 @@ function renderPowerGauge(power, history) {
    * here from the actual oldest sample timestamp rather than hardcoded,
    * since it drifts as devices are added/removed.
    */
-  const solarPeakLabel = document.getElementById("solarPeakLabel");
-  if (history.length > 0) {
+  const recentPeakVal = document.getElementById("recentPeakVal");
+  if (!hasSolarData) {
+    recentPeakVal.textContent = "—";
+    recentPeakVal.title = "";
+  } else if (history.length > 0) {
     const windowMs = Date.now() - history[0].t;
     const windowLabel = formatDuration(windowMs);
-    solarPeakLabel.textContent = `solar % of peak in last ${windowLabel} (inner)`;
-    solarPeakLabel.title = `"Recent peak" = highest solar reading across the last ${history.length} telemetry sample${history.length === 1 ? "" : "s"} held in memory, which right now spans about ${windowLabel} of wall-clock time. This is a sample-count window, not a fixed duration -- it stretches or shrinks with how many Victron metrics are actively reporting.`;
+    recentPeakVal.textContent = `${fmt(recentPeak, 0, " W")} (last ${windowLabel})`;
+    recentPeakVal.title = `Highest solar reading across the last ${history.length} telemetry sample${history.length === 1 ? "" : "s"} held in memory, which currently spans about ${windowLabel} of wall-clock time. This is a sample-count window, not a fixed duration -- it stretches or shrinks with how many Victron metrics are actively reporting.`;
   } else {
-    solarPeakLabel.textContent = "solar % of recent peak (inner)";
-    solarPeakLabel.title = "";
+    recentPeakVal.textContent = fmt(recentPeak, 0, " W");
+    recentPeakVal.title = "";
   }
 
-  document.getElementById("socNum").textContent = soc === undefined ? "—" : `${Math.round(soc)}%`;
-  document.getElementById("solarSub").textContent =
-    power.solarPower === undefined ? "no solar" : `${Math.round(power.solarPower)}W`;
-
-  document.getElementById("voltageVal").textContent = fmt(power.voltage, 2, " V");
-  document.getElementById("currentVal").textContent = fmtSigned(power.current, 1, " A");
-  document.getElementById("powerVal").textContent = fmtSigned(power.power, 0, " W");
-  document.getElementById("solarVal").textContent = fmt(power.solarPower, 0, " W");
-  document.getElementById("tempVal").textContent = fmt(power.temperature, 1, "°C");
   document.getElementById("chargerVal").textContent = power.chargerState ?? "—";
 
   document.getElementById("powerSourceMac").textContent = power.batteryDeviceMac
@@ -142,25 +160,28 @@ function describeArcFromTop(cx, cy, r, extentDeg) {
  * Bidirectional amp gauge: 0A sits at top dead center with an empty bar.
  * Charge (positive current) fills clockwise in green; draw/discharge
  * (negative current) fills counter-clockwise in red. +-AMP_GAUGE_FULL_SCALE_A
- * is a full 360 degree fill. Values beyond that scale are capped visually
- * at 100% (not wrapped) but a small pulsing dot marks the pegged end of
- * the bar so the overflow is obvious -- the live numeric amp value next to
- * the gauge is always the real, uncapped reading regardless.
+ * is a full 360 degree fill. This is now the outermost of the three
+ * concentric dial rings (amp / SOC / solar), sharing one center with
+ * renderPowerGauge's rings -- see DIAL_CENTER / AMP_GAUGE_RADIUS above.
+ * Values beyond full scale are capped visually at 100% (not wrapped) but a
+ * small pulsing dot marks the pegged end of the bar so the overflow is
+ * obvious -- the live numeric amp reading in the dial center is always the
+ * real, uncapped value regardless of pegging.
  */
 function renderAmpGauge(power) {
   const arc = document.getElementById("ampArc");
   const overflowDot = document.getElementById("ampOverflowDot");
-  const num = document.getElementById("ampNum");
-  const sub = document.getElementById("ampSub");
+  const reading = document.getElementById("ampReading");
 
   const current = power.current;
-  num.textContent = fmtSigned(current, 1, " A");
+  reading.textContent = fmtSigned(current, 1, " A");
+  reading.classList.remove("is-charge", "is-draw");
 
   if (current === undefined || Number.isNaN(current) || current === 0) {
     arc.setAttribute("d", "");
     arc.classList.remove("amp-arc-overflow");
     overflowDot.setAttribute("r", "0");
-    sub.textContent = "amp flow";
+    reading.title = "";
     return;
   }
 
@@ -184,8 +205,11 @@ function renderAmpGauge(power) {
     overflowDot.setAttribute("r", "0");
   }
 
+  reading.classList.add(current > 0 ? "is-charge" : "is-draw");
   const label = current > 0 ? "charging" : "drawing";
-  sub.textContent = overflowing ? `${label} ⚠ pegged >${AMP_GAUGE_FULL_SCALE_A}A` : label;
+  reading.title = overflowing
+    ? `${label}, pegged — exceeds the ±${AMP_GAUGE_FULL_SCALE_A}A gauge scale`
+    : label;
 }
 
 function buildChartSvg(history) {
