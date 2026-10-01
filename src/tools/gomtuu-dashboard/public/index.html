@@ -41,6 +41,17 @@
               <span id="solarSub" class="sub">no solar</span>
             </div>
           </div>
+          <div class="dial-wrap">
+            <svg viewBox="0 0 108 108">
+              <circle class="dial-track" cx="54" cy="54" r="47" stroke-width="9" />
+              <path id="ampArc" class="amp-arc" fill="none" stroke-width="9" stroke-linecap="round" />
+              <circle id="ampOverflowDot" class="amp-overflow-dot" r="0" cx="54" cy="7" fill="var(--crit)" />
+            </svg>
+            <div class="dial-center">
+              <span id="ampNum" class="num mono">&mdash;</span>
+              <span id="ampSub" class="sub">amp flow</span>
+            </div>
+          </div>
           <div class="hero-stats mono">
             <div class="stat-row"><span class="k">Voltage</span><span id="voltageVal" class="v">&mdash;</span></div>
             <div class="stat-row"><span class="k">Current</span><span id="currentVal" class="v">&mdash;</span></div>
@@ -52,7 +63,9 @@
         </div>
         <div class="dial-legend">
           <span><i style="background:var(--battery)"></i>SOC (outer)</span>
-          <span><i style="background:var(--solar)"></i>solar % of recent peak (inner)</span>
+          <span><i style="background:var(--solar)"></i><span id="solarPeakLabel">solar % of recent peak (inner)</span></span>
+          <span><i style="background:var(--good)"></i>amp flow: charge, CW from top</span>
+          <span><i style="background:var(--crit)"></i>amp flow: draw, CCW from top</span>
         </div>
       </div>
 
@@ -105,7 +118,11 @@
       <div id="nowPlaying" class="np-body"></div>
     </div>
 
-    <footer id="footerNote">connecting to dashboard server&hellip;</footer>
+    <footer>
+      <span id="footerNote">connecting to dashboard server&hellip;</span>
+      <span class="footer-sep">&middot;</span>
+      <a class="footer-link" href="https://theflea:9090/" target="_blank" rel="noopener noreferrer" title="Cockpit system admin UI &mdash; only resolves over Tailscale">Cockpit (Tailscale only)</a>
+    </footer>
   </div>
 
   <script src="config.js"></script>

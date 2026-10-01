@@ -1,6 +1,16 @@
 const SOC_RING_CIRCUMFERENCE = 2 * Math.PI * 47;
 const SOLAR_RING_CIRCUMFERENCE = 2 * Math.PI * 34;
 
+/**
+ * Amp gauge geometry/scale. Deliberately a named constant, not a magic
+ * number buried in the arc math below -- Scott's observed real-world peaks
+ * are ~30A on both draw and charge, but that's a starting point to tune,
+ * not a hard spec. +-AMP_GAUGE_FULL_SCALE_A maps to a full 360 degree fill.
+ */
+const AMP_GAUGE_FULL_SCALE_A = 30;
+const AMP_GAUGE_CENTER = 54;
+const AMP_GAUGE_RADIUS = 47;
+
 function fmt(value, digits, unit) {
   if (value === undefined || value === null || Number.isNaN(value)) return "—";
   return `${value.toFixed(digits)}${unit ?? ""}`;
@@ -56,6 +66,29 @@ function renderPowerGauge(power, history) {
     `${solarDash.toFixed(1)} ${(SOLAR_RING_CIRCUMFERENCE - solarDash).toFixed(1)}`,
   );
 
+  /**
+   * "Recent peak" is NOT a fixed clock window -- it's the max solarPower
+   * seen across whatever's currently in the in-memory sample ring buffer
+   * (src/history.ts, capped at 500 samples, with a new sample appended on
+   * essentially every victron-ble MQTT message once the battery device has
+   * reported once). That buffer's real-world time span depends entirely on
+   * how many Victron devices/metrics are actively publishing -- e.g. with
+   * 4 devices reporting ~20 metrics/minute combined, 500 samples covers
+   * roughly 25-30 minutes, not hours. So the window is computed and shown
+   * here from the actual oldest sample timestamp rather than hardcoded,
+   * since it drifts as devices are added/removed.
+   */
+  const solarPeakLabel = document.getElementById("solarPeakLabel");
+  if (history.length > 0) {
+    const windowMs = Date.now() - history[0].t;
+    const windowLabel = formatDuration(windowMs);
+    solarPeakLabel.textContent = `solar % of peak in last ${windowLabel} (inner)`;
+    solarPeakLabel.title = `"Recent peak" = highest solar reading across the last ${history.length} telemetry sample${history.length === 1 ? "" : "s"} held in memory, which right now spans about ${windowLabel} of wall-clock time. This is a sample-count window, not a fixed duration -- it stretches or shrinks with how many Victron metrics are actively reporting.`;
+  } else {
+    solarPeakLabel.textContent = "solar % of recent peak (inner)";
+    solarPeakLabel.title = "";
+  }
+
   document.getElementById("socNum").textContent = soc === undefined ? "—" : `${Math.round(soc)}%`;
   document.getElementById("solarSub").textContent =
     power.solarPower === undefined ? "no solar" : `${Math.round(power.solarPower)}W`;
@@ -70,6 +103,89 @@ function renderPowerGauge(power, history) {
   document.getElementById("powerSourceMac").textContent = power.batteryDeviceMac
     ? power.batteryDeviceMac
     : "no data yet";
+}
+
+/**
+ * Point on a circle of radius `r` around (cx, cy), where angle 0 is
+ * straight up (12 o'clock / top dead center) and positive angles sweep
+ * clockwise -- i.e. a plain clock-face angle, not the math convention
+ * (0 = 3 o'clock, CCW positive) SVG/trig normally uses.
+ */
+function polarPointFromTop(cx, cy, r, angleDeg) {
+  const rad = (angleDeg * Math.PI) / 180;
+  return { x: cx + r * Math.sin(rad), y: cy - r * Math.cos(rad) };
+}
+
+/**
+ * SVG arc path starting at top dead center and sweeping `extentDeg`
+ * clockwise (positive) or counter-clockwise (negative). Used for the
+ * bidirectional amp gauge, where a <circle>+stroke-dasharray (as used by
+ * the SOC/solar rings above) can't express "fill the other direction" --
+ * dasharray always walks the circle's own fixed draw direction, so a real
+ * arc path with an explicit sweep flag is required instead.
+ *
+ * `extentDeg` is clamped just short of a full turn (rather than exactly
+ * 360) because an arc whose start and end point are identical collapses
+ * to a zero-length, invisible path in SVG.
+ */
+function describeArcFromTop(cx, cy, r, extentDeg) {
+  if (!extentDeg) return "";
+  const clamped = Math.sign(extentDeg) * Math.min(Math.abs(extentDeg), 359.9);
+  const start = polarPointFromTop(cx, cy, r, 0);
+  const end = polarPointFromTop(cx, cy, r, clamped);
+  const largeArcFlag = Math.abs(clamped) > 180 ? 1 : 0;
+  const sweepFlag = clamped > 0 ? 1 : 0;
+  return `M ${start.x.toFixed(3)} ${start.y.toFixed(3)} A ${r} ${r} 0 ${largeArcFlag} ${sweepFlag} ${end.x.toFixed(3)} ${end.y.toFixed(3)}`;
+}
+
+/**
+ * Bidirectional amp gauge: 0A sits at top dead center with an empty bar.
+ * Charge (positive current) fills clockwise in green; draw/discharge
+ * (negative current) fills counter-clockwise in red. +-AMP_GAUGE_FULL_SCALE_A
+ * is a full 360 degree fill. Values beyond that scale are capped visually
+ * at 100% (not wrapped) but a small pulsing dot marks the pegged end of
+ * the bar so the overflow is obvious -- the live numeric amp value next to
+ * the gauge is always the real, uncapped reading regardless.
+ */
+function renderAmpGauge(power) {
+  const arc = document.getElementById("ampArc");
+  const overflowDot = document.getElementById("ampOverflowDot");
+  const num = document.getElementById("ampNum");
+  const sub = document.getElementById("ampSub");
+
+  const current = power.current;
+  num.textContent = fmtSigned(current, 1, " A");
+
+  if (current === undefined || Number.isNaN(current) || current === 0) {
+    arc.setAttribute("d", "");
+    arc.classList.remove("amp-arc-overflow");
+    overflowDot.setAttribute("r", "0");
+    sub.textContent = "amp flow";
+    return;
+  }
+
+  const magnitude = Math.abs(current);
+  const pct = Math.min(1, magnitude / AMP_GAUGE_FULL_SCALE_A);
+  const overflowing = magnitude > AMP_GAUGE_FULL_SCALE_A;
+  const extent = (current > 0 ? 1 : -1) * pct * 360;
+  const color = current > 0 ? "var(--good)" : "var(--crit)";
+
+  arc.setAttribute("d", describeArcFromTop(AMP_GAUGE_CENTER, AMP_GAUGE_CENTER, AMP_GAUGE_RADIUS, extent));
+  arc.setAttribute("stroke", color);
+  arc.classList.toggle("amp-arc-overflow", overflowing);
+
+  if (overflowing) {
+    const tip = polarPointFromTop(AMP_GAUGE_CENTER, AMP_GAUGE_CENTER, AMP_GAUGE_RADIUS, extent);
+    overflowDot.setAttribute("cx", tip.x.toFixed(3));
+    overflowDot.setAttribute("cy", tip.y.toFixed(3));
+    overflowDot.setAttribute("fill", color);
+    overflowDot.setAttribute("r", "3.5");
+  } else {
+    overflowDot.setAttribute("r", "0");
+  }
+
+  const label = current > 0 ? "charging" : "drawing";
+  sub.textContent = overflowing ? `${label} ⚠ pegged >${AMP_GAUGE_FULL_SCALE_A}A` : label;
 }
 
 function buildChartSvg(history) {
@@ -378,6 +494,7 @@ function renderWeather(weather) {
 
 function render(snapshot) {
   renderPowerGauge(snapshot.victron.power, snapshot.victron.history);
+  renderAmpGauge(snapshot.victron.power);
   renderChart(snapshot.victron.history);
   renderSensorTables(snapshot.victron.devices);
   renderNowPlaying(snapshot.nowPlaying);
