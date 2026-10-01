@@ -31,7 +31,7 @@ empty state until it can reach a broker with real traffic.
 | Panel | Status | Source |
 |---|---|---|
 | Power Gauge (SOC, voltage, current, solar) | **live** | `victron-ble/<mac>/<metric>` |
-| Amp gauge (bidirectional draw/charge ring) | **live** | same `power.current` field the Power Gauge's "Current" stat row already showed -- no new plumbing, just a new visualization. 0A at top dead center, charge fills clockwise (green), draw fills counter-clockwise (red), full ring = `AMP_GAUGE_FULL_SCALE_A` in `public/app.js` (currently ±30A, tune there) |
+| Amp gauge (bidirectional draw/charge ring) | **live** | same `power.current` field the Power Gauge's "Current" stat row already showed -- no new plumbing, just a new visualization. Outermost of the Power Gauge dial's three concentric rings (amp outer, SOC middle, solar inner, all sharing one center). 0A at top dead center, charge fills clockwise (green), draw fills counter-clockwise (red), full ring = `AMP_GAUGE_FULL_SCALE_A` in `public/app.js` (currently ±30A, tune there) |
 | Solar vs. battery power trend | **live** | same, sampled into an in-memory ring buffer as readings come in |
 | All-sensors tables | **live** | same, one table per device MAC, every metric it publishes |
 | Now Playing | **live** | `gomac/pandora/state/<metric>` (verified against `src/integrations/pianobar/src/telemetry.ts`) |
@@ -68,9 +68,11 @@ default (`WEATHER_POLL_INTERVAL_MS`) whenever a GPS fix is known.
    -- so with today's 4 devices (~18-20 state messages per 1-minute scan,
    per `victron-ble-monitor.py`'s `OnCalendar=minutely` timer), 500 samples
    covers roughly 25-30 minutes of wall clock, confirmed live against
-   `/snapshot.json` on 2026-10-01. The dashboard now computes and displays
-   this actual span next to the label (and in its tooltip) rather than a
-   hardcoded figure, since it drifts as devices/metrics are added or removed.
+   `/snapshot.json` on 2026-10-01. The dashboard computes and displays this
+   actual span live in the Power Gauge panel's "Recent peak" stat row
+   (`recentPeakVal`, e.g. "184W (last 28m)", with the full explanation in
+   its `title` tooltip) rather than a hardcoded figure, since it drifts as
+   devices/metrics are added or removed.
 4. **Field names for `gps/phone/#` and `ping-monitor/#` are per the IT
    agent's report, not independently re-verified against the live broker
    from this repo** — same posture as the Victron metric names below.

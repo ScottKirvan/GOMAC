@@ -30,26 +30,21 @@
         </div>
         <div class="hero-body">
           <div class="dial-wrap">
-            <svg viewBox="0 0 108 108">
-              <circle class="dial-track" cx="54" cy="54" r="47" stroke-width="9" />
-              <circle id="socRing" cx="54" cy="54" r="47" stroke="var(--battery)" stroke-width="9" stroke-linecap="round" fill="none" stroke-dasharray="0 295.3" transform="rotate(-90 54 54)" />
-              <circle class="dial-track" cx="54" cy="54" r="34" stroke-width="7" />
-              <circle id="solarRing" cx="54" cy="54" r="34" stroke="var(--solar)" stroke-width="7" stroke-linecap="round" fill="none" stroke-dasharray="0 213.6" transform="rotate(-90 54 54)" />
+            <svg viewBox="0 0 128 128">
+              <circle class="dial-track" cx="64" cy="64" r="58" stroke-width="7" />
+              <path id="ampArc" class="amp-arc" fill="none" stroke-width="7" stroke-linecap="round" />
+              <circle id="ampOverflowDot" class="amp-overflow-dot" r="0" cx="64" cy="6" fill="var(--crit)" />
+
+              <circle class="dial-track" cx="64" cy="64" r="47" stroke-width="7" />
+              <circle id="socRing" cx="64" cy="64" r="47" stroke="var(--battery)" stroke-width="7" stroke-linecap="round" fill="none" stroke-dasharray="0 295.3" transform="rotate(-90 64 64)" />
+
+              <circle class="dial-track" cx="64" cy="64" r="35" stroke-width="6" />
+              <circle id="solarRing" cx="64" cy="64" r="35" stroke="var(--solar)" stroke-width="6" stroke-linecap="round" fill="none" stroke-dasharray="0 219.9" transform="rotate(-90 64 64)" />
             </svg>
             <div class="dial-center">
               <span id="socNum" class="num">&mdash;</span>
               <span id="solarSub" class="sub">no solar</span>
-            </div>
-          </div>
-          <div class="dial-wrap">
-            <svg viewBox="0 0 108 108">
-              <circle class="dial-track" cx="54" cy="54" r="47" stroke-width="9" />
-              <path id="ampArc" class="amp-arc" fill="none" stroke-width="9" stroke-linecap="round" />
-              <circle id="ampOverflowDot" class="amp-overflow-dot" r="0" cx="54" cy="7" fill="var(--crit)" />
-            </svg>
-            <div class="dial-center">
-              <span id="ampNum" class="num mono">&mdash;</span>
-              <span id="ampSub" class="sub">amp flow</span>
+              <span id="ampReading" class="sub amp-reading">&mdash;</span>
             </div>
           </div>
           <div class="hero-stats mono">
@@ -57,15 +52,9 @@
             <div class="stat-row"><span class="k">Current</span><span id="currentVal" class="v">&mdash;</span></div>
             <div class="stat-row"><span class="k">Net power</span><span id="powerVal" class="v">&mdash;</span></div>
             <div class="stat-row"><span class="k">Solar in</span><span id="solarVal" class="v">&mdash;</span></div>
-            <div class="stat-row"><span class="k">Temp</span><span id="tempVal" class="v">&mdash;</span></div>
+            <div class="stat-row"><span class="k">Recent peak</span><span id="recentPeakVal" class="v">&mdash;</span></div>
             <div class="stat-row"><span class="k">Charger</span><span id="chargerVal" class="v">&mdash;</span></div>
           </div>
-        </div>
-        <div class="dial-legend">
-          <span><i style="background:var(--battery)"></i>SOC (outer)</span>
-          <span><i style="background:var(--solar)"></i><span id="solarPeakLabel">solar % of recent peak (inner)</span></span>
-          <span><i style="background:var(--good)"></i>amp flow: charge, CW from top</span>
-          <span><i style="background:var(--crit)"></i>amp flow: draw, CCW from top</span>
         </div>
       </div>
 
