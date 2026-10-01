@@ -135,16 +135,17 @@ function renderPowerGauge(power, history) {
   document.getElementById("voltageVal").textContent = fmt(power.voltage, 2, " V");
 
   /**
-   * "Recent peak" is NOT a fixed clock window -- it's the max solarPower
-   * seen across whatever's currently in the in-memory sample ring buffer
-   * (src/history.ts, capped at 500 samples, with a new sample appended on
-   * essentially every victron-ble MQTT message once the battery device has
-   * reported once). That buffer's real-world time span depends entirely on
-   * how many Victron devices/metrics are actively publishing -- e.g. with
-   * 4 devices reporting ~20 metrics/minute combined, 500 samples covers
-   * roughly 25-30 minutes, not hours. So the window is computed and shown
-   * here from the actual oldest sample timestamp rather than hardcoded,
-   * since it drifts as devices are added/removed.
+   * "Recent peak" is the max solarPower seen within a real, fixed clock
+   * window (src/history.ts's PEAK_WINDOW_MS, currently 1 hour) -- samples
+   * older than that are pruned server-side on every insert, so this is no
+   * longer the old sample-count ring buffer (500 samples, which at this
+   * system's real MQTT message rate only covered ~25-30 minutes and made
+   * "peak" nearly meaningless -- you're almost always at the peak of a
+   * window that short). The "(last Xm)" / "(last 1h)" suffix below just
+   * reflects how much of that hour has actually been collected so far
+   * (e.g. right after a service restart it legitimately ramps up from 0
+   * toward 1h -- it can't claim a full hour's peak before an hour of real
+   * data exists), not a drifting sample-count artifact anymore.
    */
   const recentPeakVal = document.getElementById("recentPeakVal");
   if (!hasSolarData) {
@@ -154,7 +155,7 @@ function renderPowerGauge(power, history) {
     const windowMs = Date.now() - history[0].t;
     const windowLabel = formatDuration(windowMs);
     recentPeakVal.textContent = `${fmt(recentPeak, 0, " W")} (last ${windowLabel})`;
-    recentPeakVal.title = `Highest solar reading across the last ${history.length} telemetry sample${history.length === 1 ? "" : "s"} held in memory, which currently spans about ${windowLabel} of wall-clock time. This is a sample-count window, not a fixed duration -- it stretches or shrinks with how many Victron metrics are actively reporting.`;
+    recentPeakVal.title = `Highest solar reading in the last ${windowLabel} (this dashboard tracks a 1-hour rolling peak; right after a restart it ramps up toward that as real data accumulates, rather than claiming a full hour's peak before an hour has actually passed).`;
   } else {
     recentPeakVal.textContent = fmt(recentPeak, 0, " W");
     recentPeakVal.title = "";

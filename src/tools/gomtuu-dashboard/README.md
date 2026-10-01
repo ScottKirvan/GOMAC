@@ -61,19 +61,24 @@ default (`WEATHER_POLL_INTERVAL_MS`) whenever a GPS fix is known.
    a different timezone than Gomtuu is currently in. Fine for the common
    case (same person, near the van); not fixed with extra timezone
    handling yet.
-3. **The solar dial's "recent peak" is a sample-count window, not a clock
-   window.** `public/app.js`'s `renderPowerGauge` divides live solar power
-   by the max solar reading across `history` (`src/history.ts`'s in-memory
-   ring buffer, capped at `MAX_SAMPLES` = 500). A new sample is appended on
-   essentially every `victron-ble/#` MQTT message, not once per scan cycle
-   -- so with today's 4 devices (~18-20 state messages per 1-minute scan,
-   per `victron-ble-monitor.py`'s `OnCalendar=minutely` timer), 500 samples
-   covers roughly 25-30 minutes of wall clock, confirmed live against
-   `/snapshot.json` on 2026-10-01. The dashboard computes and displays this
-   actual span live in the Power Gauge panel's "Recent peak" stat row
-   (`recentPeakVal`, e.g. "184W (last 28m)", with the full explanation in
-   its `title` tooltip) rather than a hardcoded figure, since it drifts as
-   devices/metrics are added or removed.
+3. **The solar dial's "recent peak" is a real 1-hour rolling window, not a
+   sample-count window.** `public/app.js`'s `renderPowerGauge` divides live
+   solar power by the max solar reading across `history`
+   (`src/history.ts`'s in-memory buffer). This used to be capped by sample
+   COUNT (`MAX_SAMPLES` = 500) on the theory that the 1-minute scan timer
+   made that "well over 6 hours" -- wrong in practice, since a sample is
+   appended on essentially every `victron-ble/#` MQTT message, not once per
+   scan cycle; with 4 devices (~18-20 messages/minute), 500 samples only
+   covered ~25-30 minutes, confirmed live against `/snapshot.json` on
+   2026-10-01, which made "recent peak" nearly meaningless (you're almost
+   always at the peak of a window that short). Fixed 2026-10-01:
+   `recordPowerSample` now prunes by actual elapsed time (`PEAK_WINDOW_MS`
+   = 1 hour), with `MAX_SAMPLES` kept only as a defensive ceiling against
+   unbounded growth, not the normal pruning mechanism. The Power Gauge
+   panel's "Recent peak" stat row (`recentPeakVal`, e.g. "184W (last 42m)")
+   shows how much of that hour has actually been collected so far --
+   right after a restart it legitimately ramps up from 0 toward 1h rather
+   than claiming a full hour's peak before an hour of real data exists.
 4. **Field names for `gps/phone/#` and `ping-monitor/#` are per the IT
    agent's report, not independently re-verified against the live broker
    from this repo** — same posture as the Victron metric names below.
