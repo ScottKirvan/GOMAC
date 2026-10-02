@@ -208,3 +208,53 @@ a few minutes, periodically check for real signs of life (output file
 still growing, worktree has commits or working-tree changes) rather than
 only waiting on the completion notification — especially past whatever
 duration the task should plausibly take.
+
+## 2026-10-01 — Verified a dashboard preview against its own server instead of what the page actually fetched
+
+**What happened:** Scott asked for the dashboard's "recent peak" to cover
+about an hour instead of under a minute. The fix was made server-side and
+checked against the preview server's own `/snapshot.json`, and was reported
+as working. Scott kept reporting that the preview still showed a window
+under a minute, and each report was answered with another server-side
+change: first time-based pruning, then 10 s sample bucketing, then a
+configurable 24 h window. Along the way the problem was framed in terms of
+sample counts, until Scott pointed out that a time window shouldn't depend
+on a sample count at all. The real cause turned up only when his screenshot
+showed production's sample count: the committed `public/config.js` points
+the page at the **production** backend, so the preview had been rendering
+new frontend code against production data the whole time. None of the
+server-side changes had ever reached his screen. Scott ended up dropping
+the rolling window for an all-time peak.
+
+**Why it's a real mistake:** "it works" was claimed from a check that
+didn't exercise what the user was looking at (the page's actual data
+path), and repeated reports that it didn't work were met with more
+changes instead of re-checking that assumption.
+
+**Cost:** several rounds of back-and-forth over most of a day, three
+server-side redesigns, and a feature Scott ultimately abandoned out of
+frustration.
+
+**What changes:** when a user reports that a change isn't visible, first
+verify what their client actually loads and fetches, not just what the
+server returns. The package README now documents the `config.js` preview
+trap, and `gomtuu-dashboard-spec.md` repeats it for implementing agents.
+
+## 2026-10-01 — Broad `pkill` pattern took down production services
+
+**What happened:** Restarting a temporary dashboard preview on TheFlea used
+`pkill -f "node dist/index.js"`. The pattern also matched the production
+`gomac-dashboard.service` and the `gomac-pianobar` bridge daemon, which run
+the same command line from a different directory. Both were down for about
+30 minutes before it was noticed and they were restarted.
+
+**Why it's a real mistake:** a process-name pattern was used to target "my"
+process on a shared production host without checking what else it matched.
+
+**Cost:** about 30 minutes of production dashboard and Pandora bridge
+downtime.
+
+**What changes:** stop processes by exact PID or by unit name, never by a
+broad name pattern. Temporary helpers now run as named transient systemd
+units (`systemd-run --user --unit=<name>`), so stopping them can't touch
+anything else.
