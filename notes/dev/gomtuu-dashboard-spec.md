@@ -14,7 +14,7 @@ requirement rather than quietly working around it (see the root
 
 | Part | Topic | Status |
 |---|---|---|
-| 1 | Live telemetry stream (and the gauge data contract) | **Ready to implement** |
+| 1 | Live telemetry stream, gauge data contract, and `app.js` fixes | **Ready to implement** |
 | 2 | Power gauge as a Vue / VitePress component | Planned: open decisions below |
 | 3+ | Further changes | To be added |
 
@@ -153,6 +153,34 @@ slow panels keep working as they do now.
 14. **No overlapping polls.** The next poll starts only after the previous
     one finishes, so requests can't pile up on a slow link.
 
+**Frontend fixes** (from the 2026-10-02 `app.js` review; independent of
+streaming, but in scope for this part)
+
+15. **The battery ring and its center number use the same source.** Today
+    the ring fills from the BMV-712's SoC % while the center number ("195Ah")
+    is `capacity − |consumed_ah|`. The two come from different measurements
+    and can visibly disagree (one live example: 85.2 % vs 169 Ah of 200).
+    Scott chose amp-hours as the readout, so the ring follows the number:
+    fill = remaining Ah ÷ capacity. Fall back to SoC % only when
+    `consumed_ah` isn't reported, flagged as an estimate as the number
+    already is.
+16. **Escape externally sourced text.** Song title, artist, album and
+    station, Victron metric names and values, device identifiers, and the
+    weather condition are currently inserted with `innerHTML` unescaped.
+    Text containing `<` or `&` renders wrong, and it's poor practice on a
+    page that's public. All such text must be rendered as text, not markup.
+17. **Headers say what's on screen, not raw buffer sizes.** Panel headers
+    show raw sample counts that misread as the visible window. For example,
+    connectivity says "1500 samples" while its strip shows only the last 48
+    (about 24 minutes). Headers should describe the span actually displayed
+    (for example "last 24 min"), or be dropped where they add nothing.
+18. **Sunrise and sunset use the van's timezone, not the viewer's.** Open-Meteo
+    returns local times without an offset for the queried location, and the
+    browser parses them in its own timezone. The sunrise/sunset labels and
+    daylight progress bar are wrong whenever the viewer isn't in the van's
+    timezone. Times must be interpreted in the location's timezone, which
+    Open-Meteo can report alongside the forecast.
+
 ### The gauge data contract
 
 Part 2 turns the power gauge into a reusable component, so Part 1 must
@@ -217,6 +245,13 @@ the DOM or the SVG geometry.
 - [ ] A stale source (stop `victron-ble-monitor`) is visibly flagged within
       a reasonable time.
 - [ ] The rate is configurable by environment variable; 4 Hz is the default.
+- [ ] The battery ring and center number agree (requirement 15).
+- [ ] A song title or station containing `<b>&` displays literally,
+      verified by publishing a test value to the relevant MQTT topic
+      (requirement 16).
+- [ ] No panel header shows a raw buffer size (requirement 17).
+- [ ] Sunrise/sunset labels are correct when viewed with the browser set to
+      a different timezone from the van's (requirement 18).
 - [ ] The event format and the gauge state shape are documented in the
       package README.
 - [ ] Unit tests cover coalescing/rate limiting, redaction of the public
@@ -279,16 +314,16 @@ the GOMAC docs site, and potentially reused by other GOMAC UIs.
 
 ---
 
-## Known issues to fold in
+## Known issues
 
-From a review of `public/app.js` on 2026-10-02. Each should be fixed by the
-part noted, or by a later part if unassigned.
+From a review of `public/app.js` on 2026-10-02. All are now in scope for
+Part 1.
 
-| Issue | Part |
+| Issue | Where |
 |---|---|
-| Backend (tailnet vs public) is chosen once at page load and never re-evaluated | 1 (req. 13) |
-| Polls can overlap and stack up on a slow link (`setInterval` without waiting) | 1 (req. 14) |
-| Battery ring fills from SoC % while its center number comes from `consumed_ah`; the two can disagree. **Needs Scott's call on which source wins.** | Unassigned |
-| Text from MQTT/Open-Meteo (song titles, station, sensor values, weather condition) is inserted with `innerHTML` unescaped: wrong rendering for `<` / `&`, and poor practice on a public page | Unassigned |
-| Panel headers show raw sample counts (e.g. connectivity "1500 samples" while the strip shows only the last 48), which misreads as the visible window | Unassigned |
-| Sunrise/sunset times are parsed in the viewer's timezone, not the van's (noted in code) | Unassigned |
+| Backend (tailnet vs public) is chosen once at page load and never re-evaluated | Part 1, req. 13 |
+| Polls can overlap and stack up on a slow link (`setInterval` without waiting) | Part 1, req. 14 |
+| Battery ring fills from SoC % while its center number comes from `consumed_ah`; the two can disagree | Part 1, req. 15 |
+| Externally sourced text is inserted with `innerHTML` unescaped | Part 1, req. 16 |
+| Panel headers show raw sample counts that misread as the visible window | Part 1, req. 17 |
+| Sunrise/sunset are parsed in the viewer's timezone, not the van's | Part 1, req. 18 |
