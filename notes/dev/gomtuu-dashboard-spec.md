@@ -160,7 +160,8 @@ streaming, but in scope for this part)
     the ring fills from the BMV-712's SoC % while the center number ("195Ah")
     is `capacity − |consumed_ah|`. The two come from different measurements
     and can visibly disagree (one live example: 85.2 % vs 169 Ah of 200).
-    Scott chose amp-hours as the readout, so the ring follows the number:
+    The battery ring's job is to show **how many amp-hours are left**
+    (confirmed by Scott, 2026-10-02), so the ring follows the number:
     fill = remaining Ah ÷ capacity. Fall back to SoC % only when
     `consumed_ah` isn't reported, flagged as an estimate as the number
     already is.
