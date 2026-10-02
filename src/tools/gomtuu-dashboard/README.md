@@ -112,8 +112,8 @@ directly — no network path to TheFlea exists from that sandbox (no SSH, no
 Tailscale, `theflea` doesn't resolve).
 
 **GitHub Pages hosts the frontend now** — `docs/public/dashboard` is a
-symlink to this package's `public/` directory, so the existing docs build
-(`docs.yml`, unchanged) picks it up automatically and publishes it at
+symlink to this package's `public/` directory, so the docs build
+(`docs.yml`) includes it and publishes it at
 `https://scottkirvan.github.io/GOMAC/dashboard/`. That page is 100% static
 files; it still needs a live copy of this Node process to actually have
 data to show, reachable from the public internet since Pages is public.
@@ -138,8 +138,11 @@ To wire it up for real:
    ```js
    window.GOMAC_API_BASE = "https://<the-funnel-url>";
    ```
-   and push to `main` — the existing `docs.yml` workflow redeploys on any
-   push under `docs/**`, which the symlinked dashboard files count as.
+   and push to `main` — `docs.yml` redeploys on pushes touching `docs/**`
+   or `src/tools/gomtuu-dashboard/public/**`. The second path is required:
+   git tracks `docs/public/dashboard` as a symlink, so edits to the files it
+   points at never match `docs/**` on their own (this left Pages stuck on a
+   2026-09-14 build until the path was added).
 
 Until step 2 happens, the Pages copy renders fine but shows "unreachable"
 — it has nothing to poll yet, which is the honest state, not a bug.
