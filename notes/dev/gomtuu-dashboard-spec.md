@@ -162,9 +162,10 @@ streaming, but in scope for this part)
     and can visibly disagree (one live example: 85.2 % vs 169 Ah of 200).
     The battery ring's job is to show **how many amp-hours are left**
     (confirmed by Scott, 2026-10-02), so the ring follows the number:
-    fill = remaining Ah ÷ capacity. Fall back to SoC % only when
-    `consumed_ah` isn't reported, flagged as an estimate as the number
-    already is.
+    fill = remaining Ah ÷ capacity. When `consumed_ah` isn't reported, derive
+    remaining Ah from SoC % × capacity instead and show it the same way, with
+    no "estimate" flag or caveat in the UI or tooltip (Scott, 2026-10-02:
+    close enough). The tooltip that currently calls this an estimate goes.
 16. **Escape externally sourced text.** Song title, artist, album and
     station, Victron metric names and values, device identifiers, and the
     weather condition are currently inserted with `innerHTML` unescaped.
