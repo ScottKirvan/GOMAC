@@ -56,8 +56,8 @@ function formatDuration(ms) {
   if (s < 60) return `${s}s`;
   const m = Math.round(s / 60);
   if (m < 60) return `${m}m`;
-  const h = (m / 60).toFixed(1);
-  return `${h}h`;
+  const h = m / 60;
+  return Number.isInteger(h) ? `${h}h` : `${h.toFixed(1)}h`;
 }
 
 function formatClock(ms) {
@@ -68,7 +68,7 @@ function formatClock(ms) {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-function renderPowerGauge(power, history) {
+function renderPowerGauge(power, solarPeak) {
   const soc = power.soc;
   const socPct = soc === undefined ? 0 : Math.min(100, Math.max(0, soc));
   const socDash = (socPct / 100) * SOC_RING_CIRCUMFERENCE;
@@ -77,13 +77,13 @@ function renderPowerGauge(power, history) {
     `${socDash.toFixed(1)} ${(SOC_RING_CIRCUMFERENCE - socDash).toFixed(1)}`,
   );
 
-  const solarSamples = history.map((h) => h.solarPower).filter((v) => v !== undefined);
-  const hasSolarData = power.solarPower !== undefined || solarSamples.length > 0;
+  const peakW = solarPeak?.watts;
+  const hasSolarData = power.solarPower !== undefined || peakW !== undefined;
   // Math.max(1, ...) keeps the ratio below well-defined (no div-by-zero)
   // even when every reading so far has been 0 -- the floor is just for the
   // ring's fill percentage, so it's kept separate from hasSolarData, which
   // decides whether the Recent Peak stat row below has anything real to show.
-  const recentPeak = Math.max(1, power.solarPower ?? 0, ...solarSamples);
+  const recentPeak = Math.max(1, power.solarPower ?? 0, peakW ?? 0);
   const solarPct = power.solarPower === undefined ? 0 : Math.min(1, power.solarPower / recentPeak);
   const solarDash = solarPct * SOLAR_RING_CIRCUMFERENCE;
   document.getElementById("solarRing").setAttribute(
@@ -135,30 +135,22 @@ function renderPowerGauge(power, history) {
   document.getElementById("voltageVal").textContent = fmt(power.voltage, 2, " V");
 
   /**
-   * "Recent peak" is the max solarPower seen within a real, fixed clock
-   * window (src/history.ts's PEAK_WINDOW_MS, currently 1 hour) -- samples
-   * older than that are pruned server-side on every insert, so this is no
-   * longer the old sample-count ring buffer (500 samples, which at this
-   * system's real MQTT message rate only covered ~25-30 minutes and made
-   * "peak" nearly meaningless -- you're almost always at the peak of a
-   * window that short). The "(last Xm)" / "(last 1h)" suffix below just
-   * reflects how much of that hour has actually been collected so far
-   * (e.g. right after a service restart it legitimately ramps up from 0
-   * toward 1h -- it can't claim a full hour's peak before an hour of real
-   * data exists), not a drifting sample-count artifact anymore.
+   * "Recent peak" is computed server-side (src/solarPeak.ts) over a fixed
+   * clock window, SOLAR_PEAK_WINDOW_HOURS (default 24h), and persisted
+   * across restarts. coveredMs < windowMs only right after a first-ever
+   * start, while that much history doesn't exist yet.
    */
   const recentPeakVal = document.getElementById("recentPeakVal");
-  if (!hasSolarData) {
+  if (!hasSolarData || !solarPeak) {
     recentPeakVal.textContent = "—";
     recentPeakVal.title = "";
-  } else if (history.length > 0) {
-    const windowMs = Date.now() - history[0].t;
-    const windowLabel = formatDuration(windowMs);
-    recentPeakVal.textContent = `${fmt(recentPeak, 0, " W")} (last ${windowLabel})`;
-    recentPeakVal.title = `Highest solar reading in the last ${windowLabel} (this dashboard tracks a 1-hour rolling peak; right after a restart it ramps up toward that as real data accumulates, rather than claiming a full hour's peak before an hour has actually passed).`;
   } else {
-    recentPeakVal.textContent = fmt(recentPeak, 0, " W");
-    recentPeakVal.title = "";
+    const windowLabel = formatDuration(solarPeak.windowMs);
+    const partial = solarPeak.coveredMs < solarPeak.windowMs - 60 * 1000;
+    const span = partial ? `last ${formatDuration(solarPeak.coveredMs)} of ${windowLabel}` : windowLabel;
+    recentPeakVal.textContent = `${fmt(recentPeak, 0, " W")} (${span})`;
+    const when = solarPeak.at === undefined ? "" : ` at ${new Date(solarPeak.at).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" })}`;
+    recentPeakVal.title = `Highest solar reading in the last ${partial ? formatDuration(solarPeak.coveredMs) : windowLabel}${when}. Rolling ${windowLabel} window.`;
   }
 
   document.getElementById("chargerVal").textContent = power.chargerState ?? "—";
@@ -562,7 +554,7 @@ function renderWeather(weather) {
 }
 
 function render(snapshot) {
-  renderPowerGauge(snapshot.victron.power, snapshot.victron.history);
+  renderPowerGauge(snapshot.victron.power, snapshot.victron.solarPeak);
   renderAmpGauge(snapshot.victron.power);
   renderChart(snapshot.victron.history);
   renderSensorTables(snapshot.victron.devices);

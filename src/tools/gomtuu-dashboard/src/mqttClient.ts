@@ -4,6 +4,7 @@ import { recordConnectivitySample } from "./connectivityHistory.js";
 import type { DashboardConfig } from "./config.js";
 import type { DashboardStores } from "./dashboardState.js";
 import { recordPowerSample } from "./history.js";
+import { recordSolarPower } from "./solarPeak.js";
 import type { Logger } from "./logger.js";
 import { handlePandoraMessage } from "./pandoraState.js";
 import { handlePositionMessage } from "./positionState.js";
@@ -51,7 +52,9 @@ export function connectMqtt(
 
     if (topic.startsWith("victron-ble/")) {
       handleVictronMessage(stores.victron, topic, payload);
-      recordPowerSample(stores.powerHistory, summarizePower(stores.victron));
+      const power = summarizePower(stores.victron);
+      recordPowerSample(stores.powerHistory, power);
+      recordSolarPower(stores.solarPeak, power.solarPower);
       onUpdate();
       return;
     }

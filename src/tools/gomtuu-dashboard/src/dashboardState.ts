@@ -3,6 +3,7 @@ import { createConnectivityState, summarizeConnectivity } from "./connectivitySt
 import { createPowerHistory, type PowerHistory } from "./history.js";
 import { createNowPlayingState } from "./pandoraState.js";
 import { createPositionState } from "./positionState.js";
+import { createSolarPeakStore, summarizeSolarPeak, type SolarPeakStore } from "./solarPeak.js";
 import type { ConnectivityState, DashboardSnapshot, NowPlayingState, PositionState, WeatherState } from "./types.js";
 import { createVictronStore, summarizePower, type VictronStore } from "./victronState.js";
 
@@ -14,9 +15,10 @@ export interface DashboardStores {
   connectivity: ConnectivityState;
   powerHistory: PowerHistory;
   connectivityHistory: ConnectivityHistory;
+  solarPeak: SolarPeakStore;
 }
 
-export function createDashboardStores(): DashboardStores {
+export function createDashboardStores(solarPeak: SolarPeakStore = createSolarPeakStore(24 * 60 * 60 * 1000)): DashboardStores {
   return {
     victron: createVictronStore(),
     nowPlaying: createNowPlayingState(),
@@ -25,6 +27,7 @@ export function createDashboardStores(): DashboardStores {
     connectivity: createConnectivityState(),
     powerHistory: createPowerHistory(),
     connectivityHistory: createConnectivityHistory(),
+    solarPeak,
   };
 }
 
@@ -35,6 +38,7 @@ export function buildSnapshot(stores: DashboardStores): DashboardSnapshot {
       devices: stores.victron.devices,
       power: summarizePower(stores.victron),
       history: stores.powerHistory.samples,
+      solarPeak: summarizeSolarPeak(stores.solarPeak),
     },
     nowPlaying: stores.nowPlaying,
     position: stores.position,
