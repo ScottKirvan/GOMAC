@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.1.0](https://github.com/ScottKirvan/GOMAC/compare/v0.0.0...v0.1.0) (2026-10-02)
+
+
+### Features
+
+* add real-time telemetry dashboard for Gomtuu ([db42cbf](https://github.com/ScottKirvan/GOMAC/commit/db42cbf8285a83299b16b28dbd8ee153af19e0df))
+* auto-detect tailnet reachability instead of a separate private URL ([daf55c7](https://github.com/ScottKirvan/GOMAC/commit/daf55c727b193a889071a3495781f493411b73d2))
+* **dashboard:** add bidirectional amp gauge, Cockpit link, clarify recent peak ([a7d8335](https://github.com/ScottKirvan/GOMAC/commit/a7d833576237eb930fc4e77c574d3fd33d418234))
+* **dashboard:** scale solar visuals to the all-time peak instead of a rolling window ([2a0b914](https://github.com/ScottKirvan/GOMAC/commit/2a0b91427f6a486bf05cdd7be0162d659c184a87))
+* **dashboard:** server-side rolling solar peak over a configurable window (default 24h) ([9a770a9](https://github.com/ScottKirvan/GOMAC/commit/9a770a9a888fec7bb9f4990dadb05a688af08818))
+* publish the dashboard frontend through GitHub Pages ([3d2c848](https://github.com/ScottKirvan/GOMAC/commit/3d2c848b8cf4dfa8d653f51de50b3fa6fa529934))
+* wire position and connectivity into the dashboard ([76858b9](https://github.com/ScottKirvan/GOMAC/commit/76858b98bedd4d1080b3f0324e4008a6d338a5ba))
+* wire weather into the dashboard via Open-Meteo ([7d00b45](https://github.com/ScottKirvan/GOMAC/commit/7d00b450dd871662efccc866f5ac81456bb11495))
+
+
+### Bug Fixes
+
+* bind dashboard to loopback and isolate position to a tailnet-only port ([9cbebab](https://github.com/ScottKirvan/GOMAC/commit/9cbebabb568cc7a442aa50081462e67337d99f8d))
+* **dashboard:** bucket power samples into 10s so the 1-hour peak window actually spans an hour ([1119a9c](https://github.com/ScottKirvan/GOMAC/commit/1119a9cb3fd84415e5179122dfd26e466f3d0daf))
+* **dashboard:** make recent-peak a real 1-hour window, not sample count ([22f9f5b](https://github.com/ScottKirvan/GOMAC/commit/22f9f5b3d8ee2ee6e636331b48afae28cef12035))
+* point public dashboard at Funnel's actual supported port ([457113a](https://github.com/ScottKirvan/GOMAC/commit/457113aa1939faa5b1f6ed96b7675db8137e02e5))
+* replace WebSocket push with plain JSON polling ([ed118c6](https://github.com/ScottKirvan/GOMAC/commit/ed118c6098b8e78dd12d1529f9e5a66080b447be))
+
 ## 0.0.0 (2026-09-01)
 
 
