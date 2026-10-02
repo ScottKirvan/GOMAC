@@ -74,7 +74,10 @@ default (`WEATHER_POLL_INTERVAL_MS`) whenever a GPS fix is known.
    always at the peak of a window that short). Fixed 2026-10-01:
    `recordPowerSample` now prunes by actual elapsed time (`PEAK_WINDOW_MS`
    = 1 hour), with `MAX_SAMPLES` kept only as a defensive ceiling against
-   unbounded growth, not the normal pruning mechanism. The Power Gauge
+   unbounded growth, not the normal pruning mechanism. The real message
+   rate turned out to be ~12/second (per device per metric), so readings
+   are also merged into 10-second buckets (`SAMPLE_BUCKET_MS`, keeping each
+   bucket's max solar power) -- ~360 samples/hour instead of ~43,000. The Power Gauge
    panel's "Recent peak" stat row (`recentPeakVal`, e.g. "184W (last 42m)")
    shows how much of that hour has actually been collected so far --
    right after a restart it legitimately ramps up from 0 toward 1h rather
