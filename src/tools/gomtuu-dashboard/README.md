@@ -103,46 +103,59 @@ and adjust the patterns in `src/victronState.ts` if they don't match.
 
 ## Deployment
 
-Not deployed anywhere yet. Per `notes/dev/compute-hub-current-state.md`'s
-domain-separation model, getting this onto TheFlea (systemd unit, etc.) is
-a deliberate, narrow deployment step outside this repo's own session — not
-something to do from here without that being the explicit task. It also
-genuinely can't be deployed from a GOMAC Claude Code Remote session
-directly — no network path to TheFlea exists from that sandbox (no SSH, no
-Tailscale, `theflea` doesn't resolve).
+Two halves, deployed separately:
 
-**GitHub Pages hosts the frontend now** — `docs/public/dashboard` is a
-symlink to this package's `public/` directory, so the docs build
-(`docs.yml`) includes it and publishes it at
-`https://scottkirvan.github.io/GOMAC/dashboard/`. That page is 100% static
-files; it still needs a live copy of this Node process to actually have
-data to show, reachable from the public internet since Pages is public.
+### Backend (Node server) — TheFlea
 
-To wire it up for real:
+Runs as `gomac-dashboard.service` (system unit, `User=scott`) from a
+dedicated checkout at `/home/scott/gomac-deploy`, working directory
+`src/tools/gomtuu-dashboard`, with MQTT credentials from
+`/etc/gomac-dashboard/env`. Two ports, both bound to `127.0.0.1` and
+published by Tailscale:
 
-1. **This process still has to run somewhere that can reach Mosquitto** —
-   that's TheFlea, same requirement as always. See the "not deployed
-   anywhere yet" note above; this session has no path to do that step.
-2. **Expose it publicly.** [Tailscale Funnel](https://tailscale.com/kb/1223/funnel)
-   is the natural fit here (Tailscale's already on the project's roadmap) —
-   it gives one local port a real public HTTPS URL without opening up
-   anything else on TheFlea's network. Something like:
-   ```
-   tailscale funnel --bg 8090
-   ```
-   run on TheFlea, once this service is running there on port 8090 (or
-   whatever `HTTP_PORT` is set to).
-3. **Point the deployed page at that URL.** Edit
-   `src/tools/gomtuu-dashboard/public/config.js` (which the symlink also
-   carries into the docs build) to set:
-   ```js
-   window.GOMAC_API_BASE = "https://<the-funnel-url>";
-   ```
-   and push to `main` — `docs.yml` redeploys on pushes touching `docs/**`
-   or `src/tools/gomtuu-dashboard/public/**`. The second path is required:
-   git tracks `docs/public/dashboard` as a symlink, so edits to the files it
-   points at never match `docs/**` on their own (this left Pages stuck on a
-   2026-09-14 build until the path was added).
+| Port | Snapshot | Published as |
+|---|---|---|
+| `8090` (`HTTP_PORT`) | position-redacted | `tailscale funnel` → `https://theflea.tail6388a4.ts.net:8443` (public) |
+| `8091` (`HTTP_PRIVATE_PORT`) | full, incl. position | `tailscale serve` → `https://theflea.tail6388a4.ts.net:8091` (tailnet only) |
 
-Until step 2 happens, the Pages copy renders fine but shows "unreachable"
-— it has nothing to poll yet, which is the honest state, not a bug.
+To deploy a merged change (on TheFlea):
+
+```sh
+cd /home/scott/gomac-deploy
+git fetch origin && git switch --detach origin/main
+cd src/tools/gomtuu-dashboard && npm ci && npm run build && npm test
+sudo systemctl restart gomac-dashboard
+```
+
+Keep `/home/scott/gomac-deploy` on `main`; do feature work in a separate
+worktree, since this checkout is what production runs from.
+`data/solar-peak.json` (gitignored) holds the persisted all-time solar
+peak. The server writes it on each new peak, so to hand-edit it, stop the
+service first.
+
+This can't be done from a GOMAC Claude Code Remote (cloud) session: that
+sandbox has no network path to TheFlea.
+
+### Frontend (static files) — GitHub Pages
+
+`docs/public/dashboard` is a symlink to this package's `public/`
+directory, so the docs build (`docs.yml`) publishes it at
+`https://www.scottkirvan.com/GOMAC/dashboard/`. `public/config.js` points
+it at the backend: `GOMAC_API_BASE_PRIVATE` (the tailnet URL, tried first
+with a short timeout) and `GOMAC_API_BASE_PUBLIC` (the Funnel URL,
+fallback for visitors off the tailnet). When both are unset, the page
+fetches `/snapshot.json` from its own origin.
+
+`docs.yml` redeploys on pushes to `main` touching `docs/**` or
+`src/tools/gomtuu-dashboard/public/**`. The second path is required: git
+tracks `docs/public/dashboard` as a symlink, so edits to the files it
+points at never match `docs/**` on their own (this left Pages stuck on a
+2026-09-14 build until the path was added). It can also be run by hand:
+`gh workflow run docs.yml --ref main`.
+
+**Previewing a branch locally:** the committed `config.js` sends the page
+to the *production* backend, so a preview server on other ports would
+show new frontend code against production data. In the preview checkout,
+blank `public/config.js` (so it fetches same-origin) and keep that change
+out of commits, e.g. with `git update-index --skip-worktree
+public/config.js`.
