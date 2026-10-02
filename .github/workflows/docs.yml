@@ -3,7 +3,9 @@ name: Deploy Docs to GitHub Pages
 on:
   push:
     branches: [main]
-    paths: ['docs/**']
+    # docs/public/dashboard is a symlink into the dashboard package; git only
+    # sees the symlink itself, so edits to its target must be listed here too.
+    paths: ['docs/**', 'src/tools/gomtuu-dashboard/public/**']
   workflow_dispatch:
 
 permissions:
