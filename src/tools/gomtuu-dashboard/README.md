@@ -61,27 +61,20 @@ default (`WEATHER_POLL_INTERVAL_MS`) whenever a GPS fix is known.
    a different timezone than Gomtuu is currently in. Fine for the common
    case (same person, near the van); not fixed with extra timezone
    handling yet.
-3. **The solar dial's "recent peak" is a real 1-hour rolling window, not a
-   sample-count window.** `public/app.js`'s `renderPowerGauge` divides live
-   solar power by the max solar reading across `history`
-   (`src/history.ts`'s in-memory buffer). This used to be capped by sample
-   COUNT (`MAX_SAMPLES` = 500) on the theory that the 1-minute scan timer
-   made that "well over 6 hours" -- wrong in practice, since a sample is
-   appended on essentially every `victron-ble/#` MQTT message, not once per
-   scan cycle; with 4 devices (~18-20 messages/minute), 500 samples only
-   covered ~25-30 minutes, confirmed live against `/snapshot.json` on
-   2026-10-01, which made "recent peak" nearly meaningless (you're almost
-   always at the peak of a window that short). Fixed 2026-10-01:
-   `recordPowerSample` now prunes by actual elapsed time (`PEAK_WINDOW_MS`
-   = 1 hour), with `MAX_SAMPLES` kept only as a defensive ceiling against
-   unbounded growth, not the normal pruning mechanism. The real message
-   rate turned out to be ~12/second (per device per metric), so readings
-   are also merged into 10-second buckets (`SAMPLE_BUCKET_MS`, keeping each
-   bucket's max solar power) -- ~360 samples/hour instead of ~43,000. The Power Gauge
-   panel's "Recent peak" stat row (`recentPeakVal`, e.g. "184W (last 42m)")
-   shows how much of that hour has actually been collected so far --
-   right after a restart it legitimately ramps up from 0 toward 1h rather
-   than claiming a full hour's peak before an hour of real data exists.
+3. **The solar dial's "recent peak" is a server-side rolling window,
+   default 24 hours.** `src/solarPeak.ts` keeps one max-per-minute bucket
+   of solar power (24h = 1,440 buckets, 48h = 2,880), so memory is bounded
+   by the window length alone, not by MQTT message rate (~12/second in
+   practice). Only the resulting peak (`victron.solarPeak` in
+   `/snapshot.json`: `watts`, `at`, `windowMs`, `coveredMs`) goes to the
+   browser. Configure with `SOLAR_PEAK_WINDOW_HOURS` (default `24`). The
+   buckets are saved every minute and on shutdown to
+   `SOLAR_PEAK_STATE_FILE` (default `data/solar-peak.json`, relative to the
+   working directory, gitignored), so restarts don't reset the window.
+   The stat row reads e.g. "184 W (24h)", or "184 W (last 3h of 24h)" while
+   a first-ever start is still building up history. The trend chart's
+   series (`src/history.ts`) is separate: 1 hour, 10-second buckets.
+
 4. **Field names for `gps/phone/#` and `ping-monitor/#` are per the IT
    agent's report, not independently re-verified against the live broker
    from this repo** — same posture as the Victron metric names below.
