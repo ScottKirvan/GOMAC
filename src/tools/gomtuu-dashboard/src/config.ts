@@ -19,7 +19,6 @@ export interface DashboardConfig {
     pollIntervalMs: number;
   };
   solarPeak: {
-    windowMs: number;
     stateFile: string;
   };
 }
@@ -56,7 +55,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): DashboardConfi
       pollIntervalMs: Number(env.WEATHER_POLL_INTERVAL_MS ?? 15 * 60 * 1000),
     },
     solarPeak: {
-      windowMs: Number(env.SOLAR_PEAK_WINDOW_HOURS ?? 24) * 60 * 60 * 1000,
       // Relative to the working directory, so separate checkouts (production
       // deploy vs. a preview worktree) never share or clobber each other's state.
       stateFile: env.SOLAR_PEAK_STATE_FILE ?? "data/solar-peak.json",

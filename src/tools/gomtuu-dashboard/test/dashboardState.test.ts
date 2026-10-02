@@ -4,7 +4,7 @@ import type { DashboardSnapshot } from "../src/types.js";
 
 function fixtureSnapshot(): DashboardSnapshot {
   return {
-    victron: { devices: {}, power: {}, history: [], solarPeak: { windowMs: 0, coveredMs: 0 } },
+    victron: { devices: {}, power: {}, history: [], solarPeak: {} },
     nowPlaying: {},
     position: { latitude: 44.37, longitude: -64.32, accuracyM: 10, speedMps: 5 },
     weather: {

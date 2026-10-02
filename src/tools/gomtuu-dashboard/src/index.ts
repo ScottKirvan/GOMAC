@@ -7,16 +7,15 @@ import { loadSolarPeakStore, saveSolarPeakStore } from "./solarPeak.js";
 import { startWeatherPoller } from "./weather.js";
 
 const config = loadConfig();
-const stores = createDashboardStores(loadSolarPeakStore(config.solarPeak.stateFile, config.solarPeak.windowMs));
+const stores = createDashboardStores(loadSolarPeakStore(config.solarPeak.stateFile));
 
 function persistSolarPeak(): void {
   try {
     saveSolarPeakStore(stores.solarPeak, config.solarPeak.stateFile);
   } catch (err) {
-    consoleLogger.error(`failed to save solar peak state: ${(err as Error).message}`);
+    consoleLogger.error(`failed to save solar peak: ${(err as Error).message}`);
   }
 }
-const solarPeakSaver = setInterval(persistSolarPeak, 60 * 1000);
 
 // Polling, not push: the browser fetches /snapshot.json on an interval
 // (see public/app.js), so nothing here needs to notify it of changes --
@@ -28,7 +27,7 @@ const server = startServer(
   () => redactPositionForPublic(buildSnapshot(stores)),
 );
 
-connectMqtt(config, stores, consoleLogger, () => {});
+connectMqtt(config, stores, consoleLogger, () => {}, persistSolarPeak);
 
 const weatherPoller = startWeatherPoller(
   () => stores.position,
@@ -41,13 +40,9 @@ const weatherPoller = startWeatherPoller(
 
 process.on("SIGTERM", () => {
   weatherPoller.stop();
-  clearInterval(solarPeakSaver);
-  persistSolarPeak();
   void server.close().then(() => process.exit(0));
 });
 process.on("SIGINT", () => {
   weatherPoller.stop();
-  clearInterval(solarPeakSaver);
-  persistSolarPeak();
   void server.close().then(() => process.exit(0));
 });

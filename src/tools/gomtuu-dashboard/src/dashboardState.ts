@@ -18,7 +18,7 @@ export interface DashboardStores {
   solarPeak: SolarPeakStore;
 }
 
-export function createDashboardStores(solarPeak: SolarPeakStore = createSolarPeakStore(24 * 60 * 60 * 1000)): DashboardStores {
+export function createDashboardStores(solarPeak: SolarPeakStore = createSolarPeakStore()): DashboardStores {
   return {
     victron: createVictronStore(),
     nowPlaying: createNowPlayingState(),
