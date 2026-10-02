@@ -78,13 +78,10 @@ function renderPowerGauge(power, solarPeak) {
   );
 
   const peakW = solarPeak?.watts;
-  const hasSolarData = power.solarPower !== undefined || peakW !== undefined;
   // Math.max(1, ...) keeps the ratio below well-defined (no div-by-zero)
-  // even when every reading so far has been 0 -- the floor is just for the
-  // ring's fill percentage, so it's kept separate from hasSolarData, which
-  // decides whether the Recent Peak stat row below has anything real to show.
-  const recentPeak = Math.max(1, power.solarPower ?? 0, peakW ?? 0);
-  const solarPct = power.solarPower === undefined ? 0 : Math.min(1, power.solarPower / recentPeak);
+  // even when every reading so far has been 0.
+  const solarScale = Math.max(1, power.solarPower ?? 0, peakW ?? 0);
+  const solarPct = power.solarPower === undefined ? 0 : Math.min(1, power.solarPower / solarScale);
   const solarDash = solarPct * SOLAR_RING_CIRCUMFERENCE;
   document.getElementById("solarRing").setAttribute(
     "stroke-dasharray",
@@ -134,23 +131,14 @@ function renderPowerGauge(power, solarPeak) {
 
   document.getElementById("voltageVal").textContent = fmt(power.voltage, 2, " V");
 
-  /**
-   * "Recent peak" is computed server-side (src/solarPeak.ts) over a fixed
-   * clock window, SOLAR_PEAK_WINDOW_HOURS (default 24h), and persisted
-   * across restarts. coveredMs < windowMs only right after a first-ever
-   * start, while that much history doesn't exist yet.
-   */
-  const recentPeakVal = document.getElementById("recentPeakVal");
-  if (!hasSolarData || !solarPeak) {
-    recentPeakVal.textContent = "—";
-    recentPeakVal.title = "";
+  // All-time peak solar (server-side, persisted) -- the solar ring's full scale.
+  const peakSolarEl = document.getElementById("peakSolarVal");
+  if (peakW === undefined) {
+    peakSolarEl.textContent = "—";
+    peakSolarEl.title = "";
   } else {
-    const windowLabel = formatDuration(solarPeak.windowMs);
-    const partial = solarPeak.coveredMs < solarPeak.windowMs - 60 * 1000;
-    const span = partial ? `last ${formatDuration(solarPeak.coveredMs)} of ${windowLabel}` : windowLabel;
-    recentPeakVal.textContent = `${fmt(recentPeak, 0, " W")} (${span})`;
-    const when = solarPeak.at === undefined ? "" : ` at ${new Date(solarPeak.at).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" })}`;
-    recentPeakVal.title = `Highest solar reading in the last ${partial ? formatDuration(solarPeak.coveredMs) : windowLabel}${when}. Rolling ${windowLabel} window.`;
+    peakSolarEl.textContent = fmt(peakW, 0, " W");
+    peakSolarEl.title = solarPeak.at === undefined ? "Highest solar reading recorded" : `Highest solar reading recorded, ${new Date(solarPeak.at).toLocaleDateString([], { year: "numeric", month: "short", day: "numeric" })}`;
   }
 
   document.getElementById("chargerVal").textContent = power.chargerState ?? "—";
@@ -249,7 +237,7 @@ function renderAmpGauge(power) {
     : label;
 }
 
-function buildChartSvg(history) {
+function buildChartSvg(history, solarPeakW) {
   const pts = history.filter((s) => s.solarPower !== undefined || s.power !== undefined);
   if (pts.length < 2) return undefined;
 
@@ -257,6 +245,9 @@ function buildChartSvg(history) {
     ...pts.map((p) => p.solarPower).filter((v) => v !== undefined),
     ...pts.map((p) => p.power).filter((v) => v !== undefined),
     0,
+    // Fixed top at the all-time solar peak, so the chart's scale is stable
+    // and comparable over time instead of rescaling to whatever's visible.
+    solarPeakW ?? 0,
   ];
   let min = Math.min(...allVals);
   let max = Math.max(...allVals);
@@ -318,9 +309,9 @@ function buildChartSvg(history) {
   `;
 }
 
-function renderChart(history) {
+function renderChart(history, solarPeakW) {
   const el = document.getElementById("powerChart");
-  const svg = buildChartSvg(history);
+  const svg = buildChartSvg(history, solarPeakW);
   el.innerHTML = svg ?? `<div class="chart-empty">collecting data — check back once a few readings have come in</div>`;
   document.getElementById("historyMeta").textContent = `${history.length} sample${history.length === 1 ? "" : "s"}`;
 }
@@ -556,7 +547,7 @@ function renderWeather(weather) {
 function render(snapshot) {
   renderPowerGauge(snapshot.victron.power, snapshot.victron.solarPeak);
   renderAmpGauge(snapshot.victron.power);
-  renderChart(snapshot.victron.history);
+  renderChart(snapshot.victron.history, snapshot.victron.solarPeak?.watts);
   renderSensorTables(snapshot.victron.devices);
   renderNowPlaying(snapshot.nowPlaying);
   renderPosition(snapshot.position);

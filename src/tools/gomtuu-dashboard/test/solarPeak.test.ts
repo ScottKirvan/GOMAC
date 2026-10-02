@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -10,72 +10,52 @@ import {
   summarizeSolarPeak,
 } from "../src/solarPeak.js";
 
-const HOUR = 60 * 60 * 1000;
-const BASE = 1_699_999_980_000; // minute-aligned
-
 describe("solar peak", () => {
   it("reports nothing before any reading", () => {
-    const store = createSolarPeakStore(24 * HOUR);
-    expect(summarizeSolarPeak(store, BASE)).toEqual({ watts: undefined, at: undefined, windowMs: 24 * HOUR, coveredMs: 0 });
+    expect(summarizeSolarPeak(createSolarPeakStore())).toEqual({ watts: undefined, at: undefined });
   });
 
-  it("ignores undefined readings", () => {
-    const store = createSolarPeakStore(24 * HOUR);
-    recordSolarPower(store, undefined, BASE);
-    expect(store.buckets).toHaveLength(0);
+  it("ignores undefined and NaN readings", () => {
+    const store = createSolarPeakStore();
+    expect(recordSolarPower(store, undefined, 1)).toBe(false);
+    expect(recordSolarPower(store, Number.NaN, 2)).toBe(false);
+    expect(store.watts).toBeUndefined();
   });
 
-  it("finds the peak across a full 48h window at ~12 msgs/s with one bucket per minute", () => {
-    const store = createSolarPeakStore(48 * HOUR);
-    const spike = (t: number, at: number) => t >= at && t < at + 83;
-    for (let t = BASE; t < BASE + 50 * HOUR; t += 83) {
-      // 999W spike at +1h ages out of the 48h window by the end; 180W at +20h doesn't
-      const watts = spike(t, BASE + 1 * HOUR) ? 999 : spike(t, BASE + 20 * HOUR) ? 180 : 50;
-      recordSolarPower(store, watts, t);
-    }
-    const now = BASE + 50 * HOUR;
-    expect(store.buckets.length).toBeLessThanOrEqual(48 * 60 + 1);
-    const s = summarizeSolarPeak(store, now);
-    expect(s.watts).toBe(180);
-    expect(s.at).toBe(BASE + 20 * HOUR);
-    expect(s.coveredMs).toBe(48 * HOUR);
+  it("keeps only the highest reading ever seen, and reports when it changes", () => {
+    const store = createSolarPeakStore();
+    expect(recordSolarPower(store, 80, 1000)).toBe(true);
+    expect(recordSolarPower(store, 210, 2000)).toBe(true);
+    expect(recordSolarPower(store, 150, 3000)).toBe(false);
+    expect(recordSolarPower(store, 210, 4000)).toBe(false);
+    expect(summarizeSolarPeak(store)).toEqual({ watts: 210, at: 2000 });
   });
 
-  it("ages a peak out once it leaves the window", () => {
-    const store = createSolarPeakStore(24 * HOUR);
-    recordSolarPower(store, 200, BASE);
-    recordSolarPower(store, 40, BASE + 23 * HOUR);
-    expect(summarizeSolarPeak(store, BASE + 23 * HOUR).watts).toBe(200);
-    expect(summarizeSolarPeak(store, BASE + 24 * HOUR + 60 * 1000).watts).toBe(40);
-  });
-
-  it("reports partial coverage right after a first-ever start", () => {
-    const store = createSolarPeakStore(24 * HOUR);
-    recordSolarPower(store, 10, BASE);
-    expect(summarizeSolarPeak(store, BASE + 2 * HOUR).coveredMs).toBe(2 * HOUR);
-  });
-
-  it("survives a save/load round trip, pruning stale buckets on load", () => {
+  it("survives a save/load round trip", () => {
     const dir = mkdtempSync(join(tmpdir(), "solarpeak-"));
     try {
       const path = join(dir, "nested", "solar-peak.json");
-      const store = createSolarPeakStore(24 * HOUR);
-      recordSolarPower(store, 300, BASE);
-      recordSolarPower(store, 120, BASE + 10 * HOUR);
+      const store = createSolarPeakStore();
+      recordSolarPower(store, 231, 5000);
       saveSolarPeakStore(store, path);
+      expect(loadSolarPeakStore(path)).toEqual({ watts: 231, at: 5000 });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 
-      const reloaded = loadSolarPeakStore(path, 24 * HOUR, BASE + 12 * HOUR);
-      expect(summarizeSolarPeak(reloaded, BASE + 12 * HOUR)).toMatchObject({ watts: 300, coveredMs: 12 * HOUR });
-
-      const later = loadSolarPeakStore(path, 24 * HOUR, BASE + 30 * HOUR);
-      expect(summarizeSolarPeak(later, BASE + 30 * HOUR).watts).toBe(120);
+  it("accepts a hand-seeded file without a timestamp", () => {
+    const dir = mkdtempSync(join(tmpdir(), "solarpeak-"));
+    try {
+      const path = join(dir, "solar-peak.json");
+      writeFileSync(path, JSON.stringify({ watts: 231 }));
+      expect(loadSolarPeakStore(path)).toEqual({ watts: 231, at: undefined });
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
   });
 
   it("starts empty when the state file is missing or corrupt", () => {
-    const store = loadSolarPeakStore("/nonexistent/solar-peak.json", 24 * HOUR, BASE);
-    expect(store.buckets).toHaveLength(0);
+    expect(loadSolarPeakStore("/nonexistent/solar-peak.json")).toEqual({});
   });
 });

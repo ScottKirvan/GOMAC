@@ -61,19 +61,15 @@ default (`WEATHER_POLL_INTERVAL_MS`) whenever a GPS fix is known.
    a different timezone than Gomtuu is currently in. Fine for the common
    case (same person, near the van); not fixed with extra timezone
    handling yet.
-3. **The solar dial's "recent peak" is a server-side rolling window,
-   default 24 hours.** `src/solarPeak.ts` keeps one max-per-minute bucket
-   of solar power (24h = 1,440 buckets, 48h = 2,880), so memory is bounded
-   by the window length alone, not by MQTT message rate (~12/second in
-   practice). Only the resulting peak (`victron.solarPeak` in
-   `/snapshot.json`: `watts`, `at`, `windowMs`, `coveredMs`) goes to the
-   browser. Configure with `SOLAR_PEAK_WINDOW_HOURS` (default `24`). The
-   buckets are saved every minute and on shutdown to
-   `SOLAR_PEAK_STATE_FILE` (default `data/solar-peak.json`, relative to the
-   working directory, gitignored), so restarts don't reset the window.
-   The stat row reads e.g. "184 W (24h)", or "184 W (last 3h of 24h)" while
-   a first-ever start is still building up history. The trend chart's
-   series (`src/history.ts`) is separate: 1 hour, 10-second buckets.
+3. **The solar dial and trend chart scale to the all-time peak solar
+   reading.** `src/solarPeak.ts` keeps the highest solar power ever seen
+   and sends it as `victron.solarPeak` (`watts`, `at`) in `/snapshot.json`.
+   The solar ring fills relative to it, the trend chart's top is pinned to
+   it so the scale stays stable, and the "Peak solar" stat row shows it.
+   It's saved whenever a new peak is set to `SOLAR_PEAK_STATE_FILE`
+   (default `data/solar-peak.json`, relative to the working directory,
+   gitignored), so restarts don't reset it. To seed it from older logs,
+   write `{"watts": <W>}` to that file before starting the server.
 
 4. **Field names for `gps/phone/#` and `ping-monitor/#` are per the IT
    agent's report, not independently re-verified against the live broker

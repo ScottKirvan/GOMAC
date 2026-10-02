@@ -15,6 +15,7 @@ export function connectMqtt(
   stores: DashboardStores,
   logger: Logger,
   onUpdate: () => void,
+  onNewSolarPeak: () => void = () => {},
 ): MqttClient {
   const client = mqtt.connect({
     host: config.mqtt.host,
@@ -54,7 +55,7 @@ export function connectMqtt(
       handleVictronMessage(stores.victron, topic, payload);
       const power = summarizePower(stores.victron);
       recordPowerSample(stores.powerHistory, power);
-      recordSolarPower(stores.solarPeak, power.solarPower);
+      if (recordSolarPower(stores.solarPeak, power.solarPower)) onNewSolarPeak();
       onUpdate();
       return;
     }

@@ -122,14 +122,10 @@ export interface DashboardSnapshot {
 }
 
 export interface SolarPeakSummary {
-  /** Highest solar power seen within the window; undefined until any reading arrives. */
+  /** Highest solar power ever seen (persisted); undefined until any reading arrives. */
   watts?: number;
-  /** Start of the minute the peak occurred in, epoch ms. */
+  /** When that peak was recorded, epoch ms. */
   at?: number;
-  /** Configured window length (SOLAR_PEAK_WINDOW_HOURS). */
-  windowMs: number;
-  /** How much of the window has real data behind it (< windowMs right after a first-ever start). */
-  coveredMs: number;
 }
 
 export interface PowerSample {
