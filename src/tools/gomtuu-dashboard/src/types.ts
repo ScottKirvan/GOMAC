@@ -49,12 +49,26 @@ export interface NowPlayingState {
  * for why: this way it's guaranteed to track Gomtuu's actual position).
  * Absent fields mean "no successful fetch yet", not zero.
  */
+export interface DailyForecast {
+  /** Local calendar date at the queried location, `YYYY-MM-DD`. */
+  date: string;
+  conditionCode?: number;
+  condition?: string;
+  highC?: number;
+  lowC?: number;
+  precipitationChancePct?: number;
+}
+
 export interface WeatherState {
   temperatureC?: number;
   apparentTemperatureC?: number;
   conditionCode?: number;
   condition?: string;
   windSpeedKph?: number;
+  windDirectionDeg?: number;
+  windGustKph?: number;
+  /** Today first; empty when no forecast came back. */
+  forecast?: DailyForecast[];
   sunrise?: string;
   sunset?: string;
   updatedAt?: number;

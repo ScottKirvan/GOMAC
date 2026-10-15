@@ -12,6 +12,8 @@ import {
   googleMapsUrl,
   currentDirection,
   chargeStateTone,
+  weatherIcon,
+  forecastDayLabel,
 } from "./render.js";
 
 /**
@@ -385,11 +387,50 @@ function renderWeather(weather) {
 
   body.innerHTML = `
     <div class="wx-top">
+      <span class="wx-icon" aria-hidden="true">${weatherIcon(weather.conditionCode)}</span>
       <span class="wx-temp">${Math.round(weather.temperatureC)}°C</span>
-      <span class="wx-cond">${weather.condition ?? "—"}${weather.apparentTemperatureC !== undefined ? ` · feels ${Math.round(weather.apparentTemperatureC)}°` : ""}</span>
+      <div class="wx-top-text">
+        <span class="wx-cond">${weather.condition ?? "—"}</span>
+        ${weather.apparentTemperatureC !== undefined ? `<span class="wx-feels">feels ${Math.round(weather.apparentTemperatureC)}°</span>` : ""}
+      </div>
     </div>
+    ${renderWind(weather)}
     ${barSection}
+    ${renderForecast(weather.forecast)}
   `;
+}
+
+function renderWind(weather) {
+  if (weather.windSpeedKph === undefined) return "";
+  const dir = weather.windDirectionDeg;
+  // Open-Meteo reports where the wind blows FROM; the arrow points where it's going.
+  const arrow =
+    dir === undefined
+      ? ""
+      : `<svg class="wx-wind-arrow" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2 L12 13 L8 10.5 L4 13 Z" fill="currentColor" transform="rotate(${(dir + 180) % 360} 8 8)" /></svg>`;
+  const from = dir === undefined ? "" : ` from ${compassLabel(dir)}`;
+  const gusts = weather.windGustKph === undefined ? "" : ` · gusts ${Math.round(weather.windGustKph)}`;
+  return `
+    <div class="wx-wind" title="${dir === undefined ? "" : `${Math.round(dir)}°`}">
+      ${arrow}<span>Wind <span class="v">${Math.round(weather.windSpeedKph)}</span> km/h${from}${gusts}</span>
+    </div>
+  `;
+}
+
+function renderForecast(forecast) {
+  if (!forecast || forecast.length === 0) return "";
+  const days = forecast
+    .map(
+      (day, i) => `
+        <div class="wx-day" title="${day.condition ?? ""}">
+          <span class="wx-day-name">${forecastDayLabel(day.date, i)}</span>
+          <span class="wx-day-icon" aria-hidden="true">${weatherIcon(day.conditionCode)}</span>
+          <span class="wx-day-temps"><span class="hi">${fmt(day.highC, 0, "°")}</span> <span class="lo">${fmt(day.lowC, 0, "°")}</span></span>
+          <span class="wx-day-precip">${day.precipitationChancePct === undefined ? "" : `${Math.round(day.precipitationChancePct)}%`}</span>
+        </div>`,
+    )
+    .join("");
+  return `<div class="wx-forecast">${days}</div>`;
 }
 
 function render(snapshot) {

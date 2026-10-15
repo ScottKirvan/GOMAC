@@ -1,7 +1,8 @@
 import type { Logger } from "./logger.js";
-import type { PositionState, WeatherState } from "./types.js";
+import type { DailyForecast, PositionState, WeatherState } from "./types.js";
 
 const OPEN_METEO_BASE = "https://api.open-meteo.com/v1/forecast";
+const FORECAST_DAYS = 4;
 
 /**
  * WMO weather interpretation codes, per Open-Meteo's docs
@@ -54,19 +55,47 @@ interface OpenMeteoResponse {
     apparent_temperature?: number;
     weather_code?: number;
     wind_speed_10m?: number;
+    wind_direction_10m?: number;
+    wind_gusts_10m?: number;
   };
   daily?: {
+    time?: string[];
+    weather_code?: number[];
+    temperature_2m_max?: number[];
+    temperature_2m_min?: number[];
+    precipitation_probability_max?: number[];
     sunrise?: string[];
     sunset?: string[];
   };
+}
+
+function dailyForecast(daily: OpenMeteoResponse["daily"]): DailyForecast[] {
+  return (daily?.time ?? []).map((date, i) => {
+    const conditionCode = daily?.weather_code?.[i];
+    return {
+      date,
+      conditionCode,
+      condition: describeConditionCode(conditionCode),
+      highC: daily?.temperature_2m_max?.[i],
+      lowC: daily?.temperature_2m_min?.[i],
+      precipitationChancePct: daily?.precipitation_probability_max?.[i],
+    };
+  });
 }
 
 export async function fetchWeather(latitude: number, longitude: number): Promise<WeatherState> {
   const url = new URL(OPEN_METEO_BASE);
   url.searchParams.set("latitude", latitude.toFixed(4));
   url.searchParams.set("longitude", longitude.toFixed(4));
-  url.searchParams.set("current", "temperature_2m,apparent_temperature,weather_code,wind_speed_10m");
-  url.searchParams.set("daily", "sunrise,sunset");
+  url.searchParams.set(
+    "current",
+    "temperature_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m",
+  );
+  url.searchParams.set(
+    "daily",
+    "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset",
+  );
+  url.searchParams.set("forecast_days", String(FORECAST_DAYS));
   url.searchParams.set("timezone", "auto");
 
   const res = await fetch(url);
@@ -81,6 +110,9 @@ export async function fetchWeather(latitude: number, longitude: number): Promise
     conditionCode: data.current?.weather_code,
     condition: describeConditionCode(data.current?.weather_code),
     windSpeedKph: data.current?.wind_speed_10m,
+    windDirectionDeg: data.current?.wind_direction_10m,
+    windGustKph: data.current?.wind_gusts_10m,
+    forecast: dailyForecast(data.daily),
     sunrise: data.daily?.sunrise?.[0],
     sunset: data.daily?.sunset?.[0],
     updatedAt: Date.now(),

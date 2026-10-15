@@ -10,6 +10,8 @@ import {
   googleMapsUrl,
   currentDirection,
   chargeStateTone,
+  weatherIcon,
+  forecastDayLabel,
 } from "../public/render.js";
 
 describe("fmt / fmtSigned", () => {
@@ -159,5 +161,31 @@ describe("chargeStateTone", () => {
     expect(chargeStateTone("INVERTING")).toBe("neutral");
     expect(chargeStateTone("SOMETHING_NEW")).toBe("neutral");
     expect(chargeStateTone(undefined)).toBeUndefined();
+  });
+});
+
+describe("weatherIcon", () => {
+  it("maps WMO code groups to an icon", () => {
+    expect(weatherIcon(0)).toBe("☀️");
+    expect(weatherIcon(2)).toBe("⛅");
+    expect(weatherIcon(3)).toBe("☁️");
+    expect(weatherIcon(45)).toBe("🌫️");
+    expect(weatherIcon(55)).toBe("🌦️");
+    expect(weatherIcon(63)).toBe("🌧️");
+    expect(weatherIcon(73)).toBe("🌨️");
+    expect(weatherIcon(95)).toBe("⛈️");
+  });
+
+  it("is empty for missing or unknown codes", () => {
+    expect(weatherIcon(undefined)).toBe("");
+    expect(weatherIcon(12345)).toBe("");
+  });
+});
+
+describe("forecastDayLabel", () => {
+  it("labels the first day Today and the rest by local weekday", () => {
+    expect(forecastDayLabel("2026-10-15", 0)).toBe("Today");
+    // 2026-10-16 is a Friday; parsed as a local date, not UTC midnight.
+    expect(forecastDayLabel("2026-10-16", 1)).toBe("Fri");
   });
 });

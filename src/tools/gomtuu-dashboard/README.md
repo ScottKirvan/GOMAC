@@ -38,7 +38,7 @@ empty state until it can reach a broker with real traffic.
 | Now Playing | **live** | `gomac/pandora/state/<metric>` (verified against `src/integrations/pianobar/src/telemetry.ts`) |
 | Position (speed, heading, coords) | **live** | `gps/phone/<metric>` (phone GPS, rides HA's MQTT connection) |
 | Connectivity (ping success, RTT) | **live** | `ping-monitor/<target>/<metric>`, sampled into an in-memory ring buffer |
-| Weather & Sun | **live** | Open-Meteo, polled against the live `gps/phone` coordinates |
+| Weather & Sun (conditions, wind, 4-day forecast) | **live** | Open-Meteo, polled against the live `gps/phone` coordinates |
 
 Every panel is live now. Position and Connectivity were confirmed live by
 the IT-side agent handling TheFlea; Weather uses Open-Meteo (Scott's call
