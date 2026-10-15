@@ -223,3 +223,27 @@ export function currentDirection(current) {
   if (current === undefined || Number.isNaN(current) || current === 0) return undefined;
   return current > 0 ? "charge" : "draw";
 }
+
+/**
+ * Display tone for a Victron charge state (victron_ble's OperationMode
+ * names, as published by victron-ble-monitor.py). Unrecognized states fall
+ * back to "neutral" rather than going uncolored.
+ */
+const CHARGE_STATE_TONES = {
+  BULK: "bulk",
+  ABSORPTION: "absorption",
+  REPEATED_ABSORPTION: "absorption",
+  EQUALIZE_MANUAL: "absorption",
+  RECONDITION: "absorption",
+  FLOAT: "float",
+  STORAGE: "storage",
+  FAULT: "fault",
+  OFF: "off",
+  LOW_POWER: "off",
+  NOT_AVAILABLE: "off",
+};
+
+export function chargeStateTone(state) {
+  if (state === undefined || state === null) return undefined;
+  return CHARGE_STATE_TONES[String(state).toUpperCase()] ?? "neutral";
+}

@@ -11,6 +11,7 @@ import {
   buildRttSparkline,
   googleMapsUrl,
   currentDirection,
+  chargeStateTone,
 } from "./render.js";
 
 /**
@@ -116,7 +117,11 @@ function renderPowerGauge(power, solarPeak) {
       ? ""
       : `Solar ring full scale: highest reading recorded, ${fmt(peakW, 0, " W")}${solarPeak.at === undefined ? "" : ` on ${new Date(solarPeak.at).toLocaleDateString([], { year: "numeric", month: "short", day: "numeric" })}`}`;
 
-  document.getElementById("chargerVal").textContent = power.chargerState ?? "—";
+  const chargerEl = document.getElementById("chargerVal");
+  chargerEl.textContent = power.chargerState ?? "—";
+  chargerEl.className = "v";
+  const chargerTone = chargeStateTone(power.chargerState);
+  if (chargerTone) chargerEl.classList.add("charge-state", `cs-${chargerTone}`);
 
   document.getElementById("powerSourceMac").textContent = power.batteryDeviceMac
     ? power.batteryDeviceMac
@@ -201,7 +206,7 @@ function renderSensorTables(devices) {
       const rows = metrics
         .map(
           ([metric, data]) =>
-            `<tr><td class="metric">${metric}</td><td class="value">${data.value}</td><td class="age">${formatAge(data.updatedAt)}</td></tr>`,
+            `<tr><td class="metric">${metric}</td><td class="value${metric === "charge_state" ? ` charge-state cs-${chargeStateTone(data.value)}` : ""}">${data.value}</td><td class="age">${formatAge(data.updatedAt)}</td></tr>`,
         )
         .join("");
       return `

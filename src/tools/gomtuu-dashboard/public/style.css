@@ -16,6 +16,15 @@
   --position:     #c97b8a;
 
   --good: #35c17a;
+  /* Charge-state tones: bulk/absorption/float read as progressively "fuller"
+     charging stages, storage as resting, off as neutral. */
+  --cs-bulk:       #e0a83a;
+  --cs-absorption: #c9c73f;
+  --cs-float:      #35c17a;
+  --cs-storage:    #43bdc2;
+  --cs-off:        #5c6568;
+  --cs-neutral:    #8b9598;
+  --cs-fault:      #e25c53;
   --warn: #e0a83a;
   --crit: #e25c53;
 }
@@ -175,6 +184,14 @@ table.sensors tr:last-child td { border-bottom: none; }
 table.sensors tr:hover td { background: rgba(255,255,255,0.02); }
 table.sensors td.metric { color: var(--ink-dim); }
 table.sensors td.value { font-family: "IBM Plex Mono", monospace; color: var(--ink); text-align: right; }
+.charge-state { font-weight: 600; letter-spacing: 0.03em; }
+.cs-bulk       { color: var(--cs-bulk) !important; }
+.cs-absorption { color: var(--cs-absorption) !important; }
+.cs-float      { color: var(--cs-float) !important; }
+.cs-storage    { color: var(--cs-storage) !important; }
+.cs-off        { color: var(--cs-off) !important; }
+.cs-neutral    { color: var(--cs-neutral) !important; }
+.cs-fault      { color: var(--cs-fault) !important; }
 table.sensors td.age { text-align: right; color: var(--ink-mute); font-family: "IBM Plex Mono", monospace; font-size: 0.7rem; }
 
 .empty-state { padding: 20px 14px; color: var(--ink-mute); font-size: 0.78rem; text-align: center; }

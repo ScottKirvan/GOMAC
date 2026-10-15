@@ -9,6 +9,7 @@ import {
   formatDuration,
   googleMapsUrl,
   currentDirection,
+  chargeStateTone,
 } from "../public/render.js";
 
 describe("fmt / fmtSigned", () => {
@@ -129,5 +130,34 @@ describe("currentDirection", () => {
     expect(currentDirection(0)).toBeUndefined();
     expect(currentDirection(undefined)).toBeUndefined();
     expect(currentDirection(Number.NaN)).toBeUndefined();
+  });
+});
+
+describe("chargeStateTone", () => {
+  it("gives bulk, absorption, and float each their own charging tone", () => {
+    expect(chargeStateTone("BULK")).toBe("bulk");
+    expect(chargeStateTone("ABSORPTION")).toBe("absorption");
+    expect(chargeStateTone("FLOAT")).toBe("float");
+  });
+
+  it("groups absorption-like stages with absorption", () => {
+    expect(chargeStateTone("REPEATED_ABSORPTION")).toBe("absorption");
+    expect(chargeStateTone("EQUALIZE_MANUAL")).toBe("absorption");
+    expect(chargeStateTone("RECONDITION")).toBe("absorption");
+  });
+
+  it("marks storage as resting, fault as fault, and off-like states as off", () => {
+    expect(chargeStateTone("STORAGE")).toBe("storage");
+    expect(chargeStateTone("FAULT")).toBe("fault");
+    expect(chargeStateTone("OFF")).toBe("off");
+    expect(chargeStateTone("LOW_POWER")).toBe("off");
+    expect(chargeStateTone("NOT_AVAILABLE")).toBe("off");
+  });
+
+  it("is case-insensitive and falls back to neutral for anything unrecognized", () => {
+    expect(chargeStateTone("bulk")).toBe("bulk");
+    expect(chargeStateTone("INVERTING")).toBe("neutral");
+    expect(chargeStateTone("SOMETHING_NEW")).toBe("neutral");
+    expect(chargeStateTone(undefined)).toBeUndefined();
   });
 });
