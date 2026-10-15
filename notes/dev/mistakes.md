@@ -261,8 +261,7 @@ the fate of, and lost trust in letting the session run unattended.
    groundwork first (a refactor, new test scaffolding, a dependency), name
    it and get it OK'd before doing it. Don't fold it in because a rule
    (such as "tests before fixes") seems to require it.
-4. **Make it durable for every agent, not just one session's memory:** add
-   rule 1 to CLAUDE.md's operating rules, and add the general form
-   ("filing or discussing work is not approval to do it") to
-   `gomac-project-overview.md` or CONTRIBUTING.md, where non-Claude agents
-   will also see it.
+4. **Make it durable beyond one session's memory:** add rule 1 to
+   CLAUDE.md's operating rules. This is guidance for working with Scott, so it
+   stays out of public-facing docs such as CONTRIBUTING.md (written for
+   outside contributors) and `gomac-project-overview.md`.
