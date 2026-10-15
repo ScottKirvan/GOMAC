@@ -12,17 +12,17 @@ Update this file in the same commit as the work it documents.
 
 ## Operating rules (hard requirements)
 
-1. **Never commit or push to `main` without explicit, in-the-moment instruction to do so.** Always develop on a feature branch and open a PR for Scott to review. This holds even for small doc edits.
+1. **Never commit or push to `main` without explicit, in-the-moment instruction to do so.** Always develop on a feature branch and open a PR for the navigator to review. This holds even for small doc edits.
 2. **Branch names must be meaningful and descriptive of the work** (e.g. `docs/add-root-claude-md`), never a generic/auto-generated name like `claude/initial-setup-4vzll0`. If a session starts on a pre-assigned generic branch name, rename it (`git branch -m`) before pushing/opening a PR.
 3. **One concern per branch and PR.** If work naturally splits into independent problems, split the branches too — resist bundling unrelated changes into one PR. If a name is already taken, pick a more specific descriptive name rather than adding a generated suffix.
-4. **Don't use the multiple-choice question tool to ask Scott things.** If something is ambiguous, ask in plain conversational language instead. Some interfaces render binned/multiple-choice questions poorly, and forcing a question into fixed options loses the nuance an open question would surface.
+4. **Don't use the multiple-choice question tool to ask the navigator things.** If something is ambiguous, ask in plain conversational language instead. Some interfaces render binned/multiple-choice questions poorly, and forcing a question into fixed options loses the nuance an open question would surface.
 5. **No Claude/AI attribution anywhere pushed to this repo** — not in commit messages (no `Co-Authored-By`, no session links), not in PR titles/bodies, not in PR/issue comments, not in code comments. Default GitHub-integration behavior may try to append an attribution footer to PR/issue posts — strip it before submitting, and **verify by reading what actually landed, not from memory:**
    - Run `git log` and read the actual commit messages
    - Re-fetch and read the actual PR body text
    - Remove any attribution found, regardless of source
 
    A commit or PR is not finished until this read-back check has run.
-6. **Scott merges PRs himself using "rebase and merge"** (to keep release-please's changelog generation working correctly) and deletes the branch afterward. Don't assume a PR is still open without checking — sync `main` and prune local branches before starting new work.
+6. **The repo owner merges PRs using "rebase and merge"** (to keep release-please's changelog generation working correctly) and deletes the branch afterward. Don't assume a PR is still open without checking — sync `main` and prune local branches before starting new work.
 7. **Every stage of a task ends with a report, then stop.** Move to the next stage only when the navigator says so, unless the navigator explicitly says to work through several stages together. Answering a question, or granting a permission about *how* to do something (e.g. "you can commit to main"), is not a go. See `notes/dev/mistakes.md`, 2026-10-15.
 8. **"Propose" / "discuss" mean in chat.** A proposal, plan, or recommendation stays in the conversation until the navigator approves it. It doesn't go into a file, issue, commit, or PR before that.
 9. **Questions for the navigator go in chat, never into issues, PRs, or docs.** Those record only what has been decided.
@@ -33,13 +33,13 @@ Update this file in the same commit as the work it documents.
     - Inside a batch, set a blocked item aside and keep going on the others. Nothing from the blocked item ships until the navigator answers.
     - Visual changes get a rendered preview and the navigator's OK before they're pushed to `main`. When files can't be attached, give the file's path on the machine.
 
-## Working with Scott
+## Working with the navigator
 
-Scott is a senior software engineer and systems architect. He works from first principles and prefers rolling his own systems and doing the extra work to use existing hardware over taking shortcuts or working around the limitations of off-the-shelf libraries/packages — homebrew over commercial black boxes.
+This project works from first principles. It prefers rolling its own systems and doing the extra work to use existing hardware over taking shortcuts or working around the limitations of off-the-shelf libraries/packages — homebrew over commercial black boxes.
 
-- **Don't bake in assumptions that make a task easier without checking with him first.** Surface the tradeoff and let him decide, even if it slows things down.
-- **Nothing is deferred without his explicit permission.** Don't quietly punt on a hard part of the spec or implementation. A known issue is still a bug — don't mark it "won't fix", "by design", or "out of scope" unilaterally. If a library or package cannot meet the stated requirements, find an alternative or do the work from first principles — don't revise the requirements to fit the limitation.
-- **Make implementation decisions independently.** Don't ask permission for technical choices within the stated requirements. Escalate only when something would change scope, defer a requirement, or contradict what Scott has described as the goal. This doesn't cover anything visible or anything already part of an agreed design; see operating rule 11.
+- **Don't bake in assumptions that make a task easier without checking with the navigator first.** Surface the tradeoff and let the navigator decide, even if it slows things down.
+- **Nothing is deferred without the navigator's explicit permission.** Don't quietly punt on a hard part of the spec or implementation. A known issue is still a bug — don't mark it "won't fix", "by design", or "out of scope" unilaterally. If a library or package cannot meet the stated requirements, find an alternative or do the work from first principles — don't revise the requirements to fit the limitation.
+- **Make implementation decisions independently.** Don't ask permission for technical choices within the stated requirements. Escalate only when something would change scope, defer a requirement, or contradict what the navigator has described as the goal. This doesn't cover anything visible or anything already part of an agreed design; see operating rule 11.
 - **When a sub-agent takes a shortcut, or declares something "not a bug" without actually having implemented or verified it, call that out explicitly** rather than passing it through as if it were solid.
 - **You are not the only one working in this repo.** Human contributors and other coding agents touch it too, without this file loaded. Don't fold general project/domain documentation into Claude-only files (like this one) just because that's convenient — it has to stay readable and discoverable for everyone, in plain docs like `notes/dev/gomac-project-overview.md`. Reserve this file for guidance that's genuinely specific to Claude Code.
 
@@ -55,7 +55,7 @@ session like this expecting them to work — they won't, regardless of
 credentials.
 
 Getting something onto TheFlea itself needs one of:
-- Scott running the steps directly (write them up as copy-paste commands)
+- The navigator running the steps directly (write them up as copy-paste commands)
 - Handing off to whatever session/agent already operates on TheFlea's side
   of the domain-separation boundary (see `compute-hub-current-state.md`)
 
@@ -94,13 +94,13 @@ This repo was generated from [ScottKirvan/ScooterGitTemplate](https://github.com
 
 The actual substance of this project lives in **`notes/dev/`**, which documents **GOMAC** (Gomtuu's Automation, Telemetry, & Logistics): an intelligent, voice-first vehicle automation and trip-planning platform.
 
-**Naming: GOMAC is the system, Gomtuu is the van.** Gomtuu is Scott's 2005 Mercedes T1N Sprinter (full-time live-aboard, off-grid) — named after the living ship in the Star Trek TNG episode "Tin Man." GOMAC is the automation/intelligence platform being built for her. Don't conflate the two in docs: hardware that belongs to the physical vehicle is "Gomtuu's," the software/systems platform is "GOMAC."
+**Naming: GOMAC is the system, Gomtuu is the van.** Gomtuu is the project owner's 2005 Mercedes T1N Sprinter (full-time live-aboard, off-grid) — named after the living ship in the Star Trek TNG episode "Tin Man." GOMAC is the automation/intelligence platform being built for her. Don't conflate the two in docs: hardware that belongs to the physical vehicle is "Gomtuu's," the software/systems platform is "GOMAC."
 
 It was in the **design/spec phase for most of its life — no hardware purchases beyond what's listed as existing have been committed to** — but real application code now exists under `src/`: a pianobar/Pandora bridge daemon (`src/integrations/pianobar/`) and a live telemetry dashboard (`src/tools/gomtuu-dashboard/`), both TypeScript/Node, both with real tests, both deployed and running on TheFlea. The much bigger centerpiece described in `gomac-hub-spec.md` — the actual Claude-Code-CLI-wrapped hub — is still just a spec; nothing there has been built yet.
 
 This file is now the single source of truth for repo/tooling guidance and Claude-Code-specific working rules. GOMAC's domain context (project overview, architecture, build phases, hardware, open questions, session log) lives in **`notes/dev/gomac-project-overview.md`** — that's the main project doc, written for human contributors and any coding agent, not just Claude Code, since not everyone working in this repo will have this file loaded. Read it first for GOMAC context; update it (not this file) as decisions are made and the design evolves.
 
-Scott previously kept a separate `notes/dev/CLAUDE.md` for Claude-specific domain context (for a different, Obsidian-vault-scoped tool) but has moved to working out of this repo via Claude Code exclusively, so that file was merged in here and removed — its content was genuinely Claude-context, unlike the general project overview. The one-line `notes/dev/Hardware Reference.md` (a single WiCAN-PRO link) was folded into `gomac-project-overview.md`'s Existing Hardware / References sections and removed as redundant.
+The project owner previously kept a separate `notes/dev/CLAUDE.md` for Claude-specific domain context (for a different, Obsidian-vault-scoped tool) but moved to working out of this repo via Claude Code exclusively, so that file was merged in here and removed — its content was genuinely Claude-context, unlike the general project overview. The one-line `notes/dev/Hardware Reference.md` (a single WiCAN-PRO link) was folded into `gomac-project-overview.md`'s Existing Hardware / References sections and removed as redundant.
 
 ---
 
@@ -116,7 +116,7 @@ Scott previously kept a separate `notes/dev/CLAUDE.md` for Claude-specific domai
 | `GOMAC Architecture.canvas` | Obsidian canvas — visual architecture diagram. |
 | `compute-hub-current-state.md` | **Ground truth for what's actually running on TheFlea right now** (vs. what's only planned) — Home Assistant, Mosquitto, Victron BLE telemetry, ping-monitor, Starlink reachability, and the domain-separation model between GOMAC-repo work and TheFlea's own IT/DevOps context. Explicitly a living doc that drifts — verify against the live machine before trusting a claim in it, don't just cite it. Read this before assuming anything about what's live. |
 | `bridge-daemon-spec.md` | Conventions every GOMAC bridge daemon follows — MQTT topic naming (`gomac/<adapter>/cmd`, `.../state/<metric>`, `.../availability`), HA MQTT discovery, one-daemon-per-integration process model, TypeScript/Node runtime, repo layout under `src/integrations/<adapter>/`. |
-| `mistakes.md` | Dated log of process failures (agent or human) — wasted time, avoidable back-and-forth, fatiguing loops — with what changed as a result. Not a blame file. Add an entry whenever a real one happens; written for humans and any agent, not just Claude Code. |
+| `mistakes.md` | Dated log of process breakdowns by either the navigator or the driver — wasted time, avoidable back-and-forth, fatiguing loops — with what changes as a result for whoever made the mistake, kept for future review. Not a blame file. Add an entry whenever a real one happens; written for humans and any agent, not just Claude Code. |
 
 ## Repo layout
 
