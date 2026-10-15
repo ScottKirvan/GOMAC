@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+This project follows [aiXP](https://github.com/ScottKirvan/temp_name) software engineering practices. The human developer is the **navigator** and the AI agent (you) is the **driver**. The navigator holds judgment and direction, and approves each stage. The driver does the hands-on work. The roles don't rotate.
+
 ## Keeping This File Current
 
 This file is the primary context for any agent working in this repo — keep it accurate as the project evolves. When key files, build commands, and architectural decisions emerge, record them here so future sessions start with full context rather than re-deriving it.
@@ -21,9 +23,9 @@ Update this file in the same commit as the work it documents.
 
    A commit or PR is not finished until this read-back check has run.
 6. **Scott merges PRs himself using "rebase and merge"** (to keep release-please's changelog generation working correctly) and deletes the branch afterward. Don't assume a PR is still open without checking — sync `main` and prune local branches before starting new work.
-7. **Every stage of a task ends with a report, then stop.** Move to the next stage only when Scott says so, unless he explicitly says to work through several stages together. Answering a question, or granting a permission about *how* to do something (e.g. "you can commit to main"), is not a go. See `notes/dev/mistakes.md`, 2026-10-15.
-8. **"Propose" / "discuss" mean in chat.** A proposal, plan, or recommendation stays in the conversation until Scott approves it. It doesn't go into a file, issue, commit, or PR before that.
-9. **Questions for Scott go in chat, never into issues, PRs, or docs.** Those record only what has been decided.
+7. **Every stage of a task ends with a report, then stop.** Move to the next stage only when the navigator says so, unless the navigator explicitly says to work through several stages together. Answering a question, or granting a permission about *how* to do something (e.g. "you can commit to main"), is not a go. See `notes/dev/mistakes.md`, 2026-10-15.
+8. **"Propose" / "discuss" mean in chat.** A proposal, plan, or recommendation stays in the conversation until the navigator approves it. It doesn't go into a file, issue, commit, or PR before that.
+9. **Questions for the navigator go in chat, never into issues, PRs, or docs.** Those record only what has been decided.
 10. **Enabling work is part of the ask.** If approved work needs groundwork first (a refactor, new test scaffolding, a dependency), name it and get it approved. A repo rule like "tests before fixes" is not approval to do it.
 
 ## Working with Scott
