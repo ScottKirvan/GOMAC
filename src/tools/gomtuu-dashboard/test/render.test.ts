@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   buildChartSvg,
   compassLabel,
-  describeArcFromTop,
   fmt,
   fmtSigned,
   formatClock,
@@ -12,6 +11,7 @@ import {
   chargeStateTone,
   weatherIcon,
   forecastDayLabel,
+  gradientArcSvg,
 } from "../public/render.js";
 
 describe("fmt / fmtSigned", () => {
@@ -46,17 +46,6 @@ describe("compassLabel", () => {
     expect(compassLabel(359)).toBe("N");
     expect(compassLabel(135)).toBe("SE");
     expect(compassLabel(-90)).toBe("W");
-  });
-});
-
-describe("describeArcFromTop", () => {
-  it("returns an empty path for a zero extent", () => {
-    expect(describeArcFromTop(64, 64, 58, 0)).toBe("");
-  });
-
-  it("sweeps clockwise for positive and counter-clockwise for negative extents", () => {
-    expect(describeArcFromTop(64, 64, 58, 90)).toMatch(/ 0 0 1 /);
-    expect(describeArcFromTop(64, 64, 58, -90)).toMatch(/ 0 0 0 /);
   });
 });
 
@@ -187,5 +176,41 @@ describe("forecastDayLabel", () => {
     expect(forecastDayLabel("2026-10-15", 0)).toBe("Today");
     // 2026-10-16 is a Friday; parsed as a local date, not UTC midnight.
     expect(forecastDayLabel("2026-10-16", 1)).toBe("Fri");
+  });
+});
+
+describe("gradientArcSvg", () => {
+  const base = { cx: 64, cy: 64, r: 47, strokeWidth: 7, start: "#000000", end: "#ffffff" };
+
+  it("draws nothing for an empty or zero-extent arc", () => {
+    expect(gradientArcSvg({ ...base, extentDeg: 0 })).toBe("");
+  });
+
+  it("draws round caps colored by the gradient at each end", () => {
+    const svg = gradientArcSvg({ ...base, extentDeg: 180 });
+    const caps = [...svg.matchAll(/<circle cx="([\d.-]+)" cy="([\d.-]+)" r="3.5" fill="(#[0-9a-f]{6})"/g)];
+    expect(caps).toHaveLength(2);
+    // Start cap sits at 12 o'clock in the start color.
+    expect(Number(caps[0]![1])).toBeCloseTo(64, 3);
+    expect(Number(caps[0]![2])).toBeCloseTo(17, 3);
+    expect(caps[0]![3]).toBe("#000000");
+    // Half the scale is halfway along the gradient, not the full end color.
+    expect(caps[1]![3]).not.toBe("#ffffff");
+    expect(caps[1]![3]).not.toBe("#000000");
+  });
+
+  it("reaches the end color only at full scale", () => {
+    const svg = gradientArcSvg({ ...base, extentDeg: 359.9 });
+    const fills = [...svg.matchAll(/(?:stroke|fill)="(#[0-9a-f]{6})"/g)].map((m) => m[1]);
+    expect(fills.at(-1)).toBe("#ffffff");
+  });
+
+  it("sweeps counter-clockwise for negative extents", () => {
+    const svg = gradientArcSvg({ ...base, extentDeg: -90 });
+    const caps = [...svg.matchAll(/<circle cx="([\d.-]+)" cy="([\d.-]+)"/g)];
+    // Tip at 9 o'clock.
+    expect(Number(caps[1]![1])).toBeCloseTo(17, 3);
+    expect(Number(caps[1]![2])).toBeCloseTo(64, 3);
+    expect(svg).toMatch(/ 0 0 0 /);
   });
 });

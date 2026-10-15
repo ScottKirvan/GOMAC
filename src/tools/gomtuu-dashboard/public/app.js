@@ -5,7 +5,6 @@ import {
   formatDuration,
   formatClock,
   polarPointFromTop,
-  describeArcFromTop,
   buildChartSvg,
   compassLabel,
   buildRttSparkline,
@@ -14,20 +13,47 @@ import {
   chargeStateTone,
   weatherIcon,
   forecastDayLabel,
+  gradientArcSvg,
 } from "./render.js";
+import { gradientPair } from "./color.js";
 
 /**
  * Shared concentric-ring dial geometry: amp (outer) / SOC (middle) / solar
  * (inner), all centered on the same point. Radii/stroke-widths are chosen
  * for even breathing room between all three rings at the current viewBox
  * size -- see public/index.html's <svg viewBox="0 0 128 128"> for the
- * matching static markup (track circles, initial dasharray values).
+ * matching static markup (track circles and the empty ring groups that
+ * gradientArcSvg fills).
  */
 const DIAL_CENTER = 64;
 const SOC_RING_RADIUS = 47;
-const SOC_RING_CIRCUMFERENCE = 2 * Math.PI * SOC_RING_RADIUS;
+const SOC_RING_STROKE = 7;
 const SOLAR_RING_RADIUS = 35;
-const SOLAR_RING_CIRCUMFERENCE = 2 * Math.PI * SOLAR_RING_RADIUS;
+const SOLAR_RING_STROKE = 6;
+const AMP_RING_STROKE = 7;
+
+/**
+ * Gradient endpoints for each ring, derived from the theme's base colors
+ * in style.css (see public/color.js gradientPair). Read once: the CSS
+ * variables don't change at runtime.
+ */
+let ringGradients;
+function getRingGradients() {
+  if (!ringGradients) {
+    const css = getComputedStyle(document.documentElement);
+    const pairFor = (name) => {
+      const value = css.getPropertyValue(name).trim();
+      return /^#[0-9a-f]{6}$/i.test(value) ? gradientPair(value) : { start: value, end: value };
+    };
+    ringGradients = {
+      charge: pairFor("--good"),
+      draw: pairFor("--crit"),
+      soc: pairFor("--battery"),
+      solar: pairFor("--solar"),
+    };
+  }
+  return ringGradients;
+}
 
 /**
  * Amp gauge geometry/scale. Deliberately a named constant, not a magic
@@ -52,22 +78,21 @@ const BATTERY_CAPACITY_AH = 200;
 function renderPowerGauge(power, solarPeak) {
   const soc = power.soc;
   const socPct = soc === undefined ? 0 : Math.min(100, Math.max(0, soc));
-  const socDash = (socPct / 100) * SOC_RING_CIRCUMFERENCE;
-  document.getElementById("socRing").setAttribute(
-    "stroke-dasharray",
-    `${socDash.toFixed(1)} ${(SOC_RING_CIRCUMFERENCE - socDash).toFixed(1)}`,
-  );
+  const gradients = getRingGradients();
+  document.getElementById("socRing").innerHTML = gradientArcSvg({
+    cx: DIAL_CENTER, cy: DIAL_CENTER, r: SOC_RING_RADIUS, strokeWidth: SOC_RING_STROKE,
+    extentDeg: (socPct / 100) * 360, ...gradients.soc,
+  });
 
   const peakW = solarPeak?.watts;
   // Math.max(1, ...) keeps the ratio below well-defined (no div-by-zero)
   // even when every reading so far has been 0.
   const solarScale = Math.max(1, power.solarPower ?? 0, peakW ?? 0);
   const solarPct = power.solarPower === undefined ? 0 : Math.min(1, power.solarPower / solarScale);
-  const solarDash = solarPct * SOLAR_RING_CIRCUMFERENCE;
-  document.getElementById("solarRing").setAttribute(
-    "stroke-dasharray",
-    `${solarDash.toFixed(1)} ${(SOLAR_RING_CIRCUMFERENCE - solarDash).toFixed(1)}`,
-  );
+  document.getElementById("solarRing").innerHTML = gradientArcSvg({
+    cx: DIAL_CENTER, cy: DIAL_CENTER, r: SOLAR_RING_RADIUS, strokeWidth: SOLAR_RING_STROKE,
+    extentDeg: solarPct * 360, ...gradients.solar,
+  });
 
   /**
    * Ah remaining is derived from the BMV-712's own consumed_ah reading
@@ -158,7 +183,7 @@ function renderAmpGauge(power) {
   }
 
   if (!direction) {
-    arc.setAttribute("d", "");
+    arc.innerHTML = "";
     arc.classList.remove("amp-arc-overflow");
     overflowDot.setAttribute("r", "0");
     return;
@@ -168,17 +193,19 @@ function renderAmpGauge(power) {
   const pct = Math.min(1, magnitude / AMP_GAUGE_FULL_SCALE_A);
   const overflowing = magnitude > AMP_GAUGE_FULL_SCALE_A;
   const extent = (direction === "charge" ? 1 : -1) * pct * 360;
-  const color = direction === "charge" ? "var(--good)" : "var(--crit)";
+  const gradient = getRingGradients()[direction];
 
-  arc.setAttribute("d", describeArcFromTop(AMP_GAUGE_CENTER, AMP_GAUGE_CENTER, AMP_GAUGE_RADIUS, extent));
-  arc.setAttribute("stroke", color);
+  arc.innerHTML = gradientArcSvg({
+    cx: AMP_GAUGE_CENTER, cy: AMP_GAUGE_CENTER, r: AMP_GAUGE_RADIUS, strokeWidth: AMP_RING_STROKE,
+    extentDeg: extent, ...gradient,
+  });
   arc.classList.toggle("amp-arc-overflow", overflowing);
 
   if (overflowing) {
     const tip = polarPointFromTop(AMP_GAUGE_CENTER, AMP_GAUGE_CENTER, AMP_GAUGE_RADIUS, extent);
     overflowDot.setAttribute("cx", tip.x.toFixed(3));
     overflowDot.setAttribute("cy", tip.y.toFixed(3));
-    overflowDot.setAttribute("fill", color);
+    overflowDot.setAttribute("fill", gradient.end);
     overflowDot.setAttribute("r", "3.5");
     reading.title = `${reading.title}, pegged — exceeds the ±${AMP_GAUGE_FULL_SCALE_A}A gauge scale`;
   } else {

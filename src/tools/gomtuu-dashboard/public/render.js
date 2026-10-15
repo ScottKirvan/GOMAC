@@ -3,6 +3,8 @@
  * so they can be unit tested under vitest (see test/render.test.ts).
  */
 
+import { mixHex } from "./color.js";
+
 export function fmt(value, digits, unit) {
   if (value === undefined || value === null || Number.isNaN(value)) return "—";
   return `${value.toFixed(digits)}${unit ?? ""}`;
@@ -52,28 +54,6 @@ export function polarPointFromTop(cx, cy, r, angleDeg) {
   return { x: cx + r * Math.sin(rad), y: cy - r * Math.cos(rad) };
 }
 
-/**
- * SVG arc path starting at top dead center and sweeping `extentDeg`
- * clockwise (positive) or counter-clockwise (negative). Used for the
- * bidirectional amp gauge, where a <circle>+stroke-dasharray (as used by
- * the SOC/solar rings above) can't express "fill the other direction" --
- * dasharray always walks the circle's own fixed draw direction, so a real
- * arc path with an explicit sweep flag is required instead.
- *
- * `extentDeg` is clamped just short of a full turn (rather than exactly
- * 360) because an arc whose start and end point are identical collapses
- * to a zero-length, invisible path in SVG.
- */
-
-export function describeArcFromTop(cx, cy, r, extentDeg) {
-  if (!extentDeg) return "";
-  const clamped = Math.sign(extentDeg) * Math.min(Math.abs(extentDeg), 359.9);
-  const start = polarPointFromTop(cx, cy, r, 0);
-  const end = polarPointFromTop(cx, cy, r, clamped);
-  const largeArcFlag = Math.abs(clamped) > 180 ? 1 : 0;
-  const sweepFlag = clamped > 0 ? 1 : 0;
-  return `M ${start.x.toFixed(3)} ${start.y.toFixed(3)} A ${r} ${r} 0 ${largeArcFlag} ${sweepFlag} ${end.x.toFixed(3)} ${end.y.toFixed(3)}`;
-}
 const CHART_LEFT = 40;
 // Leaves a gutter right of the plot for the end-of-line value labels
 // (up to "-1234W" at 11px monospace) inside the 600-wide viewBox.
@@ -266,4 +246,38 @@ export function forecastDayLabel(isoDate, index) {
   if (index === 0) return "Today";
   const [y, m, d] = isoDate.split("-").map(Number);
   return new Date(y, m - 1, d).toLocaleDateString("en-US", { weekday: "short" });
+}
+
+const GRADIENT_SEGMENT_DEG = 3;
+// Each segment overlaps the next slightly so anti-aliasing doesn't leave
+// hairline seams between them.
+const GRADIENT_SEGMENT_OVERLAP_DEG = 0.6;
+
+/**
+ * A ring arc starting at 12 o'clock and sweeping `extentDeg` (clockwise
+ * when positive), drawn as short segments so its color can follow the
+ * curve -- SVG gradients only run in straight lines. Color is mapped over
+ * the ring's full scale (0 to 360 degrees), so the tip is always the most
+ * vivid part showing and a fuller ring reaches further toward `end`.
+ */
+export function gradientArcSvg({ cx, cy, r, strokeWidth, extentDeg, start, end }) {
+  if (!extentDeg) return "";
+  const sign = Math.sign(extentDeg);
+  const total = Math.min(Math.abs(extentDeg), 359.9);
+  const colorAt = (deg) => mixHex(start, end, deg / 360);
+  const segments = [];
+  for (let from = 0; from < total; from += GRADIENT_SEGMENT_DEG) {
+    const to = Math.min(total, from + GRADIENT_SEGMENT_DEG + GRADIENT_SEGMENT_OVERLAP_DEG);
+    const a = polarPointFromTop(cx, cy, r, sign * from);
+    const b = polarPointFromTop(cx, cy, r, sign * to);
+    segments.push(
+      `<path d="M ${a.x.toFixed(3)} ${a.y.toFixed(3)} A ${r} ${r} 0 0 ${sign > 0 ? 1 : 0} ${b.x.toFixed(3)} ${b.y.toFixed(3)}" stroke="${colorAt((from + to) / 2)}" />`,
+    );
+  }
+  const capR = strokeWidth / 2;
+  const head = polarPointFromTop(cx, cy, r, 0);
+  const tip = polarPointFromTop(cx, cy, r, sign * total);
+  return `<g fill="none" stroke-width="${strokeWidth}" stroke-linecap="butt">${segments.join("")}</g>`
+    + `<circle cx="${head.x.toFixed(3)}" cy="${head.y.toFixed(3)}" r="${capR}" fill="${colorAt(0)}" />`
+    + `<circle cx="${tip.x.toFixed(3)}" cy="${tip.y.toFixed(3)}" r="${capR}" fill="${colorAt(total)}" />`;
 }

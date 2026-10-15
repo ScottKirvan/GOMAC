@@ -32,14 +32,14 @@
           <div class="dial-wrap">
             <svg viewBox="0 0 128 128">
               <circle class="dial-track" cx="64" cy="64" r="58" stroke-width="7" />
-              <path id="ampArc" class="amp-arc" fill="none" stroke-width="7" stroke-linecap="round" />
+              <g id="ampArc" class="amp-arc"></g>
               <circle id="ampOverflowDot" class="amp-overflow-dot" r="0" cx="64" cy="6" fill="var(--crit)" />
 
               <circle class="dial-track" cx="64" cy="64" r="47" stroke-width="7" />
-              <circle id="socRing" cx="64" cy="64" r="47" stroke="var(--battery)" stroke-width="7" stroke-linecap="round" fill="none" stroke-dasharray="0 295.3" transform="rotate(-90 64 64)" />
+              <g id="socRing"></g>
 
               <circle class="dial-track" cx="64" cy="64" r="35" stroke-width="6" />
-              <circle id="solarRing" cx="64" cy="64" r="35" stroke="var(--solar)" stroke-width="6" stroke-linecap="round" fill="none" stroke-dasharray="0 219.9" transform="rotate(-90 64 64)" />
+              <g id="solarRing"></g>
             </svg>
             <div class="dial-center">
               <span id="socNum" class="num">&mdash;</span>

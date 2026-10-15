@@ -96,11 +96,8 @@ header {
 
 /* Amp gauge: the outermost of the three concentric dial rings, bidirectional,
    0A at top dead center, charge filling clockwise in green and draw filling
-   counter-clockwise in red -- distinct from the one-directional SOC/solar
-   rings it shares a center with, so it gets its own path element (see
-   public/app.js describeArcFromTop) instead of the stroke-dasharray trick
-   those use. */
-.amp-arc { transition: stroke 0.3s ease; }
+   counter-clockwise in red. All three rings are gradient arcs drawn by
+   public/render.js gradientArcSvg. */
 .amp-arc-overflow { animation: pulse 1.8s ease-in-out infinite; }
 .amp-overflow-dot { animation: pulse 1.1s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) {
