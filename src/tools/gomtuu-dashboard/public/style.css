@@ -121,6 +121,8 @@ header {
 .pos-big .unit { font-size: 0.78rem; color: var(--ink-mute); }
 .pos-sub { font-size: 0.74rem; color: var(--ink-dim); margin-top: 2px; }
 .pos-coords { font-size: 0.72rem; color: var(--ink-mute); border-top: 1px solid rgba(255,255,255,0.05); padding-top: 8px; }
+.pos-map-link { color: var(--ink-dim); text-decoration: none; border-bottom: 1px dotted var(--ink-mute); }
+.pos-map-link:hover { color: var(--position); border-bottom-color: var(--position); }
 
 .wx-body { padding: 14px; }
 .wx-top { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }

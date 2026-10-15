@@ -9,6 +9,7 @@ import {
   buildChartSvg,
   compassLabel,
   buildRttSparkline,
+  googleMapsUrl,
 } from "./render.js";
 
 /**
@@ -280,7 +281,7 @@ function renderPosition(position) {
         <div class="pos-sub">heading ${heading === undefined ? "—" : `${Math.round(heading)}° ${compassLabel(heading)}`}${mph !== undefined && mph > 1 ? " · moving" : ""}</div>
       </div>
     </div>
-    <div class="pos-coords mono">${position.latitude.toFixed(4)}°, ${position.longitude.toFixed(4)}°${position.accuracyM !== undefined ? ` ±${Math.round(position.accuracyM)}m` : ""} · fix ${formatAge(position.updatedAt)}</div>
+    <div class="pos-coords mono"><a class="pos-map-link" href="${googleMapsUrl(position.latitude, position.longitude)}" target="_blank" rel="noopener noreferrer" title="Open in Google Maps">${position.latitude.toFixed(4)}°, ${position.longitude.toFixed(4)}° ↗</a>${position.accuracyM !== undefined ? ` ±${Math.round(position.accuracyM)}m` : ""} · fix ${formatAge(position.updatedAt)}</div>
   `;
   document.getElementById("positionMeta").textContent = "phone GPS";
 }

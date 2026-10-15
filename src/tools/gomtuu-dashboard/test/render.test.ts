@@ -7,6 +7,7 @@ import {
   fmtSigned,
   formatClock,
   formatDuration,
+  googleMapsUrl,
 } from "../public/render.js";
 
 describe("fmt / fmtSigned", () => {
@@ -101,5 +102,18 @@ describe("buildChartSvg", () => {
     );
     const [a, b] = endLabels(svg!);
     expect(Math.abs(a!.y - b!.y)).toBeGreaterThanOrEqual(END_LABEL_FONT_SIZE);
+  });
+});
+
+describe("googleMapsUrl", () => {
+  it("builds a Google Maps search URL centered on the coordinates", () => {
+    expect(googleMapsUrl(44.05207, -123.08675)).toBe(
+      "https://www.google.com/maps/search/?api=1&query=44.05207%2C-123.08675",
+    );
+  });
+
+  it("returns undefined without a full fix", () => {
+    expect(googleMapsUrl(undefined, -123.1)).toBeUndefined();
+    expect(googleMapsUrl(44.1, undefined)).toBeUndefined();
   });
 });

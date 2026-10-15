@@ -205,3 +205,15 @@ export function buildRttSparkline(history) {
     </svg>
   `;
 }
+
+/**
+ * Google's documented cross-platform Maps URL
+ * (https://developers.google.com/maps/documentation/urls/get-started#search-action).
+ */
+export function googleMapsUrl(latitude, longitude) {
+  if (latitude === undefined || longitude === undefined) return undefined;
+  const url = new URL("https://www.google.com/maps/search/");
+  url.searchParams.set("api", "1");
+  url.searchParams.set("query", `${latitude},${longitude}`);
+  return url.toString();
+}
