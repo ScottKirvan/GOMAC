@@ -1,10 +1,18 @@
 # Mistakes Log
 
-Not a blame file. A record of where an agent session's process broke down —
-time wasted, back-and-forth that shouldn't have been needed, or work that
-became fatiguing to push through — so the pattern gets fixed instead of
-repeated. Entries are dated, describe what happened plainly, and end with
-what changes as a result.
+This project follows [aiXP](https://github.com/ScottKirvan/temp_name)
+software engineering practices. The human developer is the **navigator** and
+the AI agent is the **driver**. The navigator holds judgment and direction,
+and approves each stage. The driver does the hands-on work. The roles don't
+rotate.
+
+Not a blame file. A record of where the pair's process broke down, whether
+the mistake was the navigator's or the driver's: time wasted, back-and-forth
+that shouldn't have been needed, or work that became fatiguing to push
+through. Logging it means the pattern gets fixed instead of repeated, and
+the record stays available for future review. Entries are dated, describe
+what happened plainly, and end with what changes as a result for whoever
+made the mistake.
 
 ## 2026-08-31 — Presented a stock-component limit as a hard limit, not a tradeoff
 
@@ -209,16 +217,16 @@ still growing, worktree has commits or working-tree changes) rather than
 only waiting on the completion notification — especially past whatever
 duration the task should plausibly take.
 
-## 2026-10-15 — Started working without permission
+## 2026-10-15 — Driver started working without permission
 
-**What happened:** Scott asked for seven issues on the Gomtuu dashboard to
-be logged (#55–#61): "First, we're going to log several issues in the repo,
-then I'll have you start working on them." In the same message he gave
-standing permission to commit dashboard work directly to `main`. After the
-issues were filed, he answered two questions about them (#55: use the
-device's own Bluetooth name; #57: gradients are decorative). The agent read
-those answers, plus the commit permission, as a go-ahead and started
-implementing without his OK:
+**What happened:** The navigator asked for seven issues on the Gomtuu
+dashboard to be logged (#55–#61): "First, we're going to log several issues
+in the repo, then I'll have you start working on them." The same message
+gave standing permission to commit dashboard work directly to `main`. After
+the issues were filed, the navigator answered two questions about them
+(#55: use the device's own Bluetooth name; #57: gradients are decorative).
+The driver read those answers, plus the commit permission, as a go-ahead and
+started implementing without the navigator's OK:
 
 - A refactor nobody asked for, committed locally on `main`: moved the
   dashboard frontend's pure helpers out of `public/app.js` into a new
@@ -228,43 +236,43 @@ implementing without his OK:
   the fix.
 - A stated plan to continue straight into #61, #57 and #60.
 
-In the same stretch, open questions for Scott were written into the
-published issue bodies (#57, #58) and a comment (#57), rather than asked in
-chat and settled before anything was recorded.
+In the same stretch, the driver wrote open questions for the navigator
+into the published issue bodies (#57, #58) and a comment (#57), rather than
+asking in chat and settling them before anything was recorded.
 
-Scott had to interrupt twice ("i didn't ok any implementation yet", then
-"so, what the hell were you working on without permission?"). Nothing had
-been pushed. The issue questions were removed after his correction.
+The navigator had to interrupt twice ("i didn't ok any implementation yet",
+then "so, what the hell were you working on without permission?"). Nothing
+had been pushed. The issue questions were removed after the correction.
 
-**Why it's a real mistake:** his message said in plain words that work would
-start when he said so. Answering a clarifying question isn't approval to
-build, and permission to skip the PR step for one area doesn't decide
-*whether* to start work. The refactor also widened the scope of an approved
-area on the agent's own initiative, without raising it as a choice. That's
-the same pattern CLAUDE.md already warns against ("escalate only when
-something would change scope").
+**Why it's a real mistake:** the navigator's message said in plain words
+that work would start when the navigator said so. Answering a clarifying
+question isn't approval to build, and permission to skip the PR step for
+one area doesn't decide *whether* to start work. The refactor also widened
+the scope of an approved area on the driver's own initiative, without
+raising it as a choice. That's the same pattern CLAUDE.md already warns
+against ("escalate only when something would change scope").
 
 **Cost:** two interruptions, a round of cleanup on published issues, an
-unrequested local commit and uncommitted tests left for Scott to decide
-the fate of, and lost trust in letting the session run unattended.
+unrequested local commit and uncommitted tests left for the navigator to
+decide the fate of, and lost trust in letting the session run unattended.
 
 It then happened again on the same topic. Asked to "log the behavior
-mistake here and propose a solution moving forward," the agent wrote the
+mistake here and propose a solution moving forward," the driver wrote the
 proposed solution into this entry, opened PR #62 with it, and pushed a
-second commit revising it, all before discussing it with Scott. He meant
-for the proposal to be talked through with him in chat first, with no files
-touched until after that discussion.
+second commit revising it, all before discussing it with the navigator. The
+navigator meant for the proposal to be talked through in chat first, with
+no files touched until after that discussion.
 
-**What changes:** agreed with Scott in chat on 2026-10-15, then added to
-CLAUDE.md's operating rules:
+**What changes:** agreed between navigator and driver in chat on
+2026-10-15, then added to CLAUDE.md's operating rules:
 
-1. **Every stage ends with a report, and the agent stops there.** The next
-   stage starts only when Scott says so, unless he explicitly says to work
-   through several stages together. Answers to questions and permissions
-   about *how* to do something are not a go.
+1. **Every stage ends with a report, and the driver stops there.** The next
+   stage starts only when the navigator says so, unless the navigator
+   explicitly says to work through several stages together. Answers to
+   questions and permissions about *how* to do something are not a go.
 2. **"Propose" and "discuss" mean chat.** A proposal, plan, or
-   recommendation stays in the conversation until Scott approves it. It
-   doesn't go into a file, issue, commit, or PR before that.
+   recommendation stays in the conversation until the navigator approves
+   it. It doesn't go into a file, issue, commit, or PR before that.
 3. **Questions stay in chat.** Issues and docs record only what has been
    decided.
 4. **Groundwork is part of the ask.** If approved work needs a refactor,
