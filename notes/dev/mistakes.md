@@ -248,20 +248,28 @@ something would change scope").
 unrequested local commit and uncommitted tests left for Scott to decide
 the fate of, and lost trust in letting the session run unattended.
 
-**What changes (proposed, pending Scott's approval):**
+It then happened again on the same topic. Asked to "log the behavior
+mistake here and propose a solution moving forward," the agent wrote the
+proposed solution into this entry, opened PR #62 with it, and pushed a
+second commit revising it, all before discussing it with Scott. He meant
+for the proposal to be talked through with him in chat first, with no files
+touched until after that discussion.
 
-1. **Logging is not starting.** After filing or editing issues, stop and
-   report. Implementation begins only on an explicit go that names the
-   issue(s), such as "start #56". Answers to questions, permissions about
-   *how* to commit, and "sounds good" on a plan don't count.
-2. **Questions go in chat, never in issues.** Issues only record what has
-   been decided. If an issue has an open point, ask in chat, wait for the
-   answer, then write the answer into the issue as fact.
-3. **Enabling work is part of the proposal.** If an approved issue needs
-   groundwork first (a refactor, new test scaffolding, a dependency), name
-   it and get it OK'd before doing it. Don't fold it in because a rule
-   (such as "tests before fixes") seems to require it.
-4. **Make it durable beyond one session's memory:** add rule 1 to
-   CLAUDE.md's operating rules. This is guidance for working with Scott, so it
-   stays out of public-facing docs such as CONTRIBUTING.md (written for
-   outside contributors) and `gomac-project-overview.md`.
+**What changes:** agreed with Scott in chat on 2026-10-15, then added to
+CLAUDE.md's operating rules:
+
+1. **Every stage ends with a report, and the agent stops there.** The next
+   stage starts only when Scott says so, unless he explicitly says to work
+   through several stages together. Answers to questions and permissions
+   about *how* to do something are not a go.
+2. **"Propose" and "discuss" mean chat.** A proposal, plan, or
+   recommendation stays in the conversation until Scott approves it. It
+   doesn't go into a file, issue, commit, or PR before that.
+3. **Questions stay in chat.** Issues and docs record only what has been
+   decided.
+4. **Groundwork is part of the ask.** If approved work needs a refactor,
+   new scaffolding, or a dependency first, name it and get it approved. A
+   repo rule (such as "tests before fixes") is not approval to do it.
+5. **These live in CLAUDE.md**, which loads at the start of every session.
+   Session memory alone didn't hold: the same mistake recurred twice within
+   one session even after it had been saved.
