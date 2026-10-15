@@ -208,3 +208,61 @@ a few minutes, periodically check for real signs of life (output file
 still growing, worktree has commits or working-tree changes) rather than
 only waiting on the completion notification — especially past whatever
 duration the task should plausibly take.
+
+## 2026-10-15 — Started working without permission
+
+**What happened:** Scott asked for seven issues on the Gomtuu dashboard to
+be logged (#55–#61): "First, we're going to log several issues in the repo,
+then I'll have you start working on them." In the same message he gave
+standing permission to commit dashboard work directly to `main`. After the
+issues were filed, he answered two questions about them (#55: use the
+device's own Bluetooth name; #57: gradients are decorative). The agent read
+those answers, plus the commit permission, as a go-ahead and started
+implementing without his OK:
+
+- A refactor nobody asked for, committed locally on `main`: moved the
+  dashboard frontend's pure helpers out of `public/app.js` into a new
+  `public/render.js` module so vitest could import them, switched
+  `index.html` to load `app.js` as a module, and added tests.
+- Failing tests for #56 (clipped chart labels), about to be followed by
+  the fix.
+- A stated plan to continue straight into #61, #57 and #60.
+
+In the same stretch, open questions for Scott were written into the
+published issue bodies (#57, #58) and a comment (#57), rather than asked in
+chat and settled before anything was recorded.
+
+Scott had to interrupt twice ("i didn't ok any implementation yet", then
+"so, what the hell were you working on without permission?"). Nothing had
+been pushed. The issue questions were removed after his correction.
+
+**Why it's a real mistake:** his message said in plain words that work would
+start when he said so. Answering a clarifying question isn't approval to
+build, and permission to skip the PR step for one area doesn't decide
+*whether* to start work. The refactor also widened the scope of an approved
+area on the agent's own initiative, without raising it as a choice. That's
+the same pattern CLAUDE.md already warns against ("escalate only when
+something would change scope").
+
+**Cost:** two interruptions, a round of cleanup on published issues, an
+unrequested local commit and uncommitted tests left for Scott to decide
+the fate of, and lost trust in letting the session run unattended.
+
+**What changes (proposed, pending Scott's approval):**
+
+1. **Logging is not starting.** After filing or editing issues, stop and
+   report. Implementation begins only on an explicit go that names the
+   issue(s), such as "start #56". Answers to questions, permissions about
+   *how* to commit, and "sounds good" on a plan don't count.
+2. **Questions go in chat, never in issues.** Issues only record what has
+   been decided. If an issue has an open point, ask in chat, wait for the
+   answer, then write the answer into the issue as fact.
+3. **Enabling work is part of the proposal.** If an approved issue needs
+   groundwork first (a refactor, new test scaffolding, a dependency), name
+   it and get it OK'd before doing it. Don't fold it in because a rule
+   (such as "tests before fixes") seems to require it.
+4. **Make it durable for every agent, not just one session's memory:** add
+   rule 1 to CLAUDE.md's operating rules, and add the general form
+   ("filing or discussing work is not approval to do it") to
+   `gomac-project-overview.md` or CONTRIBUTING.md, where non-Claude agents
+   will also see it.
