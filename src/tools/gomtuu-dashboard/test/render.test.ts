@@ -12,6 +12,7 @@ import {
   weatherIcon,
   forecastDayLabel,
   gradientArcSvg,
+  escapeHtml,
 } from "../public/render.js";
 
 describe("fmt / fmtSigned", () => {
@@ -212,5 +213,15 @@ describe("gradientArcSvg", () => {
     expect(Number(caps[1]![1])).toBeCloseTo(17, 3);
     expect(Number(caps[1]![2])).toBeCloseTo(64, 3);
     expect(svg).toMatch(/ 0 0 0 /);
+  });
+});
+
+describe("escapeHtml", () => {
+  it("escapes markup-significant characters", () => {
+    expect(escapeHtml(`<b>"Van" & 'co'</b>`)).toBe("&lt;b&gt;&quot;Van&quot; &amp; &#39;co&#39;&lt;/b&gt;");
+  });
+
+  it("passes plain names through unchanged", () => {
+    expect(escapeHtml("BSC IP22 12/15...HQ24237J9QY")).toBe("BSC IP22 12/15...HQ24237J9QY");
   });
 });

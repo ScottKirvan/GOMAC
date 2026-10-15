@@ -82,6 +82,7 @@ header {
 }
 .panel-title .swatch { width: 7px; height: 7px; border-radius: 1px; flex: 0 0 auto; }
 .panel-meta { font-size: 0.68rem; color: var(--ink-mute); }
+.device-mac { font-size: 0.62rem; font-weight: 400; letter-spacing: 0.02em; text-transform: none; color: var(--ink-mute); }
 
 .hero-body { display: flex; gap: 14px; padding: 14px; align-items: center; flex-wrap: wrap; }
 .dial-wrap { position: relative; flex: 0 0 auto; width: 128px; height: 128px; }

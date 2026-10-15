@@ -68,3 +68,42 @@ describe("handleVictronMessage + summarizePower", () => {
     expect(store.devices).toEqual({});
   });
 });
+
+describe("device names", () => {
+  it("stores the retained name topic as the device name, not as a metric", () => {
+    const store = createVictronStore();
+    handleVictronMessage(store, "victron-ble/e0b42569296f/name", "SmartBMV HQ25363ZHH4");
+    handleVictronMessage(store, "victron-ble/e0b42569296f/soc", "68.1");
+
+    const device = store.devices["e0b42569296f"]!;
+    expect(device.name).toBe("SmartBMV HQ25363ZHH4");
+    expect(device.metrics).not.toHaveProperty("name");
+    expect(Object.keys(device.metrics)).toEqual(["soc"]);
+  });
+
+  it("clears the name when the retained topic is emptied", () => {
+    const store = createVictronStore();
+    handleVictronMessage(store, "victron-ble/e0b42569296f/name", "SmartBMV HQ25363ZHH4");
+    handleVictronMessage(store, "victron-ble/e0b42569296f/name", "");
+    expect(store.devices["e0b42569296f"]!.name).toBeUndefined();
+  });
+
+  it("carries the battery and solar device names into the power summary", () => {
+    const store = createVictronStore();
+    handleVictronMessage(store, "victron-ble/e0b42569296f/name", "SmartBMV HQ25363ZHH4");
+    handleVictronMessage(store, "victron-ble/e0b42569296f/soc", "68.1");
+    handleVictronMessage(store, "victron-ble/dd1cc7607ae4/name", "SmartSolar HQ18523S6FC");
+    handleVictronMessage(store, "victron-ble/dd1cc7607ae4/solar_power", "59");
+
+    const summary = summarizePower(store);
+    expect(summary.batteryDeviceName).toBe("SmartBMV HQ25363ZHH4");
+    expect(summary.solarDeviceName).toBe("SmartSolar HQ18523S6FC");
+  });
+
+  it("leaves names undefined until a name topic arrives", () => {
+    const store = createVictronStore();
+    handleVictronMessage(store, "victron-ble/e0b42569296f/soc", "68.1");
+    expect(store.devices["e0b42569296f"]!.name).toBeUndefined();
+    expect(summarizePower(store).batteryDeviceName).toBeUndefined();
+  });
+});

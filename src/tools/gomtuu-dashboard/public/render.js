@@ -281,3 +281,9 @@ export function gradientArcSvg({ cx, cy, r, strokeWidth, extentDeg, start, end }
     + `<circle cx="${head.x.toFixed(3)}" cy="${head.y.toFixed(3)}" r="${capR}" fill="${colorAt(0)}" />`
     + `<circle cx="${tip.x.toFixed(3)}" cy="${tip.y.toFixed(3)}" r="${capR}" fill="${colorAt(total)}" />`;
 }
+
+const HTML_ESCAPES = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+
+export function escapeHtml(text) {
+  return String(text).replace(/[&<>"']/g, (c) => HTML_ESCAPES[c]);
+}

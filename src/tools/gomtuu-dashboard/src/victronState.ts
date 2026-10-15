@@ -56,6 +56,12 @@ export function parseVictronTopic(topic: string): { mac: string; metric: string 
   return { mac, metric };
 }
 
+/**
+ * `victron-ble/<mac>/name` is reserved for the device's BLE advertised name
+ * (retained), not a reading, so it never appears among the metrics.
+ */
+const DEVICE_NAME_METRIC = "name";
+
 export function handleVictronMessage(store: VictronStore, topic: string, payload: string, now: number = Date.now()): void {
   const parsed = parseVictronTopic(topic);
   if (!parsed) {
@@ -63,6 +69,10 @@ export function handleVictronMessage(store: VictronStore, topic: string, payload
   }
   const { mac, metric } = parsed;
   const device = (store.devices[mac] ??= { mac, metrics: {} });
+  if (metric === DEVICE_NAME_METRIC) {
+    device.name = payload.trim() || undefined;
+    return;
+  }
   device.metrics[metric] = { value: payload, updatedAt: now };
 }
 
@@ -96,6 +106,7 @@ export function summarizePower(store: VictronStore): PowerSummary {
   const batteryDevice = Object.values(store.devices).find((d) => findMetric(d, METRIC_PATTERNS.soc));
   if (batteryDevice) {
     summary.batteryDeviceMac = batteryDevice.mac;
+    summary.batteryDeviceName = batteryDevice.name;
     summary.soc = toNumber(findMetric(batteryDevice, METRIC_PATTERNS.soc)?.value);
     summary.voltage = toNumber(findMetric(batteryDevice, METRIC_PATTERNS.voltage)?.value);
     summary.current = toNumber(findMetric(batteryDevice, METRIC_PATTERNS.current)?.value);
@@ -110,6 +121,7 @@ export function summarizePower(store: VictronStore): PowerSummary {
     if (solar) {
       summary.solarPower = toNumber(solar.value);
       summary.solarDeviceMac = device.mac;
+      summary.solarDeviceName = device.name;
       if (summary.chargerState === undefined) {
         summary.chargerState = findMetric(device, METRIC_PATTERNS.chargerState)?.value;
       }

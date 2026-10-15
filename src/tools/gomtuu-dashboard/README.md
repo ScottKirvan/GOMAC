@@ -93,6 +93,12 @@ gracefully instead of silently being wrong if a guess is off. The raw
 per-device sensor tables show every metric regardless of whether the
 Power Gauge recognized it, so nothing is hidden either way.
 
+**Device names:** `victron-ble/<mac>/name` (retained) is reserved for the
+device's own BLE advertised name: the custom name set in VictronConnect,
+or its factory default (model + serial). It's shown in place of the MAC in
+the sensor table headers and the Power Gauge header, and never as a
+metric. Until that topic is published, the dashboard falls back to MACs.
+
 **Before relying on the Power Gauge for anything real**, verify the actual
 metric names against the live broker:
 

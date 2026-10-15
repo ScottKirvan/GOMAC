@@ -14,6 +14,7 @@ import {
   weatherIcon,
   forecastDayLabel,
   gradientArcSvg,
+  escapeHtml,
 } from "./render.js";
 import { gradientPair } from "./color.js";
 
@@ -150,9 +151,9 @@ function renderPowerGauge(power, solarPeak) {
   const chargerTone = chargeStateTone(power.chargerState);
   if (chargerTone) chargerEl.classList.add("charge-state", `cs-${chargerTone}`);
 
-  document.getElementById("powerSourceMac").textContent = power.batteryDeviceMac
-    ? power.batteryDeviceMac
-    : "no data yet";
+  const sourceEl = document.getElementById("powerSourceMac");
+  sourceEl.textContent = power.batteryDeviceName ?? power.batteryDeviceMac ?? "no data yet";
+  sourceEl.title = power.batteryDeviceName ? power.batteryDeviceMac : "";
 }
 
 /**
@@ -241,7 +242,7 @@ function renderSensorTables(devices) {
       return `
         <div class="panel">
           <div class="panel-head">
-            <span class="panel-title">${mac}</span>
+            <span class="panel-title">${device.name ? `${escapeHtml(device.name)}<span class="device-mac mono">${mac}</span>` : mac}</span>
             <span class="panel-meta mono">${metrics.length} metrics</span>
           </div>
           <table class="sensors">

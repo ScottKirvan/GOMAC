@@ -5,6 +5,8 @@ export interface VictronMetric {
 
 export interface VictronDeviceState {
   mac: string;
+  /** The device's own BLE advertised name, from the retained `victron-ble/<mac>/name` topic. */
+  name?: string;
   metrics: Record<string, VictronMetric>;
 }
 
@@ -27,7 +29,9 @@ export interface PowerSummary {
   chargerState?: string;
   solarPower?: number;
   batteryDeviceMac?: string;
+  batteryDeviceName?: string;
   solarDeviceMac?: string;
+  solarDeviceName?: string;
 }
 
 export interface NowPlayingState {
