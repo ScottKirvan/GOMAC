@@ -217,3 +217,9 @@ export function googleMapsUrl(latitude, longitude) {
   url.searchParams.set("query", `${latitude},${longitude}`);
   return url.toString();
 }
+
+/** "charge" for positive battery current, "draw" for negative, else undefined. */
+export function currentDirection(current) {
+  if (current === undefined || Number.isNaN(current) || current === 0) return undefined;
+  return current > 0 ? "charge" : "draw";
+}

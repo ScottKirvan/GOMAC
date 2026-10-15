@@ -65,7 +65,8 @@ default (`WEATHER_POLL_INTERVAL_MS`) whenever a GPS fix is known.
    reading.** `src/solarPeak.ts` keeps the highest solar power ever seen
    and sends it as `victron.solarPeak` (`watts`, `at`) in `/snapshot.json`.
    The solar ring fills relative to it, the trend chart's top is pinned to
-   it so the scale stays stable, and the "Peak solar" stat row shows it.
+   it so the scale stays stable, and the solar watts reading in the dial
+   center shows it as a tooltip.
    It's saved whenever a new peak is set to `SOLAR_PEAK_STATE_FILE`
    (default `data/solar-peak.json`, relative to the working directory,
    gitignored), so restarts don't reset it. To seed it from older logs,

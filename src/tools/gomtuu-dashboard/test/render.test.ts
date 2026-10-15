@@ -8,6 +8,7 @@ import {
   formatClock,
   formatDuration,
   googleMapsUrl,
+  currentDirection,
 } from "../public/render.js";
 
 describe("fmt / fmtSigned", () => {
@@ -115,5 +116,18 @@ describe("googleMapsUrl", () => {
   it("returns undefined without a full fix", () => {
     expect(googleMapsUrl(undefined, -123.1)).toBeUndefined();
     expect(googleMapsUrl(44.1, undefined)).toBeUndefined();
+  });
+});
+
+describe("currentDirection", () => {
+  it("classifies signed battery current as charge or draw", () => {
+    expect(currentDirection(4.3)).toBe("charge");
+    expect(currentDirection(-1.2)).toBe("draw");
+  });
+
+  it("is undefined for zero or missing current", () => {
+    expect(currentDirection(0)).toBeUndefined();
+    expect(currentDirection(undefined)).toBeUndefined();
+    expect(currentDirection(Number.NaN)).toBeUndefined();
   });
 });

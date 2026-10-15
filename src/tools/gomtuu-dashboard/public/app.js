@@ -10,6 +10,7 @@ import {
   compassLabel,
   buildRttSparkline,
   googleMapsUrl,
+  currentDirection,
 } from "./render.js";
 
 /**
@@ -108,15 +109,12 @@ function renderPowerGauge(power, solarPeak) {
 
   document.getElementById("voltageVal").textContent = fmt(power.voltage, 2, " V");
 
-  // All-time peak solar (server-side, persisted) -- the solar ring's full scale.
-  const peakSolarEl = document.getElementById("peakSolarVal");
-  if (peakW === undefined) {
-    peakSolarEl.textContent = "—";
-    peakSolarEl.title = "";
-  } else {
-    peakSolarEl.textContent = fmt(peakW, 0, " W");
-    peakSolarEl.title = solarPeak.at === undefined ? "Highest solar reading recorded" : `Highest solar reading recorded, ${new Date(solarPeak.at).toLocaleDateString([], { year: "numeric", month: "short", day: "numeric" })}`;
-  }
+  // All-time peak solar (server-side, persisted) is the solar ring's full
+  // scale; it's surfaced as a tooltip on the solar watts reading.
+  document.getElementById("solarSub").title =
+    peakW === undefined
+      ? ""
+      : `Solar ring full scale: highest reading recorded, ${fmt(peakW, 0, " W")}${solarPeak.at === undefined ? "" : ` on ${new Date(solarPeak.at).toLocaleDateString([], { year: "numeric", month: "short", day: "numeric" })}`}`;
 
   document.getElementById("chargerVal").textContent = power.chargerState ?? "—";
 
@@ -143,22 +141,27 @@ function renderAmpGauge(power) {
   const reading = document.getElementById("ampReading");
 
   const current = power.current;
-  reading.textContent = fmtSigned(current, 1, " A");
-  reading.classList.remove("is-charge", "is-draw");
+  const currentStat = document.getElementById("currentVal");
+  const direction = currentDirection(current);
+  for (const el of [reading, currentStat]) {
+    el.textContent = fmtSigned(current, 1, " A");
+    el.classList.remove("is-charge", "is-draw");
+    if (direction) el.classList.add(`is-${direction}`);
+    el.title = direction === "charge" ? "charging" : direction === "draw" ? "drawing" : "";
+  }
 
-  if (current === undefined || Number.isNaN(current) || current === 0) {
+  if (!direction) {
     arc.setAttribute("d", "");
     arc.classList.remove("amp-arc-overflow");
     overflowDot.setAttribute("r", "0");
-    reading.title = "";
     return;
   }
 
   const magnitude = Math.abs(current);
   const pct = Math.min(1, magnitude / AMP_GAUGE_FULL_SCALE_A);
   const overflowing = magnitude > AMP_GAUGE_FULL_SCALE_A;
-  const extent = (current > 0 ? 1 : -1) * pct * 360;
-  const color = current > 0 ? "var(--good)" : "var(--crit)";
+  const extent = (direction === "charge" ? 1 : -1) * pct * 360;
+  const color = direction === "charge" ? "var(--good)" : "var(--crit)";
 
   arc.setAttribute("d", describeArcFromTop(AMP_GAUGE_CENTER, AMP_GAUGE_CENTER, AMP_GAUGE_RADIUS, extent));
   arc.setAttribute("stroke", color);
@@ -170,15 +173,10 @@ function renderAmpGauge(power) {
     overflowDot.setAttribute("cy", tip.y.toFixed(3));
     overflowDot.setAttribute("fill", color);
     overflowDot.setAttribute("r", "3.5");
+    reading.title = `${reading.title}, pegged — exceeds the ±${AMP_GAUGE_FULL_SCALE_A}A gauge scale`;
   } else {
     overflowDot.setAttribute("r", "0");
   }
-
-  reading.classList.add(current > 0 ? "is-charge" : "is-draw");
-  const label = current > 0 ? "charging" : "drawing";
-  reading.title = overflowing
-    ? `${label}, pegged — exceeds the ±${AMP_GAUGE_FULL_SCALE_A}A gauge scale`
-    : label;
 }
 
 function renderChart(history, solarPeakW) {
