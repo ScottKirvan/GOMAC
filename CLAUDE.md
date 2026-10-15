@@ -21,6 +21,10 @@ Update this file in the same commit as the work it documents.
 
    A commit or PR is not finished until this read-back check has run.
 6. **Scott merges PRs himself using "rebase and merge"** (to keep release-please's changelog generation working correctly) and deletes the branch afterward. Don't assume a PR is still open without checking — sync `main` and prune local branches before starting new work.
+7. **Every stage of a task ends with a report, then stop.** Move to the next stage only when Scott says so, unless he explicitly says to work through several stages together. Answering a question, or granting a permission about *how* to do something (e.g. "you can commit to main"), is not a go. See `notes/dev/mistakes.md`, 2026-10-15.
+8. **"Propose" / "discuss" mean in chat.** A proposal, plan, or recommendation stays in the conversation until Scott approves it. It doesn't go into a file, issue, commit, or PR before that.
+9. **Questions for Scott go in chat, never into issues, PRs, or docs.** Those record only what has been decided.
+10. **Enabling work is part of the ask.** If approved work needs groundwork first (a refactor, new test scaffolding, a dependency), name it and get it approved. A repo rule like "tests before fixes" is not approval to do it.
 
 ## Working with Scott
 
