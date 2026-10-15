@@ -55,8 +55,51 @@ describe("describeArcFromTop", () => {
   });
 });
 
+// .chart-endlabel is 11px IBM Plex Mono; monospace glyphs advance 0.6em.
+const END_LABEL_CHAR_WIDTH = 11 * 0.6;
+const END_LABEL_FONT_SIZE = 11;
+
+function endLabels(svg: string): { x: number; y: number; text: string }[] {
+  const viewBoxWidth = Number(/viewBox="0 0 (\d+) /.exec(svg)?.[1]);
+  expect(viewBoxWidth).toBeGreaterThan(0);
+  return [...svg.matchAll(/<text class="chart-endlabel" x="([\d.-]+)" y="([\d.-]+)"[^>]*>([^<]*)<\/text>/g)].map((m) => ({
+    x: Number(m[1]),
+    y: Number(m[2]),
+    text: m[3] ?? "",
+  }));
+}
+
 describe("buildChartSvg", () => {
   it("returns undefined until there are at least two samples", () => {
     expect(buildChartSvg([{ t: 0, solarPower: 10 }], 100)).toBeUndefined();
+  });
+
+  it("keeps the end-of-line value labels inside the viewBox", () => {
+    const svg = buildChartSvg(
+      [
+        { t: 0, solarPower: 120, power: -1250 },
+        { t: 60_000, solarPower: 238, power: -1180 },
+      ],
+      238,
+    );
+    expect(svg).toBeDefined();
+    const viewBoxWidth = Number(/viewBox="0 0 (\d+) /.exec(svg!)?.[1]);
+    const labels = endLabels(svg!);
+    expect(labels).toHaveLength(2);
+    for (const label of labels) {
+      expect(label.x + label.text.length * END_LABEL_CHAR_WIDTH).toBeLessThanOrEqual(viewBoxWidth);
+    }
+  });
+
+  it("separates the two end labels when the lines finish at nearly the same value", () => {
+    const svg = buildChartSvg(
+      [
+        { t: 0, solarPower: 50, power: 48 },
+        { t: 60_000, solarPower: 60, power: 59 },
+      ],
+      238,
+    );
+    const [a, b] = endLabels(svg!);
+    expect(Math.abs(a!.y - b!.y)).toBeGreaterThanOrEqual(END_LABEL_FONT_SIZE);
   });
 });

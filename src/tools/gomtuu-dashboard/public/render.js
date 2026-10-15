@@ -2,6 +2,7 @@
  * Pure formatting/geometry/SVG-string helpers for app.js -- no DOM access,
  * so they can be unit tested under vitest (see test/render.test.ts).
  */
+
 export function fmt(value, digits, unit) {
   if (value === undefined || value === null || Number.isNaN(value)) return "—";
   return `${value.toFixed(digits)}${unit ?? ""}`;
@@ -38,12 +39,14 @@ export function formatClock(ms) {
   const s = totalSec % 60;
   return `${m}:${String(s).padStart(2, "0")}`;
 }
+
 /**
  * Point on a circle of radius `r` around (cx, cy), where angle 0 is
  * straight up (12 o'clock / top dead center) and positive angles sweep
  * clockwise -- i.e. a plain clock-face angle, not the math convention
  * (0 = 3 o'clock, CCW positive) SVG/trig normally uses.
  */
+
 export function polarPointFromTop(cx, cy, r, angleDeg) {
   const rad = (angleDeg * Math.PI) / 180;
   return { x: cx + r * Math.sin(rad), y: cy - r * Math.cos(rad) };
@@ -61,6 +64,7 @@ export function polarPointFromTop(cx, cy, r, angleDeg) {
  * 360) because an arc whose start and end point are identical collapses
  * to a zero-length, invisible path in SVG.
  */
+
 export function describeArcFromTop(cx, cy, r, extentDeg) {
   if (!extentDeg) return "";
   const clamped = Math.sign(extentDeg) * Math.min(Math.abs(extentDeg), 359.9);
@@ -70,6 +74,35 @@ export function describeArcFromTop(cx, cy, r, extentDeg) {
   const sweepFlag = clamped > 0 ? 1 : 0;
   return `M ${start.x.toFixed(3)} ${start.y.toFixed(3)} A ${r} ${r} 0 ${largeArcFlag} ${sweepFlag} ${end.x.toFixed(3)} ${end.y.toFixed(3)}`;
 }
+const CHART_LEFT = 40;
+// Leaves a gutter right of the plot for the end-of-line value labels
+// (up to "-1234W" at 11px monospace) inside the 600-wide viewBox.
+const CHART_RIGHT = 548;
+const END_LABEL_MIN_GAP = 12;
+
+/**
+ * Baseline y for the solar (above its point) and battery (below its point)
+ * end labels, pushed apart symmetrically when the two lines finish close
+ * enough that the labels would overlap.
+ */
+function separateLabelYs(solarPointY, battPointY) {
+  let solarY = solarPointY === undefined ? undefined : solarPointY - 2;
+  let battY = battPointY === undefined ? undefined : battPointY + 4;
+  if (solarY !== undefined && battY !== undefined && Math.abs(solarY - battY) < END_LABEL_MIN_GAP) {
+    const mid = (solarY + battY) / 2;
+    const upper = mid - END_LABEL_MIN_GAP / 2;
+    const lower = mid + END_LABEL_MIN_GAP / 2;
+    if (solarY <= battY) {
+      solarY = upper;
+      battY = lower;
+    } else {
+      solarY = lower;
+      battY = upper;
+    }
+  }
+  return [solarY, battY];
+}
+
 export function buildChartSvg(history, solarPeakW) {
   const pts = history.filter((s) => s.solarPower !== undefined || s.power !== undefined);
   if (pts.length < 2) return undefined;
@@ -94,7 +127,7 @@ export function buildChartSvg(history, solarPeakW) {
 
   const t0 = pts[0].t;
   const t1 = pts[pts.length - 1].t;
-  const xFor = (t) => (t1 === t0 ? 40 : 40 + ((t - t0) / (t1 - t0)) * 550);
+  const xFor = (t) => (t1 === t0 ? CHART_LEFT : CHART_LEFT + ((t - t0) / (t1 - t0)) * (CHART_RIGHT - CHART_LEFT));
   const yFor = (v) => 150 - ((v - min) / (max - min)) * 140;
 
   const solarPts = pts.filter((p) => p.solarPower !== undefined);
@@ -107,14 +140,18 @@ export function buildChartSvg(history, solarPeakW) {
 
   const lastSolar = solarPts[solarPts.length - 1];
   const lastBatt = battPts[battPts.length - 1];
+  const [solarLabelY, battLabelY] = separateLabelYs(
+    lastSolar ? yFor(lastSolar.solarPower) : undefined,
+    lastBatt ? yFor(lastBatt.power) : undefined,
+  );
 
   const gridLines = [
-    `<line class="chart-grid-line" x1="40" y1="10" x2="590" y2="10" /><text class="chart-axis-label" x="34" y="13" text-anchor="end">${Math.round(max)}W</text>`,
-    `<line class="chart-grid-line" x1="40" y1="150" x2="590" y2="150" /><text class="chart-axis-label" x="34" y="153" text-anchor="end">${Math.round(min)}W</text>`,
+    `<line class="chart-grid-line" x1="40" y1="10" x2="${CHART_RIGHT}" y2="10" /><text class="chart-axis-label" x="34" y="13" text-anchor="end">${Math.round(max)}W</text>`,
+    `<line class="chart-grid-line" x1="40" y1="150" x2="${CHART_RIGHT}" y2="150" /><text class="chart-axis-label" x="34" y="153" text-anchor="end">${Math.round(min)}W</text>`,
   ];
   if (zeroInRange) {
     gridLines.push(
-      `<line class="chart-baseline" x1="40" y1="${zeroY.toFixed(1)}" x2="590" y2="${zeroY.toFixed(1)}" /><text class="chart-axis-label" x="34" y="${(zeroY + 3.5).toFixed(1)}" text-anchor="end">0W</text>`,
+      `<line class="chart-baseline" x1="40" y1="${zeroY.toFixed(1)}" x2="${CHART_RIGHT}" y2="${zeroY.toFixed(1)}" /><text class="chart-axis-label" x="34" y="${(zeroY + 3.5).toFixed(1)}" text-anchor="end">0W</text>`,
     );
   }
 
@@ -133,14 +170,15 @@ export function buildChartSvg(history, solarPeakW) {
       ${gridLines.join("")}
       ${solarGrad}
       ${solarLine ? `<polyline points="${solarLine}" fill="none" stroke="var(--solar)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />` : ""}
-      ${lastSolar ? `<circle cx="${xFor(lastSolar.t).toFixed(1)}" cy="${yFor(lastSolar.solarPower).toFixed(1)}" r="4" fill="var(--solar)" /><text class="chart-endlabel" x="${(xFor(lastSolar.t) + 6).toFixed(1)}" y="${(yFor(lastSolar.solarPower) - 2).toFixed(1)}" fill="var(--solar)">${Math.round(lastSolar.solarPower)}W</text>` : ""}
+      ${lastSolar ? `<circle cx="${xFor(lastSolar.t).toFixed(1)}" cy="${yFor(lastSolar.solarPower).toFixed(1)}" r="4" fill="var(--solar)" /><text class="chart-endlabel" x="${(xFor(lastSolar.t) + 6).toFixed(1)}" y="${solarLabelY.toFixed(1)}" fill="var(--solar)">${Math.round(lastSolar.solarPower)}W</text>` : ""}
       ${battLine ? `<polyline points="${battLine}" fill="none" stroke="var(--battery)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />` : ""}
-      ${lastBatt ? `<circle cx="${xFor(lastBatt.t).toFixed(1)}" cy="${yFor(lastBatt.power).toFixed(1)}" r="4" fill="var(--battery)" /><text class="chart-endlabel" x="${(xFor(lastBatt.t) + 6).toFixed(1)}" y="${(yFor(lastBatt.power) + 4).toFixed(1)}" fill="var(--battery)">${Math.round(lastBatt.power)}W</text>` : ""}
+      ${lastBatt ? `<circle cx="${xFor(lastBatt.t).toFixed(1)}" cy="${yFor(lastBatt.power).toFixed(1)}" r="4" fill="var(--battery)" /><text class="chart-endlabel" x="${(xFor(lastBatt.t) + 6).toFixed(1)}" y="${battLabelY.toFixed(1)}" fill="var(--battery)">${Math.round(lastBatt.power)}W</text>` : ""}
       <text class="chart-axis-label" x="40" y="170" text-anchor="start">${formatDuration(t1 - t0)} ago</text>
-      <text class="chart-axis-label" x="558" y="170" text-anchor="end">now</text>
+      <text class="chart-axis-label" x="${CHART_RIGHT}" y="170" text-anchor="end">now</text>
     </svg>
   `;
 }
+
 const COMPASS_POINTS = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
 
 export function compassLabel(deg) {
@@ -148,6 +186,7 @@ export function compassLabel(deg) {
   const idx = Math.round(((deg % 360) + 360) % 360 / 45) % 8;
   return COMPASS_POINTS[idx];
 }
+
 export function buildRttSparkline(history) {
   const pts = history.filter((s) => s.avgRttMs !== undefined).slice(-20);
   if (pts.length < 2) return undefined;
