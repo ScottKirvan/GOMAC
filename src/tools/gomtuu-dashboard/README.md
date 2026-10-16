@@ -43,7 +43,12 @@ empty state until it can reach a broker with real traffic.
 Every panel is live now. Position and Connectivity were confirmed live by
 the IT-side agent handling TheFlea; Weather uses Open-Meteo (Scott's call
 over HA's `weather.home` — see below for why) polled every 15 minutes by
-default (`WEATHER_POLL_INTERVAL_MS`) whenever a GPS fix is known.
+default (`WEATHER_POLL_INTERVAL_MS`) once a GPS fix is known. After a
+restart, the first fetch happens within about 10 seconds of the first
+fix. When a fetch fails (for example, no internet), it retries after 1,
+2, 4, 8, then 15 minutes, and the panel keeps the last good weather with
+its age. The journal logs only when fetching starts failing and when it
+recovers.
 
 ## Open questions / known caveats
 

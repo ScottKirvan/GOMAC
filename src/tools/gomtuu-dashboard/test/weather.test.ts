@@ -1,6 +1,7 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { describeConditionCode, fetchWeather, startWeatherPoller } from "../src/weather.js";
 import type { Logger } from "../src/logger.js";
+import type { PositionState } from "../src/types.js";
 
 const silentLogger: Logger = { info() {}, warn() {}, error() {} };
 
@@ -96,6 +97,24 @@ describe("fetchWeather", () => {
 });
 
 describe("startWeatherPoller", () => {
+  const MINUTE = 60_000;
+  const INTERVAL = 15 * MINUTE;
+  const okResponse = { ok: true, json: () => Promise.resolve({ current: { temperature_2m: 19 }, daily: {} }) };
+
+  function recordingLogger() {
+    const lines = { info: [] as string[], warn: [] as string[], error: [] as string[] };
+    const logger: Logger = {
+      info: (m) => lines.info.push(m),
+      warn: (m) => lines.warn.push(m),
+      error: (m) => lines.error.push(m),
+    };
+    return { logger, lines };
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.useRealTimers();
@@ -105,39 +124,141 @@ describe("startWeatherPoller", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
-    const poller = startWeatherPoller(() => ({}), () => {}, silentLogger, 1000);
-    await Promise.resolve();
+    const poller = startWeatherPoller(() => ({}), () => {}, silentLogger, INTERVAL);
+    await vi.advanceTimersByTimeAsync(0);
     expect(fetchMock).not.toHaveBeenCalled();
     poller.stop();
   });
 
   it("fetches immediately once a position is available and reports the result", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ current: { temperature_2m: 19 }, daily: {} }),
-      }),
-    );
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(okResponse));
 
     const onUpdate = vi.fn();
-    const poller = startWeatherPoller(() => ({ latitude: 45.5, longitude: -73.5 }), onUpdate, silentLogger, 1000);
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    const poller = startWeatherPoller(() => ({ latitude: 45.5, longitude: -73.5 }), onUpdate, silentLogger, INTERVAL);
+    await vi.advanceTimersByTimeAsync(0);
 
     expect(onUpdate).toHaveBeenCalledTimes(1);
     expect(onUpdate.mock.calls[0][0].temperatureC).toBe(19);
     poller.stop();
   });
 
-  it("logs rather than throws when the fetch fails", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network down")));
-    const errors: string[] = [];
-    const logger: Logger = { info() {}, warn() {}, error: (m) => errors.push(m) };
+  it("fetches within seconds when the first fix arrives after startup, not a full interval later", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(okResponse);
+    vi.stubGlobal("fetch", fetchMock);
+    let position: PositionState = {};
 
-    const poller = startWeatherPoller(() => ({ latitude: 45.5, longitude: -73.5 }), () => {}, logger, 1000);
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    const poller = startWeatherPoller(() => position, () => {}, silentLogger, INTERVAL);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(fetchMock).not.toHaveBeenCalled();
 
-    expect(errors[0]).toContain("network down");
+    position = { latitude: 45.5, longitude: -73.5 };
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
     poller.stop();
+  });
+
+  it("logs the wait for a GPS fix once, not on every check", async () => {
+    vi.stubGlobal("fetch", vi.fn());
+    const { logger, lines } = recordingLogger();
+
+    const poller = startWeatherPoller(() => ({}), () => {}, logger, INTERVAL);
+    await vi.advanceTimersByTimeAsync(5 * MINUTE);
+    expect(lines.info.filter((l) => l.includes("GPS"))).toHaveLength(1);
+    poller.stop();
+  });
+
+  it("refetches on the normal interval after a success", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(okResponse);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const poller = startWeatherPoller(() => ({ latitude: 45.5, longitude: -73.5 }), () => {}, silentLogger, INTERVAL);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(INTERVAL - 1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    poller.stop();
+  });
+
+  it("backs off 1, 2, 4, 8 minutes after failures, capped at the normal interval", async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new Error("network down"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const poller = startWeatherPoller(() => ({ latitude: 45.5, longitude: -73.5 }), () => {}, silentLogger, INTERVAL);
+    await vi.advanceTimersByTimeAsync(0);
+    const expectedGaps = [1, 2, 4, 8, 15, 15].map((m) => m * MINUTE);
+    for (const [i, gap] of expectedGaps.entries()) {
+      await vi.advanceTimersByTimeAsync(gap - 1);
+      expect(fetchMock).toHaveBeenCalledTimes(i + 1);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(fetchMock).toHaveBeenCalledTimes(i + 2);
+    }
+    poller.stop();
+  });
+
+  it("logs only when fetching starts failing and when it recovers", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("network down"))
+      .mockRejectedValueOnce(new Error("network down"))
+      .mockRejectedValueOnce(new Error("network down"))
+      .mockResolvedValue(okResponse);
+    vi.stubGlobal("fetch", fetchMock);
+    const { logger, lines } = recordingLogger();
+
+    const poller = startWeatherPoller(() => ({ latitude: 45.5, longitude: -73.5 }), () => {}, logger, INTERVAL);
+    await vi.advanceTimersByTimeAsync((1 + 2 + 4) * MINUTE);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(lines.error).toHaveLength(1);
+    expect(lines.error[0]).toContain("network down");
+    expect(lines.info.filter((l) => l.includes("recovered"))).toHaveLength(1);
+    poller.stop();
+  });
+
+  it("returns to the short backoff when fetching fails after a success", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(okResponse).mockRejectedValue(new Error("network down"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const poller = startWeatherPoller(() => ({ latitude: 45.5, longitude: -73.5 }), () => {}, silentLogger, INTERVAL);
+    await vi.advanceTimersByTimeAsync(INTERVAL);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(MINUTE);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    poller.stop();
+  });
+
+  it("times out a hung request and treats it as a failure", async () => {
+    const fetchMock = vi.fn(
+      (_url: unknown, init?: { signal?: AbortSignal }) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => reject(init.signal!.reason));
+        }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const { logger, lines } = recordingLogger();
+
+    const poller = startWeatherPoller(() => ({ latitude: 45.5, longitude: -73.5 }), () => {}, logger, INTERVAL);
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(lines.error).toHaveLength(1);
+    // Next attempt follows the 1-minute backoff, and attempts never overlap.
+    await vi.advanceTimersByTimeAsync(MINUTE);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    poller.stop();
+  });
+
+  it("stops scheduling once stopped, even if a fetch was in flight", async () => {
+    let resolveFetch: (v: unknown) => void = () => {};
+    const fetchMock = vi.fn(() => new Promise((resolve) => (resolveFetch = resolve)));
+    vi.stubGlobal("fetch", fetchMock);
+    const onUpdate = vi.fn();
+
+    const poller = startWeatherPoller(() => ({ latitude: 45.5, longitude: -73.5 }), onUpdate, silentLogger, INTERVAL);
+    await vi.advanceTimersByTimeAsync(0);
+    poller.stop();
+    resolveFetch(okResponse);
+    await vi.advanceTimersByTimeAsync(2 * INTERVAL);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(onUpdate).not.toHaveBeenCalled();
   });
 });

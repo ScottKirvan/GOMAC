@@ -3,6 +3,7 @@ import type { DailyForecast, PositionState, WeatherState } from "./types.js";
 
 const OPEN_METEO_BASE = "https://api.open-meteo.com/v1/forecast";
 const FORECAST_DAYS = 4;
+const FETCH_TIMEOUT_MS = 10_000;
 
 /**
  * WMO weather interpretation codes, per Open-Meteo's docs
@@ -83,7 +84,11 @@ function dailyForecast(daily: OpenMeteoResponse["daily"]): DailyForecast[] {
   });
 }
 
-export async function fetchWeather(latitude: number, longitude: number): Promise<WeatherState> {
+export async function fetchWeather(
+  latitude: number,
+  longitude: number,
+  timeoutMs: number = FETCH_TIMEOUT_MS,
+): Promise<WeatherState> {
   const url = new URL(OPEN_METEO_BASE);
   url.searchParams.set("latitude", latitude.toFixed(4));
   url.searchParams.set("longitude", longitude.toFixed(4));
@@ -98,11 +103,23 @@ export async function fetchWeather(latitude: number, longitude: number): Promise
   url.searchParams.set("forecast_days", String(FORECAST_DAYS));
   url.searchParams.set("timezone", "auto");
 
-  const res = await fetch(url);
-  if (!res.ok) {
-    throw new Error(`open-meteo request failed: ${res.status} ${res.statusText}`);
+  // Without a timeout, a half-working link (WiFi up, no route out) can hang
+  // a request for minutes instead of failing.
+  const controller = new AbortController();
+  const timeout = setTimeout(
+    () => controller.abort(new Error(`open-meteo request timed out after ${timeoutMs / 1000}s`)),
+    timeoutMs,
+  );
+  let data: OpenMeteoResponse;
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    if (!res.ok) {
+      throw new Error(`open-meteo request failed: ${res.status} ${res.statusText}`);
+    }
+    data = (await res.json()) as OpenMeteoResponse;
+  } finally {
+    clearTimeout(timeout);
   }
-  const data = (await res.json()) as OpenMeteoResponse;
 
   return {
     temperatureC: data.current?.temperature_2m,
@@ -125,10 +142,19 @@ export interface WeatherPoller {
   stop(): void;
 }
 
+const POSITION_WAIT_MS = 10_000;
+const FIRST_RETRY_MS = 60_000;
+
 /**
- * Polls Open-Meteo on a fixed interval rather than only on GPS movement --
- * simpler, and well within Open-Meteo's free-tier rate limits at a
- * quarter-hourly default (see README).
+ * Polls Open-Meteo every `intervalMs` (quarter-hourly by default, well
+ * within Open-Meteo's free-tier limits -- see README) once it has a GPS
+ * fix. Until the first fix it re-checks the in-memory position every 10s,
+ * since the retained `gps/phone` message usually lands just after startup.
+ * After a failed fetch it retries at 1, 2, 4, 8... minutes, capped at
+ * `intervalMs`, so weather comes back soon after the network does without
+ * hammering Open-Meteo while the van is offline. Each attempt is scheduled
+ * only after the previous one finishes, so attempts never overlap. Logs
+ * only state changes (waiting for GPS, failing, recovered), not every try.
  */
 export function startWeatherPoller(
   getPosition: () => PositionState,
@@ -136,23 +162,52 @@ export function startWeatherPoller(
   logger: Logger,
   intervalMs: number,
 ): WeatherPoller {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let stopped = false;
+  let failures = 0;
+  let loggedWaitingForGps = false;
+
+  const schedule = (delayMs: number): void => {
+    if (!stopped) {
+      timer = setTimeout(() => void tick(), delayMs);
+    }
+  };
+
   const tick = async (): Promise<void> => {
     const pos = getPosition();
     if (pos.latitude === undefined || pos.longitude === undefined) {
+      if (!loggedWaitingForGps) {
+        logger.info("weather: waiting for a GPS fix before the first fetch");
+        loggedWaitingForGps = true;
+      }
+      schedule(POSITION_WAIT_MS);
       return;
     }
     try {
       const weather = await fetchWeather(pos.latitude, pos.longitude);
+      if (stopped) return;
       onUpdate(weather);
+      if (failures > 0) {
+        logger.info(`weather fetch recovered after ${failures} failed attempt${failures === 1 ? "" : "s"}`);
+      }
+      failures = 0;
+      schedule(intervalMs);
     } catch (err) {
-      logger.error(`weather fetch failed: ${(err as Error).message}`);
+      if (stopped) return;
+      failures += 1;
+      if (failures === 1) {
+        logger.error(`weather fetch failing: ${(err as Error).message}`);
+      }
+      schedule(Math.min(FIRST_RETRY_MS * 2 ** (failures - 1), intervalMs));
     }
   };
 
   void tick();
-  const timer = setInterval(() => void tick(), intervalMs);
 
   return {
-    stop: () => clearInterval(timer),
+    stop: () => {
+      stopped = true;
+      clearTimeout(timer);
+    },
   };
 }
