@@ -318,5 +318,21 @@ designs and didn't check it for consistency before asking for approval.
 a fix-and-redeploy round (`c3e0259`); and a second process breakdown in one
 day on the same theme of acting without the navigator's OK.
 
-**What changes:** to be agreed with the navigator in chat, then recorded
-here.
+**What changes:** agreed between navigator and driver in chat on
+2026-10-15, then added to CLAUDE.md as operating rule 11:
+
+1. **Check proposals for consistency before asking for approval.** Each
+   proposal describes one design. Alternatives go as numbered options for
+   the navigator to pick, never as add-on sentences.
+2. **An approved design is fixed.** If it turns out ambiguous or wrong
+   during implementation, the driver stops and asks, even inside an
+   approved batch. "Make implementation decisions independently" covers
+   only things that aren't visible and aren't part of an agreed design.
+   The test: if the navigator would see the difference on the page or in
+   behavior, it's a design decision.
+3. **Inside a batch, set the item aside rather than guessing.** Work on
+   the other items continues. Nothing from the blocked item ships until
+   the navigator answers.
+4. **Visual changes get a preview before they ship.** The driver shows a
+   rendered preview and gets the navigator's OK before pushing to `main`,
+   giving the file's path on the machine when files can't be attached.
