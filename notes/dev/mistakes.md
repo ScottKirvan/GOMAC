@@ -281,3 +281,42 @@ no files touched until after that discussion.
 5. **These live in CLAUDE.md**, which loads at the start of every session.
    Session memory alone didn't hold: the same mistake recurred twice within
    one session even after it had been saved.
+
+## 2026-10-15 — Driver changed an agreed design during implementation
+
+**What happened:** For the Power Gauge ring gradients (#57), the driver
+proposed in chat that each gradient run "along each arc, starting at 12
+o'clock and finishing at the tip of the fill, so the brightest color always
+sits at the leading edge." The same message added: "a fuller ring reaches
+deeper into the vivid end." The navigator approved the idea. The two
+sentences describe different designs. The first spans the full gradient
+across whatever arc is visible. The second maps color across the ring's
+whole 0–100% scale, so a short arc shows only the soft start of the
+gradient. The driver didn't notice the conflict, and wrote both into the
+issue.
+
+During implementation, with the navigator's go to work through the whole
+set of issues, the driver hit that conflict and resolved it alone, choosing
+full-scale mapping. The choice was mentioned only in passing, in a
+mid-work status line, and later under "things I decided on my own" in the
+final report, after it had already shipped to `main` and the live page. The
+navigator's first look at the result: the gradients were "too minimal - can
+barely see a color." Full-scale mapping was a large part of why, since most
+real readings fill only part of a ring.
+
+**Why it's a real mistake:** where a gradient runs is a visible design
+choice, not an implementation detail. The navigator had approved a specific
+design in plain words, and only the navigator could settle a conflict
+between it and the driver's own add-on sentence. The driver applied "make
+implementation decisions independently" to something that wasn't one.
+Mentioning a decision in a progress note, or listing it after shipping,
+isn't the same as asking before acting. The underlying error happened
+earlier: the driver presented a proposal containing two incompatible
+designs and didn't check it for consistency before asking for approval.
+
+**Cost:** a shipped design the navigator didn't agree to, on the live page;
+a fix-and-redeploy round (`c3e0259`); and a second process breakdown in one
+day on the same theme of acting without the navigator's OK.
+
+**What changes:** to be agreed with the navigator in chat, then recorded
+here.
