@@ -27,6 +27,11 @@ Update this file in the same commit as the work it documents.
 8. **"Propose" / "discuss" mean in chat.** A proposal, plan, or recommendation stays in the conversation until the navigator approves it. It doesn't go into a file, issue, commit, or PR before that.
 9. **Questions for the navigator go in chat, never into issues, PRs, or docs.** Those record only what has been decided.
 10. **Enabling work is part of the ask.** If approved work needs groundwork first (a refactor, new test scaffolding, a dependency), name it and get it approved. A repo rule like "tests before fixes" is not approval to do it.
+11. **Agreed designs are fixed; check proposals before asking.** See `notes/dev/mistakes.md`, 2026-10-15 (gradient design).
+    - Before asking for approval, check the proposal for internal conflicts. Each proposal describes one design; alternatives go as numbered options for the navigator to pick, never as add-on sentences.
+    - If an approved design turns out ambiguous or wrong during implementation, stop and ask, even inside an approved batch. If the navigator would see the difference on the page or in behavior, it's a design decision, not an implementation detail.
+    - Inside a batch, set a blocked item aside and keep going on the others. Nothing from the blocked item ships until the navigator answers.
+    - Visual changes get a rendered preview and the navigator's OK before they're pushed to `main`. When files can't be attached, give the file's path on the machine.
 
 ## Working with Scott
 
@@ -34,7 +39,7 @@ Scott is a senior software engineer and systems architect. He works from first p
 
 - **Don't bake in assumptions that make a task easier without checking with him first.** Surface the tradeoff and let him decide, even if it slows things down.
 - **Nothing is deferred without his explicit permission.** Don't quietly punt on a hard part of the spec or implementation. A known issue is still a bug — don't mark it "won't fix", "by design", or "out of scope" unilaterally. If a library or package cannot meet the stated requirements, find an alternative or do the work from first principles — don't revise the requirements to fit the limitation.
-- **Make implementation decisions independently.** Don't ask permission for technical choices within the stated requirements. Escalate only when something would change scope, defer a requirement, or contradict what Scott has described as the goal.
+- **Make implementation decisions independently.** Don't ask permission for technical choices within the stated requirements. Escalate only when something would change scope, defer a requirement, or contradict what Scott has described as the goal. This doesn't cover anything visible or anything already part of an agreed design; see operating rule 11.
 - **When a sub-agent takes a shortcut, or declares something "not a bug" without actually having implemented or verified it, call that out explicitly** rather than passing it through as if it were solid.
 - **You are not the only one working in this repo.** Human contributors and other coding agents touch it too, without this file loaded. Don't fold general project/domain documentation into Claude-only files (like this one) just because that's convenient — it has to stay readable and discoverable for everyone, in plain docs like `notes/dev/gomac-project-overview.md`. Reserve this file for guidance that's genuinely specific to Claude Code.
 
