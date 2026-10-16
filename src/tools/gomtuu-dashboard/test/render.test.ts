@@ -187,23 +187,15 @@ describe("gradientArcSvg", () => {
     expect(gradientArcSvg({ ...base, extentDeg: 0 })).toBe("");
   });
 
-  it("draws round caps colored by the gradient at each end", () => {
-    const svg = gradientArcSvg({ ...base, extentDeg: 180 });
+  it("runs the gradient from the start color at 12 o'clock to the end color at the tip", () => {
+    const svg = gradientArcSvg({ ...base, extentDeg: 90 });
     const caps = [...svg.matchAll(/<circle cx="([\d.-]+)" cy="([\d.-]+)" r="3.5" fill="(#[0-9a-f]{6})"/g)];
     expect(caps).toHaveLength(2);
-    // Start cap sits at 12 o'clock in the start color.
     expect(Number(caps[0]![1])).toBeCloseTo(64, 3);
     expect(Number(caps[0]![2])).toBeCloseTo(17, 3);
     expect(caps[0]![3]).toBe("#000000");
-    // Half the scale is halfway along the gradient, not the full end color.
-    expect(caps[1]![3]).not.toBe("#ffffff");
-    expect(caps[1]![3]).not.toBe("#000000");
-  });
-
-  it("reaches the end color only at full scale", () => {
-    const svg = gradientArcSvg({ ...base, extentDeg: 359.9 });
-    const fills = [...svg.matchAll(/(?:stroke|fill)="(#[0-9a-f]{6})"/g)].map((m) => m[1]);
-    expect(fills.at(-1)).toBe("#ffffff");
+    // Even a short arc spans the whole gradient: the tip is the end color.
+    expect(caps[1]![3]).toBe("#ffffff");
   });
 
   it("sweeps counter-clockwise for negative extents", () => {

@@ -12,12 +12,15 @@
  * saturated and a little brighter.
  */
 const WARM_HUE = 70;
-const SOFT_HUE_PULL = 0.4;
-const SOFT_HUE_PULL_MAX = 35;
-const SOFT_CHROMA = 0.72;
-const SOFT_LIGHTNESS_SHIFT = 0.03;
-const VIVID_CHROMA = 1.3;
-const VIVID_LIGHTNESS_SHIFT = 0.07;
+const SOFT_HUE_PULL = 0.6;
+const SOFT_HUE_PULL_MAX = 50;
+const SOFT_CHROMA = 0.85;
+const SOFT_LIGHTNESS_SHIFT = 0.02;
+// Colors already near WARM_HUE barely move when pulled toward it, so their
+// soft end goes paler instead, by up to this much extra lightness.
+const SOFT_PALE_SHIFT = 0.1;
+const VIVID_CHROMA = 1.8;
+const VIVID_LIGHTNESS_SHIFT = 0.02;
 
 function srgbToLinear(c) {
   return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
@@ -91,20 +94,21 @@ export function oklchToHex({ l, c, h }) {
   return linearRgbToHex(oklabToLinearRgb(lchToLab({ l: lightness, c: lo, h })));
 }
 
-function pullHueToward(h, target, fraction, maxDeg) {
+function hueShiftToward(h, target, fraction, maxDeg) {
   const delta = ((target - h + 540) % 360) - 180;
-  const shift = Math.sign(delta) * Math.min(Math.abs(delta) * fraction, maxDeg);
-  return (h + shift + 360) % 360;
+  return Math.sign(delta) * Math.min(Math.abs(delta) * fraction, maxDeg);
 }
 
 /** Soft-to-vivid gradient endpoints derived from one base color. */
 export function gradientPair(baseHex) {
   const base = hexToOklch(baseHex);
+  const hueShift = hueShiftToward(base.h, WARM_HUE, SOFT_HUE_PULL, SOFT_HUE_PULL_MAX);
+  const paleness = 1 - Math.abs(hueShift) / SOFT_HUE_PULL_MAX;
   return {
     start: oklchToHex({
-      l: base.l + SOFT_LIGHTNESS_SHIFT,
+      l: base.l + SOFT_LIGHTNESS_SHIFT + SOFT_PALE_SHIFT * paleness,
       c: base.c * SOFT_CHROMA,
-      h: pullHueToward(base.h, WARM_HUE, SOFT_HUE_PULL, SOFT_HUE_PULL_MAX),
+      h: (base.h + hueShift + 360) % 360,
     }),
     end: oklchToHex({
       l: base.l + VIVID_LIGHTNESS_SHIFT,

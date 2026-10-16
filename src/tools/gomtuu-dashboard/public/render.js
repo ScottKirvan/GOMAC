@@ -256,15 +256,15 @@ const GRADIENT_SEGMENT_OVERLAP_DEG = 0.6;
 /**
  * A ring arc starting at 12 o'clock and sweeping `extentDeg` (clockwise
  * when positive), drawn as short segments so its color can follow the
- * curve -- SVG gradients only run in straight lines. Color is mapped over
- * the ring's full scale (0 to 360 degrees), so the tip is always the most
- * vivid part showing and a fuller ring reaches further toward `end`.
+ * curve -- SVG gradients only run in straight lines. The full gradient
+ * runs along the visible arc, from `start` at 12 o'clock to `end` at the
+ * tip, whatever the fill.
  */
 export function gradientArcSvg({ cx, cy, r, strokeWidth, extentDeg, start, end }) {
   if (!extentDeg) return "";
   const sign = Math.sign(extentDeg);
   const total = Math.min(Math.abs(extentDeg), 359.9);
-  const colorAt = (deg) => mixHex(start, end, deg / 360);
+  const colorAt = (deg) => mixHex(start, end, deg / total);
   const segments = [];
   for (let from = 0; from < total; from += GRADIENT_SEGMENT_DEG) {
     const to = Math.min(total, from + GRADIENT_SEGMENT_DEG + GRADIENT_SEGMENT_OVERLAP_DEG);

@@ -3,6 +3,13 @@ import { gradientPair, hexToOklch, mixHex, oklchToHex } from "../public/color.js
 
 const HEX = /^#[0-9a-f]{6}$/;
 
+function oklabDistance(x: { l: number; c: number; h: number }, y: { l: number; c: number; h: number }): number {
+  const ab = (p: { c: number; h: number }) => [p.c * Math.cos((p.h * Math.PI) / 180), p.c * Math.sin((p.h * Math.PI) / 180)];
+  const [xa, xb] = ab(x);
+  const [ya, yb] = ab(y);
+  return Math.hypot(x.l - y.l, xa! - ya!, xb! - yb!);
+}
+
 function hueDistance(a: number, b: number): number {
   const d = Math.abs(a - b) % 360;
   return d > 180 ? 360 - d : d;
@@ -43,6 +50,8 @@ describe("gradientPair", () => {
       expect(s.c).toBeLessThan(b.c);
       expect(e.c).toBeGreaterThanOrEqual(b.c - 0.005);
       expect(e.l).toBeGreaterThan(b.l);
+      // The pair spans a wide, clearly visible range.
+      expect(oklabDistance(s, e)).toBeGreaterThan(0.09);
       // The soft end leans warm: closer to amber than the base is.
       expect(hueDistance(s.h, 70)).toBeLessThan(hueDistance(b.h, 70));
     });
