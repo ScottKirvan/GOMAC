@@ -15,6 +15,7 @@ import {
   escapeHtml,
   easeToward,
   easeAngleToward,
+  lockIconSvg,
 } from "../public/render.js";
 
 describe("fmt / fmtSigned", () => {
@@ -251,5 +252,16 @@ describe("easeAngleToward", () => {
       expect(next).toBeGreaterThanOrEqual(0);
       expect(next).toBeLessThan(360);
     }
+  });
+});
+
+describe("lockIconSvg", () => {
+  it("draws a closed shackle when locked and an open one when unlocked", () => {
+    const locked = lockIconSvg(true);
+    const unlocked = lockIconSvg(false);
+    expect(locked).toMatch(/^<svg[^>]*viewBox="0 0 16 16"/);
+    expect(locked).toContain('data-lock="closed"');
+    expect(unlocked).toContain('data-lock="open"');
+    expect(locked).not.toBe(unlocked);
   });
 });

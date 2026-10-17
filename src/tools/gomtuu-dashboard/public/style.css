@@ -61,6 +61,10 @@ header {
 }
 .badge.ok { color: var(--good); border-color: var(--good); }
 .badge.err { color: var(--crit); border-color: var(--crit); }
+.net-lock { display: inline-flex; align-items: center; color: var(--ink-mute); }
+.net-lock.tailnet { color: var(--good); }
+.net-lock[hidden] { display: none; }
+.net-lock-icon { width: 14px; height: 14px; }
 
 .hero-grid, .trend-grid, .table-grid {
   display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 12px;

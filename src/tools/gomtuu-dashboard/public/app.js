@@ -17,6 +17,7 @@ import {
   escapeHtml,
   easeToward,
   easeAngleToward,
+  lockIconSvg,
 } from "./render.js";
 import { gradientPair } from "./color.js";
 
@@ -592,42 +593,79 @@ function setConnState(state) {
 }
 
 /**
- * Resolved once at startup, not per-poll: tries the tailnet-only base
- * first (real position included) with a short timeout, falls back to
- * the public base if that's unreachable -- which is the expected,
- * non-error outcome for any visitor not on the tailnet, not a fetch
- * failure to log or alarm on. When neither is configured (running
- * locally on TheFlea itself, or `npm run dev`), same-origin is already
- * correct and there's nothing to probe.
+ * Whether the tailnet-only address (full data, real position) answers.
+ * With no timeout the request can wait as long as the browser needs:
+ * Chrome holds requests from a public page to a private-network address
+ * (tailnet addresses count) behind a "connect to devices on your local
+ * network" permission prompt, so a short timeout would give up while the
+ * prompt is still on screen.
+ */
+async function tailnetAnswers(privateBase, timeoutMs) {
+  const controller = new AbortController();
+  const timeout = timeoutMs === undefined ? undefined : setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(`${privateBase}/snapshot.json`, { cache: "no-store", signal: controller.signal });
+    return res.ok;
+  } catch {
+    // Not reachable: not on the tailnet, or the browser's local-network
+    // permission isn't granted. Expected for most visitors, not an error.
+    return false;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+/**
+ * Picks the backend at startup: the tailnet address if it answers within
+ * PROBE_TIMEOUT_MS, otherwise the public one. In the second case it keeps
+ * trying the tailnet address in the background and switches over when it
+ * answers. When neither is configured (running locally on TheFlea, or
+ * `npm run dev`), same-origin is already correct and there's nothing to probe.
  */
 async function resolveApiBase() {
   const privateBase = window.GOMAC_API_BASE_PRIVATE;
   const publicBase = window.GOMAC_API_BASE_PUBLIC;
   if (!privateBase && !publicBase) {
-    return "";
+    return { base: "", network: "local" };
   }
-
-  if (privateBase) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS);
-    try {
-      const res = await fetch(`${privateBase}/snapshot.json`, { cache: "no-store", signal: controller.signal });
-      if (res.ok) {
-        return privateBase;
-      }
-    } catch {
-      // Not reachable -- most likely this visitor isn't on the tailnet.
-      // Fall through to the public base below; this is the expected
-      // path for the vast majority of visitors, not a failure.
-    } finally {
-      clearTimeout(timeout);
-    }
+  if (!privateBase) {
+    return { base: publicBase, network: "public" };
   }
+  if (!publicBase || (await tailnetAnswers(privateBase, PROBE_TIMEOUT_MS))) {
+    return { base: privateBase, network: "tailnet" };
+  }
+  return { base: publicBase, network: "public" };
+}
 
-  return publicBase ?? "";
+let tailnetRetryInFlight = false;
+async function retryTailnetInBackground() {
+  const privateBase = window.GOMAC_API_BASE_PRIVATE;
+  if (network !== "public" || !privateBase || tailnetRetryInFlight) return;
+  tailnetRetryInFlight = true;
+  const answered = await tailnetAnswers(privateBase);
+  tailnetRetryInFlight = false;
+  if (!answered || network !== "public") return;
+  apiBase = privateBase;
+  setNetwork("tailnet");
+  closeStream();
+  await poll();
+  openStream();
+}
+
+function setNetwork(next) {
+  network = next;
+  const el = document.getElementById("netLock");
+  el.hidden = next === "local";
+  el.classList.toggle("tailnet", next === "tailnet");
+  el.innerHTML = lockIconSvg(next === "tailnet");
+  el.title =
+    next === "tailnet"
+      ? "On the tailnet: full data, including exact position"
+      : "Public view: position is approximate. On the tailnet? Your browser may need permission to connect to devices on your local network.";
 }
 
 let apiBase = "";
+let network = "local";
 
 async function poll() {
   try {
@@ -694,8 +732,11 @@ function closeStream() {
 
 async function start() {
   setConnState("connecting");
-  apiBase = await resolveApiBase();
+  const resolved = await resolveApiBase();
+  apiBase = resolved.base;
+  setNetwork(resolved.network);
   await poll();
+  void retryTailnetInBackground();
   setInterval(poll, POLL_INTERVAL_MS);
   openStream();
   document.addEventListener("visibilitychange", () => {
@@ -704,6 +745,7 @@ async function start() {
     } else {
       poll();
       openStream();
+      void retryTailnetInBackground();
     }
   });
 }

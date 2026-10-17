@@ -306,3 +306,16 @@ export function easeAngleToward(shown, target, dtMs, tauMs) {
   const next = shown + delta * (1 - Math.exp(-dtMs / tauMs));
   return ((next % 360) + 360) % 360;
 }
+
+/**
+ * Padlock icon for the header: closed when the page is talking to the
+ * tailnet address (full data), open on the public one (approximate position).
+ */
+export function lockIconSvg(locked) {
+  const shackle = locked ? "M5 7V5a3 3 0 0 1 6 0v2" : "M5 7V5a3 3 0 0 1 5.6-1.5";
+  return `<svg class="net-lock-icon" viewBox="0 0 16 16" aria-hidden="true" data-lock="${locked ? "closed" : "open"}">`
+    + `<path d="${shackle}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />`
+    + `<rect x="3" y="7" width="10" height="7.5" rx="1.6" fill="currentColor" />`
+    + `<circle cx="8" cy="10.6" r="1.1" fill="var(--surface)" />`
+    + `</svg>`;
+}
