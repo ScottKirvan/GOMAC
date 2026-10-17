@@ -4,8 +4,8 @@ import type { PowerSample, PowerSummary } from "./types.js";
 
 export interface PowerHistory {
   samples: PowerSample[];
-  /** The battery reading energy was last counted from (see recordPowerSample). */
-  lastBatteryReading?: { at: number; power: number };
+  /** When energy was last counted, and the battery state as of then (see chargedWhSinceLast). */
+  lastCount?: { at: number; power?: number; online: boolean };
 }
 
 /**
@@ -17,30 +17,28 @@ export interface PowerHistory {
 const RETENTION_MS = 48 * 60 * 60 * 1000;
 const SAMPLE_BUCKET_MS = 10 * 1000;
 /**
- * The shunt publishes only when a value changes, so readings can be a few
- * seconds apart while charging is steady. A longer silence means it stopped
- * reporting, and that gap isn't counted as charging.
+ * Messages from some Victron device normally arrive every second or so. A
+ * longer silence means the feed itself stopped (e.g. MQTT down), and that
+ * time isn't counted as charging.
  */
-const MAX_CHARGE_GAP_MS = 60 * 1000;
+const MAX_COUNT_GAP_MS = 60 * 1000;
 
 export function createPowerHistory(): PowerHistory {
   return { samples: [] };
 }
 
 /**
- * Energy charged since the previous battery reading, counted once per new
- * shunt reading (recordPowerSample also runs on every other device's
- * messages). Uses the previous reading's power over the gap since then.
+ * Energy charged since the previous call, at the battery power as of then.
+ * Counted by elapsed time rather than per shunt reading, because the shunt
+ * publishes only when a value changes, so steady charging produces no new
+ * readings. Time while the battery monitor is offline isn't counted.
  */
-function chargedWhSinceLastReading(history: PowerHistory, summary: PowerSummary): number {
-  const at = summary.batteryUpdatedAt;
-  if (at === undefined || summary.power === undefined) return 0;
-  const last = history.lastBatteryReading;
-  if (last !== undefined && at <= last.at) return 0;
-  history.lastBatteryReading = { at, power: summary.power };
-  if (last === undefined) return 0;
-  const gap = at - last.at;
-  if (gap > MAX_CHARGE_GAP_MS || last.power <= 0) return 0;
+function chargedWhSinceLast(history: PowerHistory, summary: PowerSummary, now: number): number {
+  const last = history.lastCount;
+  history.lastCount = { at: now, power: summary.power, online: summary.batteryOnline !== false };
+  if (last === undefined || !last.online || last.power === undefined || last.power <= 0) return 0;
+  const gap = now - last.at;
+  if (gap <= 0 || gap > MAX_COUNT_GAP_MS) return 0;
   return (last.power * gap) / 3_600_000;
 }
 
@@ -48,7 +46,7 @@ export function recordPowerSample(history: PowerHistory, summary: PowerSummary, 
   if (summary.soc === undefined && summary.voltage === undefined && summary.solarPower === undefined) {
     return;
   }
-  const chargedWh = chargedWhSinceLastReading(history, summary);
+  const chargedWh = chargedWhSinceLast(history, summary, now);
   const newest = history.samples[history.samples.length - 1];
   if (newest !== undefined && now - newest.t >= 0 && now - newest.t < SAMPLE_BUCKET_MS) {
     // Latest value wins, except solarPower keeps the bucket's max so the

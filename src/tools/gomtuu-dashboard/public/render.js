@@ -324,3 +324,32 @@ export function lockIconSvg(locked) {
     + `<circle cx="8" cy="10.6" r="1.1" fill="var(--surface)" />`
     + `</svg>`;
 }
+
+/**
+ * One Victron device's table. The "Changed" column is when each value last
+ * changed (the collector publishes on change only), not when the device was
+ * last heard; `device.available` is the freshness signal. An offline device
+ * keeps its last values, greyed out and labelled.
+ */
+export function sensorTableHtml(mac, device) {
+  const offline = device.available === false;
+  const metrics = Object.entries(device.metrics).sort(([a], [b]) => a.localeCompare(b));
+  const rows = metrics
+    .map(
+      ([metric, data]) =>
+        `<tr><td class="metric">${metric}</td><td class="value${metric === "charge_state" ? ` charge-state cs-${chargeStateTone(data.value)}` : ""}">${data.value}</td><td class="age">${formatAge(data.updatedAt)}</td></tr>`,
+    )
+    .join("");
+  return `
+    <div class="panel${offline ? " is-offline" : ""}">
+      <div class="panel-head">
+        <span class="panel-title">${device.name ? `${escapeHtml(device.name)}<span class="device-mac mono">${mac}</span>` : mac}</span>
+        <span class="panel-meta mono">${offline ? `<span class="offline-label" title="No reading from this device for over 30 seconds. Showing its last values.">offline</span> · ` : ""}${metrics.length} metrics</span>
+      </div>
+      <table class="sensors">
+        <tr><th>Metric</th><th style="text-align:right">Value</th><th style="text-align:right">Changed</th></tr>
+        ${rows}
+      </table>
+    </div>
+  `;
+}

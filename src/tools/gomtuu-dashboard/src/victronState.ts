@@ -57,10 +57,12 @@ export function parseVictronTopic(topic: string): { mac: string; metric: string 
 }
 
 /**
- * `victron-ble/<mac>/name` is reserved for the device's BLE advertised name
- * (retained), not a reading, so it never appears among the metrics.
+ * Reserved, retained topics that describe the device rather than carry a
+ * reading, so they never appear among the metrics: `name` (BLE advertised
+ * name) and `availability` ("online"/"offline").
  */
 const DEVICE_NAME_METRIC = "name";
+const DEVICE_AVAILABILITY_METRIC = "availability";
 
 export function handleVictronMessage(store: VictronStore, topic: string, payload: string, now: number = Date.now()): void {
   const parsed = parseVictronTopic(topic);
@@ -71,6 +73,11 @@ export function handleVictronMessage(store: VictronStore, topic: string, payload
   const device = (store.devices[mac] ??= { mac, metrics: {} });
   if (metric === DEVICE_NAME_METRIC) {
     device.name = payload.trim() || undefined;
+    return;
+  }
+  if (metric === DEVICE_AVAILABILITY_METRIC) {
+    const state = payload.trim().toLowerCase();
+    device.available = state === "online" ? true : state === "offline" ? false : undefined;
     return;
   }
   device.metrics[metric] = { value: payload, updatedAt: now };
@@ -117,11 +124,7 @@ export function summarizePower(store: VictronStore): PowerSummary {
     if (summary.power === undefined && summary.voltage !== undefined && summary.current !== undefined) {
       summary.power = summary.voltage * summary.current;
     }
-    const readingTimes = [METRIC_PATTERNS.voltage, METRIC_PATTERNS.current]
-      .map((pattern) => findMetric(batteryDevice, pattern)?.metric)
-      .map((metric) => (metric === undefined ? undefined : batteryDevice.metrics[metric]?.updatedAt))
-      .filter((t): t is number => t !== undefined);
-    if (readingTimes.length > 0) summary.batteryUpdatedAt = Math.max(...readingTimes);
+    summary.batteryOnline = batteryDevice.available;
     summary.chargerState = findMetric(batteryDevice, METRIC_PATTERNS.chargerState)?.value;
   }
 

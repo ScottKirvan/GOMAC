@@ -116,7 +116,6 @@ describe("battery power and freshness", () => {
     handleVictronMessage(store, "victron-ble/shunt/current", "-4.5", 2000);
     const summary = summarizePower(store);
     expect(summary.power).toBeCloseTo(-59.4, 6);
-    expect(summary.batteryUpdatedAt).toBe(2000);
   });
 
   it("prefers a reported power reading over the derived one", () => {
@@ -126,5 +125,32 @@ describe("battery power and freshness", () => {
     handleVictronMessage(store, "victron-ble/shunt/current", "-4.5", 1000);
     handleVictronMessage(store, "victron-ble/shunt/power", "-60", 1000);
     expect(summarizePower(store).power).toBe(-60);
+  });
+});
+
+describe("device availability", () => {
+  it("stores the retained availability topic on the device, not as a metric", () => {
+    const store = createVictronStore();
+    handleVictronMessage(store, "victron-ble/f0ead52388a9/output_voltage1", "13.2");
+    handleVictronMessage(store, "victron-ble/f0ead52388a9/availability", "offline");
+    const device = store.devices["f0ead52388a9"]!;
+    expect(device.available).toBe(false);
+    expect(device.metrics).not.toHaveProperty("availability");
+    handleVictronMessage(store, "victron-ble/f0ead52388a9/availability", "online");
+    expect(device.available).toBe(true);
+  });
+
+  it("treats an unknown availability payload as unknown, not offline", () => {
+    const store = createVictronStore();
+    handleVictronMessage(store, "victron-ble/f0ead52388a9/availability", "maybe");
+    expect(store.devices["f0ead52388a9"]!.available).toBeUndefined();
+  });
+
+  it("reports whether the battery monitor is online in the power summary", () => {
+    const store = createVictronStore();
+    handleVictronMessage(store, "victron-ble/shunt/soc", "68");
+    expect(summarizePower(store).batteryOnline).toBeUndefined();
+    handleVictronMessage(store, "victron-ble/shunt/availability", "offline");
+    expect(summarizePower(store).batteryOnline).toBe(false);
   });
 });

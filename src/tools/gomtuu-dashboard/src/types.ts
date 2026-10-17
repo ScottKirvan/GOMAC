@@ -7,6 +7,13 @@ export interface VictronDeviceState {
   mac: string;
   /** The device's own BLE advertised name, from the retained `victron-ble/<mac>/name` topic. */
   name?: string;
+  /**
+   * From the retained `victron-ble/<mac>/availability` topic: false after 30s
+   * with no BLE reading, true again on the next one; undefined until known.
+   * This is the freshness signal: metric `updatedAt` is when a value last
+   * *changed*, since the collector publishes on change only.
+   */
+  available?: boolean;
   metrics: Record<string, VictronMetric>;
 }
 
@@ -30,8 +37,8 @@ export interface PowerSummary {
   solarPower?: number;
   batteryDeviceMac?: string;
   batteryDeviceName?: string;
-  /** Newest update time (epoch ms) of the battery device's voltage or current reading. */
-  batteryUpdatedAt?: number;
+  /** The battery device's availability (see VictronDeviceState.available). */
+  batteryOnline?: boolean;
   solarDeviceMac?: string;
   solarDeviceName?: string;
 }

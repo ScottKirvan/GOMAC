@@ -14,10 +14,10 @@ import {
   weatherIcon,
   forecastDayLabel,
   gradientArcSvg,
-  escapeHtml,
   easeToward,
   easeAngleToward,
   lockIconSvg,
+  sensorTableHtml,
 } from "./render.js";
 import { gradientPair } from "./color.js";
 
@@ -141,8 +141,10 @@ function renderPowerGauge(power, solarPeak) {
   if (chargerTone) chargerEl.classList.add("charge-state", `cs-${chargerTone}`);
 
   const sourceEl = document.getElementById("powerSourceMac");
-  sourceEl.textContent = power.batteryDeviceName ?? power.batteryDeviceMac ?? "no data yet";
-  sourceEl.title = power.batteryDeviceName ? power.batteryDeviceMac : "";
+  const sourceName = power.batteryDeviceName ?? power.batteryDeviceMac ?? "no data yet";
+  sourceEl.textContent = power.batteryOnline === false ? `${sourceName} · offline` : sourceName;
+  sourceEl.classList.toggle("offline-label", power.batteryOnline === false);
+  sourceEl.title = [power.batteryDeviceName ? power.batteryDeviceMac : "", power.batteryOnline === false ? "Battery monitor offline: showing its last values." : ""].filter(Boolean).join(" · ");
 }
 
 /**
@@ -307,30 +309,7 @@ function renderSensorTables(devices) {
     return;
   }
 
-  container.innerHTML = macs
-    .map((mac) => {
-      const device = devices[mac];
-      const metrics = Object.entries(device.metrics).sort(([a], [b]) => a.localeCompare(b));
-      const rows = metrics
-        .map(
-          ([metric, data]) =>
-            `<tr><td class="metric">${metric}</td><td class="value${metric === "charge_state" ? ` charge-state cs-${chargeStateTone(data.value)}` : ""}">${data.value}</td><td class="age">${formatAge(data.updatedAt)}</td></tr>`,
-        )
-        .join("");
-      return `
-        <div class="panel">
-          <div class="panel-head">
-            <span class="panel-title">${device.name ? `${escapeHtml(device.name)}<span class="device-mac mono">${mac}</span>` : mac}</span>
-            <span class="panel-meta mono">${metrics.length} metrics</span>
-          </div>
-          <table class="sensors">
-            <tr><th>Metric</th><th style="text-align:right">Value</th><th style="text-align:right">Updated</th></tr>
-            ${rows}
-          </table>
-        </div>
-      `;
-    })
-    .join("");
+  container.innerHTML = macs.map((mac) => sensorTableHtml(mac, devices[mac])).join("");
 }
 
 function renderNowPlaying(np) {

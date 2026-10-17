@@ -16,6 +16,7 @@ import {
   easeToward,
   easeAngleToward,
   lockIconSvg,
+  sensorTableHtml,
 } from "../public/render.js";
 
 describe("fmt / fmtSigned", () => {
@@ -302,5 +303,27 @@ describe("lockIconSvg", () => {
     expect(locked).toContain('data-lock="closed"');
     expect(unlocked).toContain('data-lock="open"');
     expect(locked).not.toBe(unlocked);
+  });
+});
+
+describe("sensorTableHtml", () => {
+  const metrics = { charge_state: { value: "BULK", updatedAt: Date.now() - 5000 } };
+
+  it("shows an online device normally, with a Changed column", () => {
+    const html = sensorTableHtml("f0ead52388a9", { mac: "f0ead52388a9", name: "Shore Power", available: true, metrics });
+    expect(html).not.toContain("is-offline");
+    expect(html).toContain(">Changed<");
+    expect(html).toContain("Shore Power");
+  });
+
+  it("greys out an offline device and labels it, keeping its last values", () => {
+    const html = sensorTableHtml("f0ead52388a9", { mac: "f0ead52388a9", name: "Shore Power", available: false, metrics });
+    expect(html).toContain('class="panel is-offline"');
+    expect(html).toMatch(/>offline</);
+    expect(html).toContain(">BULK<");
+  });
+
+  it("treats unknown availability as online", () => {
+    expect(sensorTableHtml("x", { mac: "x", metrics })).not.toContain("is-offline");
   });
 });

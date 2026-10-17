@@ -86,6 +86,9 @@ header {
 }
 .panel-title .swatch { width: 7px; height: 7px; border-radius: 1px; flex: 0 0 auto; }
 .panel-meta { font-size: 0.68rem; color: var(--ink-mute); }
+.panel.is-offline { opacity: 0.55; }
+.panel.is-offline .panel-title, .panel.is-offline table.sensors td { color: var(--ink-mute); }
+.offline-label { color: var(--warn); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
 .device-mac { font-size: 0.62rem; font-weight: 400; letter-spacing: 0.02em; text-transform: none; color: var(--ink-mute); }
 
 .hero-body { display: flex; gap: 14px; padding: 14px; align-items: center; flex-wrap: wrap; }
