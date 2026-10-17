@@ -61,8 +61,8 @@ happened.
   the dashboard and the bridge daemons (`gomac-*` systemd units, run from
   the `/home/scott/gomac-deploy` checkout). That covers moving the
   checkout to a commit already on `main`, building, running the tests, and
-  restarting those services. A local, uncommitted
-  `.claude/settings.local.json` pre-approves those commands.
+  restarting those services. Those commands are pre-approved in
+  TheFlea's local Claude Code settings, which aren't part of this repo.
 - **The TheFlea session keeps everything system-level**: the Victron
   collector, Home Assistant, Mosquitto, Tailscale Serve/Funnel, the
   firewall, systemd unit and env files, and anything that isn't GOMAC

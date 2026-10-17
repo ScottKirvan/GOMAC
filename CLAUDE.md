@@ -50,7 +50,7 @@ Where the session runs decides what it can do. Check with `hostname`.
 **A session running on TheFlea itself** (as `scott`, who has sudo) deploys GOMAC's own services: the dashboard and the bridge daemons, i.e. the `gomac-*` systemd units, which run from the `/home/scott/gomac-deploy` checkout.
 - Deploy only commits that are already on `main`. Follow the package README's deploy steps (dashboard: "To deploy a merged change"): move the checkout to the commit, `npm ci`, build, run the tests, then `sudo systemctl restart` the service. Don't restart if the tests fail.
 - Verify after the restart against the live service (for example its HTTP endpoints), and report the deployed commit. Roll back by moving the checkout to the previous commit and repeating the steps.
-- A `.claude/settings.local.json` on TheFlea (local, not committed) is meant to pre-approve these deploy commands. Anything outside them still prompts.
+- These commands run without approval prompts, through TheFlea's local Claude Code settings (not in this repo): `git fetch`/`git switch --detach` in the deploy checkout, `npm ci`, `npm run build`, `npm test`, `sudo systemctl restart|status gomac-*`, `journalctl -u gomac-*`, and `curl -s http://127.0.0.1:809{0,1}/...`. Anything outside them still prompts.
 
 **Everything system-level stays with the TheFlea session**: the Victron collector (`victron-ble-monitor`), Home Assistant, Mosquitto, Tailscale Serve/Funnel, the firewall, systemd unit files and env files under `/etc`, and anything that isn't GOMAC code. For those, write a handoff for that session instead of making the change.
 
