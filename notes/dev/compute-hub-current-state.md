@@ -50,12 +50,26 @@ on TheFlea directly if this matters to what you're building.
 
 **The working model going forward**: GOMAC code and design decisions
 stay in this repo, built through GOMAC-focused sessions, following this
-repo's own rules fully. The only thing meant to cross into TheFlea's
-domain is a narrow, explicit deployment step — not an agent freely
-making live system changes on TheFlea mid-development the way the
-example above happened. What exactly that deployment contract looks like
-(a script, a doc, something else) isn't decided yet — flagging the
-principle here since it's now the intended direction, not the mechanism.
+repo's own rules fully. The only thing that crosses into TheFlea's domain
+is a narrow, explicit deployment step, not an agent freely making live
+system changes on TheFlea mid-development the way the example above
+happened.
+
+**The deployment contract (decided 2026-10-17)** is split by ownership:
+
+- **A GOMAC session running on TheFlea deploys GOMAC's own services**:
+  the dashboard and the bridge daemons (`gomac-*` systemd units, run from
+  the `/home/scott/gomac-deploy` checkout). That covers moving the
+  checkout to a commit already on `main`, building, running the tests, and
+  restarting those services. A local, uncommitted
+  `.claude/settings.local.json` pre-approves those commands.
+- **The TheFlea session keeps everything system-level**: the Victron
+  collector, Home Assistant, Mosquitto, Tailscale Serve/Funnel, the
+  firewall, systemd unit and env files, and anything that isn't GOMAC
+  code. GOMAC sessions hand those changes over rather than making them.
+- **GOMAC sessions in the cloud** (Claude Code on the web) have no path to
+  TheFlea at all, so their deploys still go through a person or the
+  TheFlea session.
 
 ## Hardware reality check
 
