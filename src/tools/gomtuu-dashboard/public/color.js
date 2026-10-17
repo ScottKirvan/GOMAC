@@ -118,13 +118,24 @@ export function gradientPair(baseHex) {
   };
 }
 
-/** Color `t` (0..1) of the way from `fromHex` to `toHex`, interpolated in OKLab. */
-export function mixHex(fromHex, toHex, t) {
-  if (t <= 0) return fromHex;
-  if (t >= 1) return toHex;
+/**
+ * `t => color` for `t` (0..1) of the way from `fromHex` to `toHex`,
+ * interpolated in OKLab. Converts the endpoints once, for callers that
+ * sample many points per frame.
+ */
+export function createMixer(fromHex, toHex) {
   const a = hexToOklab(fromHex);
   const b = hexToOklab(toHex);
-  return linearRgbToHex(
-    oklabToLinearRgb({ L: a.L + (b.L - a.L) * t, a: a.a + (b.a - a.a) * t, b: a.b + (b.b - a.b) * t }),
-  );
+  return (t) => {
+    if (t <= 0) return fromHex;
+    if (t >= 1) return toHex;
+    return linearRgbToHex(
+      oklabToLinearRgb({ L: a.L + (b.L - a.L) * t, a: a.a + (b.a - a.a) * t, b: a.b + (b.b - a.b) * t }),
+    );
+  };
+}
+
+/** Color `t` (0..1) of the way from `fromHex` to `toHex`, interpolated in OKLab. */
+export function mixHex(fromHex, toHex, t) {
+  return createMixer(fromHex, toHex)(t);
 }

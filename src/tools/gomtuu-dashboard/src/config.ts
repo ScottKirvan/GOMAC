@@ -50,7 +50,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): DashboardConfi
       port: Number(env.HTTP_PORT ?? 8090),
       // Serves the *unredacted* snapshot (position included). Meant to be
       // published with `tailscale serve` (tailnet-only), never `funnel` --
-      // the public port strips position entirely. Kept as a genuinely
+      // the public port only gets an approximate position (see coarsenPosition). Kept as a genuinely
       // separate port rather than a second path on the same port because
       // Tailscale's own serve/funnel don't mix reliably per-path on one
       // port (last command wins for the whole port), so port-level

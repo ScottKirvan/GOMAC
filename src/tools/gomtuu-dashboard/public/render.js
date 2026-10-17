@@ -3,7 +3,7 @@
  * so they can be unit tested under vitest (see test/render.test.ts).
  */
 
-import { mixHex } from "./color.js";
+import { createMixer } from "./color.js";
 
 export function fmt(value, digits, unit) {
   if (value === undefined || value === null || Number.isNaN(value)) return "—";
@@ -264,7 +264,8 @@ export function gradientArcSvg({ cx, cy, r, strokeWidth, extentDeg, start, end }
   if (!extentDeg) return "";
   const sign = Math.sign(extentDeg);
   const total = Math.min(Math.abs(extentDeg), 359.9);
-  const colorAt = (deg) => mixHex(start, end, deg / total);
+  const mix = createMixer(start, end);
+  const colorAt = (deg) => mix(deg / total);
   const segments = [];
   for (let from = 0; from < total; from += GRADIENT_SEGMENT_DEG) {
     const to = Math.min(total, from + GRADIENT_SEGMENT_DEG + GRADIENT_SEGMENT_OVERLAP_DEG);
@@ -286,4 +287,22 @@ const HTML_ESCAPES = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'
 
 export function escapeHtml(text) {
   return String(text).replace(/[&<>"']/g, (c) => HTML_ESCAPES[c]);
+}
+
+/**
+ * Exponential ease of a displayed value toward its target: after `dtMs`,
+ * the remaining gap shrinks by e^(-dt/tau). Snaps when either end is
+ * missing, so a value appearing or disappearing isn't animated.
+ */
+export function easeToward(shown, target, dtMs, tauMs) {
+  if (shown === undefined || target === undefined) return target;
+  return shown + (target - shown) * (1 - Math.exp(-dtMs / tauMs));
+}
+
+/** easeToward for compass headings: turns the short way and stays in 0..360. */
+export function easeAngleToward(shown, target, dtMs, tauMs) {
+  if (shown === undefined || target === undefined) return target;
+  const delta = ((target - shown + 540) % 360) - 180;
+  const next = shown + delta * (1 - Math.exp(-dtMs / tauMs));
+  return ((next % 360) + 360) % 360;
 }

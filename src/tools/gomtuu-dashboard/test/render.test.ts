@@ -13,6 +13,8 @@ import {
   forecastDayLabel,
   gradientArcSvg,
   escapeHtml,
+  easeToward,
+  easeAngleToward,
 } from "../public/render.js";
 
 describe("fmt / fmtSigned", () => {
@@ -215,5 +217,39 @@ describe("escapeHtml", () => {
 
   it("passes plain names through unchanged", () => {
     expect(escapeHtml("BSC IP22 12/15...HQ24237J9QY")).toBe("BSC IP22 12/15...HQ24237J9QY");
+  });
+});
+
+describe("easeToward", () => {
+  it("moves part of the way toward the target each frame, more with more elapsed time", () => {
+    const short = easeToward(0, 10, 16, 120);
+    const long = easeToward(0, 10, 100, 120);
+    expect(short).toBeGreaterThan(0);
+    expect(short).toBeLessThan(long);
+    expect(long).toBeLessThan(10);
+  });
+
+  it("snaps when there's nothing to ease from or to", () => {
+    expect(easeToward(undefined, 7, 16, 120)).toBe(7);
+    expect(easeToward(5, undefined, 16, 120)).toBeUndefined();
+  });
+
+  it("never overshoots", () => {
+    expect(easeToward(0, 10, 10_000, 120)).toBeLessThanOrEqual(10);
+  });
+});
+
+describe("easeAngleToward", () => {
+  it("turns the short way across north", () => {
+    const next = easeAngleToward(350, 10, 50, 120);
+    expect(next > 350 || next < 10).toBe(true);
+  });
+
+  it("stays within 0..360", () => {
+    for (const [from, to] of [[350, 10], [10, 350], [180, 0]] as const) {
+      const next = easeAngleToward(from, to, 50, 120)!;
+      expect(next).toBeGreaterThanOrEqual(0);
+      expect(next).toBeLessThan(360);
+    }
   });
 });

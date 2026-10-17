@@ -89,7 +89,7 @@ export function startServer(
   const privateServer = createServer(createHandler(getSnapshot, liveStream));
 
   httpServer.listen(config.http.port, config.http.host, () => {
-    logger.info(`public (position-redacted) dashboard listening at http://${config.http.host}:${config.http.port}`);
+    logger.info(`public (approximate position) dashboard listening at http://${config.http.host}:${config.http.port}`);
   });
   privateServer.listen(config.http.privatePort, config.http.host, () => {
     logger.info(`private (full, incl. position) dashboard listening at http://${config.http.host}:${config.http.privatePort} -- publish this one with 'tailscale serve', never 'funnel'`);

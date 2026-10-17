@@ -2,10 +2,11 @@
 
 A small web dashboard for Gomtuu's live telemetry: subscribes to Mosquitto,
 polls Open-Meteo, and serves a plain JSON snapshot (`GET /snapshot.json`)
-that the static frontend polls every 10s and re-renders. Deliberately not a
-live push (no WebSocket) — this is a one-way read-only viewer, not
-bidirectional, so plain HTTP polling is enough and there's nothing a
-persistent connection buys here. Something still has to hold the live MQTT
+that the static frontend polls every 10s and re-renders. The fast-changing
+readings (battery current, solar power, voltage, GPS speed and heading) also
+stream live over Server-Sent Events (`GET /stream`, see "Live stream"
+below), a one-way push. There's no WebSocket: the viewer is read-only, so
+nothing needs to travel back to the server. Something still has to hold the live MQTT
 connection (that's inherent to MQTT, not a choice), so this remains a small
 Node process, not something GitHub Pages could serve on its own end to end.
 
@@ -49,6 +50,33 @@ fix. When a fetch fails (for example, no internet), it retries after 1,
 2, 4, 8, then 15 minutes, and the panel keeps the last good weather with
 its age. The journal logs only when fetching starts failing and when it
 recovers.
+
+## Live stream
+
+`GET /stream` on both ports is a Server-Sent Events stream of `live` events,
+whose `data` is JSON:
+
+```json
+{ "v": 1,
+  "power": { "current": -4.3, "solarPower": 59, "voltage": 13.29 },
+  "position": { "latitude": 44.37, "longitude": -64.32, "speedMps": 5.4, "courseDeg": 271 } }
+```
+
+- `v` is the format version, bumped on any incompatible change. Consumers
+  should ignore fields they don't know. Missing values are omitted.
+- On the public port, `position` is approximate: coordinates rounded to 1
+  decimal place (about 11 km), speed and heading to whole numbers, and
+  `"coarse": true`. `/snapshot.json` on that port uses the same rounding.
+- Values are sampled at up to `LIVE_STREAM_HZ` times a second (default 4)
+  and sent only when something changed. A new connection gets the current
+  values right away. Keep-alive comments go out every 15s.
+- Each port accepts up to `LIVE_STREAM_MAX_CLIENTS` streams (default 20).
+  Past that it answers 503, and those viewers keep updating by polling.
+- The frontend opens the stream after its first snapshot, eases the live
+  values smoothly between updates, and closes the stream while the page
+  isn't visible, to save the van's uplink. Polling continues throughout, so
+  if the stream drops or is refused, the page still updates every 10s. The
+  header badge reads "live · streaming" while the stream is connected.
 
 ## Open questions / known caveats
 
@@ -127,7 +155,7 @@ published by Tailscale:
 
 | Port | Snapshot | Published as |
 |---|---|---|
-| `8090` (`HTTP_PORT`) | position-redacted | `tailscale funnel` → `https://theflea.tail6388a4.ts.net:8443` (public) |
+| `8090` (`HTTP_PORT`) | approximate position (coordinates to 1 decimal place, about 11 km) | `tailscale funnel` → `https://theflea.tail6388a4.ts.net:8443` (public) |
 | `8091` (`HTTP_PRIVATE_PORT`) | full, incl. position | `tailscale serve` → `https://theflea.tail6388a4.ts.net:8091` (tailnet only) |
 
 To deploy a merged change (on TheFlea):

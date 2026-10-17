@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { gradientPair, hexToOklch, mixHex, oklchToHex } from "../public/color.js";
+import { createMixer, gradientPair, hexToOklch, mixHex, oklchToHex } from "../public/color.js";
 
 const HEX = /^#[0-9a-f]{6}$/;
 
@@ -67,5 +67,14 @@ describe("mixHex", () => {
   it("interpolates in OKLab", () => {
     const mid = hexToOklch(mixHex("#000000", "#ffffff", 0.5));
     expect(mid.l).toBeCloseTo(0.5, 2);
+  });
+});
+
+describe("createMixer", () => {
+  it("matches mixHex at every point", () => {
+    const mix = createMixer("#e25c53", "#35c17a");
+    for (const t of [0, 0.25, 0.5, 0.75, 1]) {
+      expect(mix(t)).toBe(mixHex("#e25c53", "#35c17a", t));
+    }
   });
 });

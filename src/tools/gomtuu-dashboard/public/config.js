@@ -7,7 +7,7 @@
 // Two candidates rather than one: app.js tries PRIVATE first (short
 // timeout) and falls back to PUBLIC if that's unreachable -- so the same
 // public page serves the full snapshot, position included, to anyone
-// actually on the tailnet, and the safe position-redacted one (see
+// actually on the tailnet, and the safe approximate-position one (see
 // dashboardState.redactPositionForPublic) to everyone else, with only
 // one URL for anyone to remember or bookmark.
 //

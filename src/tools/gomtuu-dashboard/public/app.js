@@ -15,6 +15,8 @@ import {
   forecastDayLabel,
   gradientArcSvg,
   escapeHtml,
+  easeToward,
+  easeAngleToward,
 } from "./render.js";
 import { gradientPair } from "./color.js";
 
@@ -85,16 +87,6 @@ function renderPowerGauge(power, solarPeak) {
     extentDeg: (socPct / 100) * 360, ...gradients.soc,
   });
 
-  const peakW = solarPeak?.watts;
-  // Math.max(1, ...) keeps the ratio below well-defined (no div-by-zero)
-  // even when every reading so far has been 0.
-  const solarScale = Math.max(1, power.solarPower ?? 0, peakW ?? 0);
-  const solarPct = power.solarPower === undefined ? 0 : Math.min(1, power.solarPower / solarScale);
-  document.getElementById("solarRing").innerHTML = gradientArcSvg({
-    cx: DIAL_CENTER, cy: DIAL_CENTER, r: SOLAR_RING_RADIUS, strokeWidth: SOLAR_RING_STROKE,
-    extentDeg: solarPct * 360, ...gradients.solar,
-  });
-
   /**
    * Ah remaining is derived from the BMV-712's own consumed_ah reading
    * (Victron's negative-since-full convention -- e.g. -31.0 means 31Ah
@@ -133,11 +125,7 @@ function renderPowerGauge(power, solarPeak) {
       : `${BATTERY_CAPACITY_AH}Ah nominal capacity minus ${Math.abs(consumedAh).toFixed(1)}Ah consumed since last full charge (consumed_ah).`;
   }
 
-  document.getElementById("solarSub").textContent =
-    power.solarPower === undefined ? "no solar" : `${Math.round(power.solarPower)}W`;
-
-  document.getElementById("voltageVal").textContent = fmt(power.voltage, 2, " V");
-
+  const peakW = solarPeak?.watts;
   // All-time peak solar (server-side, persisted) is the solar ring's full
   // scale; it's surfaced as a tooltip on the solar watts reading.
   document.getElementById("solarSub").title =
@@ -168,12 +156,11 @@ function renderPowerGauge(power, solarPeak) {
  * obvious -- the live numeric amp reading in the dial center is always the
  * real, uncapped value regardless of pegging.
  */
-function renderAmpGauge(power) {
+function renderAmpGauge(current) {
   const arc = document.getElementById("ampArc");
   const overflowDot = document.getElementById("ampOverflowDot");
   const reading = document.getElementById("ampReading");
 
-  const current = power.current;
   const currentStat = document.getElementById("currentVal");
   const direction = currentDirection(current);
   for (const el of [reading, currentStat]) {
@@ -211,6 +198,89 @@ function renderAmpGauge(power) {
     reading.title = `${reading.title}, pegged — exceeds the ±${AMP_GAUGE_FULL_SCALE_A}A gauge scale`;
   } else {
     overflowDot.setAttribute("r", "0");
+  }
+}
+
+function renderSolar(solarPower, peakW) {
+  // Math.max(1, ...) keeps the ratio below well-defined (no div-by-zero)
+  // even when every reading so far has been 0.
+  const solarScale = Math.max(1, solarPower ?? 0, peakW ?? 0);
+  const solarPct = solarPower === undefined ? 0 : Math.min(1, solarPower / solarScale);
+  document.getElementById("solarRing").innerHTML = gradientArcSvg({
+    cx: DIAL_CENTER, cy: DIAL_CENTER, r: SOLAR_RING_RADIUS, strokeWidth: SOLAR_RING_STROKE,
+    extentDeg: solarPct * 360, ...getRingGradients().solar,
+  });
+  document.getElementById("solarSub").textContent = solarPower === undefined ? "no solar" : `${Math.round(solarPower)}W`;
+}
+
+function renderMotion(speedMps, courseDeg) {
+  const speedEl = document.getElementById("posSpeed");
+  if (!speedEl) return;
+  const mph = speedMps !== undefined ? speedMps * 2.23694 : undefined;
+  speedEl.textContent = mph === undefined ? "—" : Math.round(mph);
+  document.getElementById("posHeading").textContent =
+    `heading ${courseDeg === undefined ? "—" : `${Math.round(courseDeg)}° ${compassLabel(courseDeg)}`}${mph !== undefined && mph > 1 ? " · moving" : ""}`;
+  const needle = document.getElementById("posNeedle");
+  needle.style.display = courseDeg === undefined ? "none" : "";
+  if (courseDeg !== undefined) needle.setAttribute("transform", `rotate(${courseDeg.toFixed(1)} 32 32)`);
+}
+
+/**
+ * Fast-changing readings shown with smoothing. Targets come from the live
+ * stream while it's connected, and from each snapshot poll otherwise.
+ * Displayed values ease toward their targets (EASE_TAU_MS) at up to
+ * MAX_FRAME_RATE, and the animation stops once everything has settled.
+ */
+const LIVE_KEYS = ["current", "solarPower", "voltage", "speedMps", "courseDeg"];
+const SETTLE_EPSILON = { current: 0.01, solarPower: 0.2, voltage: 0.001, speedMps: 0.01, courseDeg: 0.1 };
+const EASE_TAU_MS = 120;
+const MIN_FRAME_MS = 1000 / 30;
+const prefersReducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+
+const live = { streaming: false, targets: {}, shown: {}, peakW: undefined, frame: undefined, lastFrameAt: 0 };
+
+function renderLiveFields() {
+  const { shown } = live;
+  renderAmpGauge(shown.current);
+  renderSolar(shown.solarPower, live.peakW);
+  document.getElementById("voltageVal").textContent = fmt(shown.voltage, 2, " V");
+  renderMotion(shown.speedMps, shown.courseDeg);
+}
+
+function isSettled(key) {
+  const { shown, targets } = live;
+  if (shown[key] === undefined || targets[key] === undefined) return shown[key] === targets[key];
+  const gap = key === "courseDeg" ? Math.abs(((targets[key] - shown[key] + 540) % 360) - 180) : Math.abs(targets[key] - shown[key]);
+  return gap < SETTLE_EPSILON[key];
+}
+
+function animateLive(now) {
+  const dt = now - live.lastFrameAt;
+  if (dt < MIN_FRAME_MS) {
+    live.frame = requestAnimationFrame(animateLive);
+    return;
+  }
+  live.lastFrameAt = now;
+  for (const key of LIVE_KEYS) {
+    const ease = key === "courseDeg" ? easeAngleToward : easeToward;
+    live.shown[key] = isSettled(key) ? live.targets[key] : ease(live.shown[key], live.targets[key], dt, EASE_TAU_MS);
+  }
+  const settled = LIVE_KEYS.every(isSettled);
+  if (settled) Object.assign(live.shown, live.targets);
+  renderLiveFields();
+  live.frame = settled ? undefined : requestAnimationFrame(animateLive);
+}
+
+function setLiveTargets(values) {
+  for (const key of LIVE_KEYS) live.targets[key] = values[key];
+  if (prefersReducedMotion || document.hidden) {
+    Object.assign(live.shown, live.targets);
+    renderLiveFields();
+    return;
+  }
+  if (live.frame === undefined) {
+    live.lastFrameAt = performance.now();
+    live.frame = requestAnimationFrame(animateLive);
   }
 }
 
@@ -294,29 +364,37 @@ function renderPosition(position) {
     return;
   }
 
-  const mph = position.speedMps !== undefined ? position.speedMps * 2.23694 : undefined;
-  const heading = position.courseDeg;
-
+  // Speed and heading are filled in by renderMotion, from the smoothed live values.
   body.innerHTML = `
     <div class="pos-top">
       <svg class="pos-compass" viewBox="0 0 64 64">
         <circle cx="32" cy="32" r="28" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="1.5" />
         <text x="32" y="10" text-anchor="middle" class="chart-axis-label">N</text>
-        ${
-          heading === undefined
-            ? ""
-            : `<line x1="32" y1="32" x2="32" y2="10" stroke="var(--position)" stroke-width="2.5" stroke-linecap="round" transform="rotate(${heading} 32 32)" />
-               <circle cx="32" cy="32" r="3" fill="var(--position)" />`
-        }
+        <g id="posNeedle" style="display:none">
+          <line x1="32" y1="32" x2="32" y2="10" stroke="var(--position)" stroke-width="2.5" stroke-linecap="round" />
+          <circle cx="32" cy="32" r="3" fill="var(--position)" />
+        </g>
       </svg>
       <div class="pos-stats">
-        <div class="pos-big"><span class="num">${mph === undefined ? "—" : Math.round(mph)}</span><span class="unit">mph</span></div>
-        <div class="pos-sub">heading ${heading === undefined ? "—" : `${Math.round(heading)}° ${compassLabel(heading)}`}${mph !== undefined && mph > 1 ? " · moving" : ""}</div>
+        <div class="pos-big"><span id="posSpeed" class="num">—</span><span class="unit">mph</span></div>
+        <div id="posHeading" class="pos-sub"></div>
       </div>
     </div>
-    <div class="pos-coords mono"><a class="pos-map-link" href="${googleMapsUrl(position.latitude, position.longitude)}" target="_blank" rel="noopener noreferrer" title="Open in Google Maps">${position.latitude.toFixed(4)}°, ${position.longitude.toFixed(4)}° ↗</a>${position.accuracyM !== undefined ? ` ±${Math.round(position.accuracyM)}m` : ""} · fix ${formatAge(position.updatedAt)}</div>
+    <div id="posCoords" class="pos-coords mono"></div>
   `;
-  document.getElementById("positionMeta").textContent = "phone GPS";
+  renderCoords(position);
+  renderMotion(live.shown.speedMps, live.shown.courseDeg);
+  document.getElementById("positionMeta").textContent = position.coarse ? "phone GPS · approximate" : "phone GPS";
+}
+
+/** The public view gets coordinates rounded to 1 decimal place (~11 km), shown as approximate. */
+function renderCoords(position) {
+  const el = document.getElementById("posCoords");
+  if (!el || position.latitude === undefined || position.longitude === undefined) return;
+  const digits = position.coarse ? 1 : 4;
+  const coords = `${position.coarse ? "≈ " : ""}${position.latitude.toFixed(digits)}°, ${position.longitude.toFixed(digits)}°`;
+  const title = position.coarse ? "Approximate location (about 11 km). Open in Google Maps" : "Open in Google Maps";
+  el.innerHTML = `<a class="pos-map-link" href="${googleMapsUrl(position.latitude, position.longitude)}" target="_blank" rel="noopener noreferrer" title="${title}">${coords} ↗</a>${position.accuracyM !== undefined ? ` ±${Math.round(position.accuracyM)}m` : ""}${position.updatedAt !== undefined ? ` · fix ${formatAge(position.updatedAt)}` : ""}`;
 }
 
 function renderConnectivity(connectivity) {
@@ -462,17 +540,29 @@ function renderForecast(forecast) {
 }
 
 function render(snapshot) {
+  live.peakW = snapshot.victron.solarPeak?.watts;
+  live.lastSnapshotPosition = live.streaming ? { ...snapshot.position, ...definedOnly(live.position) } : snapshot.position;
+  if (!live.streaming) {
+    const { power } = snapshot.victron;
+    setLiveTargets({ ...power, speedMps: snapshot.position.speedMps, courseDeg: snapshot.position.courseDeg });
+  }
   renderPowerGauge(snapshot.victron.power, snapshot.victron.solarPeak);
-  renderAmpGauge(snapshot.victron.power);
   renderChart(snapshot.victron.history, snapshot.victron.solarPeak?.watts);
   renderSensorTables(snapshot.victron.devices);
   renderNowPlaying(snapshot.nowPlaying);
-  renderPosition(snapshot.position);
+  renderPosition(live.lastSnapshotPosition);
   renderConnectivity(snapshot.connectivity);
   renderWeather(snapshot.weather);
 
   document.getElementById("serverTime").textContent = new Date(snapshot.serverTime).toLocaleTimeString();
-  document.getElementById("footerNote").textContent = "polling /snapshot.json, weather via Open-Meteo";
+  renderLiveFields();
+  document.getElementById("footerNote").textContent = live.streaming
+    ? "live readings streaming, everything else polled every 10s, weather via Open-Meteo"
+    : "polling /snapshot.json every 10s, weather via Open-Meteo";
+}
+
+function definedOnly(obj) {
+  return Object.fromEntries(Object.entries(obj ?? {}).filter(([, v]) => v !== undefined));
 }
 
 const POLL_INTERVAL_MS = 10000;
@@ -482,7 +572,8 @@ function setConnState(state) {
   const el = document.getElementById("connState");
   el.className = "badge";
   if (state === "live") {
-    el.textContent = "live";
+    el.textContent = live.streaming ? "live · streaming" : "live";
+    el.title = live.streaming ? "Power and motion readings update as they change" : "Readings refresh every 10 seconds";
     el.classList.add("ok");
   } else if (state === "connecting") {
     el.textContent = "connecting…";
@@ -542,11 +633,70 @@ async function poll() {
   }
 }
 
+/**
+ * Live stream of the fast-changing readings (server's /stream). Closed
+ * while the page is hidden to save the van's uplink. EventSource reconnects
+ * on its own after a dropped connection; if the server refuses outright
+ * (e.g. at its connection cap), retry after STREAM_RETRY_MS. Polling keeps
+ * running throughout, so the page never depends on the stream.
+ */
+const STREAM_RETRY_MS = 60_000;
+let eventSource;
+let streamRetryTimer;
+
+function setStreaming(streaming) {
+  if (live.streaming === streaming) return;
+  live.streaming = streaming;
+  if (document.getElementById("connState").classList.contains("ok")) setConnState("live");
+}
+
+function openStream() {
+  if (eventSource || document.hidden || typeof EventSource === "undefined") return;
+  const es = new EventSource(`${apiBase}/stream`);
+  eventSource = es;
+  es.addEventListener("live", (event) => {
+    const update = JSON.parse(event.data);
+    if (update.v !== 1) return;
+    setStreaming(true);
+    live.position = update.position;
+    setLiveTargets({ ...update.power, speedMps: update.position.speedMps, courseDeg: update.position.courseDeg });
+    const { latitude, longitude } = update.position;
+    if (latitude !== live.lastSnapshotPosition?.latitude || longitude !== live.lastSnapshotPosition?.longitude) {
+      live.lastSnapshotPosition = { ...live.lastSnapshotPosition, ...definedOnly(update.position) };
+      renderCoords(live.lastSnapshotPosition);
+    }
+  });
+  es.addEventListener("error", () => {
+    setStreaming(false);
+    if (es.readyState === EventSource.CLOSED) {
+      eventSource = undefined;
+      clearTimeout(streamRetryTimer);
+      streamRetryTimer = setTimeout(openStream, STREAM_RETRY_MS);
+    }
+  });
+}
+
+function closeStream() {
+  clearTimeout(streamRetryTimer);
+  eventSource?.close();
+  eventSource = undefined;
+  setStreaming(false);
+}
+
 async function start() {
   setConnState("connecting");
   apiBase = await resolveApiBase();
-  poll();
+  await poll();
   setInterval(poll, POLL_INTERVAL_MS);
+  openStream();
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      closeStream();
+    } else {
+      poll();
+      openStream();
+    }
+  });
 }
 
 start();
