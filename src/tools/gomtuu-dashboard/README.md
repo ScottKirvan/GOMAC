@@ -164,8 +164,13 @@ Two halves, deployed separately:
 Runs as `gomac-dashboard.service` (system unit, `User=scott`) from a
 dedicated checkout at `/home/scott/gomac-deploy`, working directory
 `src/tools/gomtuu-dashboard`, with MQTT credentials from
-`/etc/gomac-dashboard/env`. Two ports, both bound to `127.0.0.1` and
-published by Tailscale:
+`/etc/gomac-dashboard/env`. Its MQTT client ID defaults to
+`gomac-dashboard-<hostname>-<random>`, unique per process, so a second
+instance (a preview, or `npm run dev`) never takes over the production
+instance's broker session. Set `MQTT_CLIENT_ID` to pin one. Each connection
+logs one line; if the broker keeps closing the connection right after
+connecting, it logs a warning naming the likely cause. Two ports, both
+bound to `127.0.0.1` and published by Tailscale:
 
 | Port | Snapshot | Published as |
 |---|---|---|

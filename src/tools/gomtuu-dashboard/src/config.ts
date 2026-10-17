@@ -1,3 +1,6 @@
+import { randomBytes } from "node:crypto";
+import { hostname } from "node:os";
+
 export interface DashboardConfig {
   mqtt: {
     host: string;
@@ -40,7 +43,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): DashboardConfi
       port: Number(env.MQTT_PORT ?? 1883),
       username: env.MQTT_USERNAME,
       password: env.MQTT_PASSWORD,
-      clientId: env.MQTT_CLIENT_ID ?? "gomac-dashboard",
+      // Unique per process by default: Mosquitto allows one session per client
+      // ID, so two instances sharing an ID (e.g. production plus a preview)
+      // keep taking over each other's session in a reconnect loop (#54).
+      clientId: env.MQTT_CLIENT_ID ?? `gomac-dashboard-${hostname()}-${randomBytes(3).toString("hex")}`,
       victronTopicFilter: env.VICTRON_TOPIC_FILTER ?? "victron-ble/#",
       pandoraTopicPrefix: env.PANDORA_TOPIC_PREFIX ?? "gomac/pandora/state",
       positionTopicPrefix: env.POSITION_TOPIC_PREFIX ?? "gps/phone",
