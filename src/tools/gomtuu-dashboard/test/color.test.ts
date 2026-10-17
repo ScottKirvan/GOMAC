@@ -51,7 +51,7 @@ describe("gradientPair", () => {
       expect(e.c).toBeGreaterThanOrEqual(b.c - 0.005);
       expect(e.l).toBeGreaterThan(b.l);
       // The pair spans a wide, clearly visible range.
-      expect(oklabDistance(s, e)).toBeGreaterThan(0.09);
+      expect(oklabDistance(s, e)).toBeGreaterThan(0.12);
       // The soft end leans warm: closer to amber than the base is.
       expect(hueDistance(s.h, 70)).toBeLessThan(hueDistance(b.h, 70));
     });

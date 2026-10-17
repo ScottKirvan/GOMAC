@@ -12,13 +12,13 @@
  * saturated and a little brighter.
  */
 const WARM_HUE = 70;
-const SOFT_HUE_PULL = 0.6;
-const SOFT_HUE_PULL_MAX = 50;
+const SOFT_HUE_PULL = 0.7;
+const SOFT_HUE_PULL_MAX = 70;
 const SOFT_CHROMA = 0.85;
 const SOFT_LIGHTNESS_SHIFT = 0.02;
 // Colors already near WARM_HUE barely move when pulled toward it, so their
 // soft end goes paler instead, by up to this much extra lightness.
-const SOFT_PALE_SHIFT = 0.1;
+const SOFT_PALE_SHIFT = 0.14;
 const VIVID_CHROMA = 1.8;
 const VIVID_LIGHTNESS_SHIFT = 0.02;
 
