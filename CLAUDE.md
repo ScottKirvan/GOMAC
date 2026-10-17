@@ -43,27 +43,20 @@ This project works from first principles. It prefers rolling its own systems and
 - **When a sub-agent takes a shortcut, or declares something "not a bug" without actually having implemented or verified it, call that out explicitly** rather than passing it through as if it were solid.
 - **You are not the only one working in this repo.** Human contributors and other coding agents touch it too, without this file loaded. Don't fold general project/domain documentation into Claude-only files (like this one) just because that's convenient — it has to stay readable and discoverable for everyone, in plain docs like `notes/dev/gomac-project-overview.md`. Reserve this file for guidance that's genuinely specific to Claude Code.
 
-## TheFlea access from a Claude Code session
+## TheFlea access and deploys
 
-A GOMAC session running via Claude Code Remote/on the web is a fully
-isolated sandbox with **no network path to TheFlea** — confirmed directly
-(no SSH client, no Tailscale, `theflea` doesn't even resolve), not
-assumed. It can build, test, and push code that's meant to run on TheFlea,
-but it cannot deploy it, run it there, or verify it against real MQTT
-traffic. Don't attempt SSH/Tailscale commands against TheFlea from a
-session like this expecting them to work — they won't, regardless of
-credentials.
+Where the session runs decides what it can do. Check with `hostname`.
 
-Getting something onto TheFlea itself needs one of:
-- The navigator running the steps directly (write them up as copy-paste commands)
-- Handing off to whatever session/agent already operates on TheFlea's side
-  of the domain-separation boundary (see `compute-hub-current-state.md`)
+**A session running on TheFlea itself** (as `scott`, who has sudo) deploys GOMAC's own services: the dashboard and the bridge daemons, i.e. the `gomac-*` systemd units, which run from the `/home/scott/gomac-deploy` checkout.
+- Deploy only commits that are already on `main`. Follow the package README's deploy steps (dashboard: "To deploy a merged change"): move the checkout to the commit, `npm ci`, build, run the tests, then `sudo systemctl restart` the service. Don't restart if the tests fail.
+- Verify after the restart against the live service (for example its HTTP endpoints), and report the deployed commit. Roll back by moving the checkout to the previous commit and repeating the steps.
+- A `.claude/settings.local.json` on TheFlea (local, not committed) is meant to pre-approve these deploy commands. Anything outside them still prompts.
 
-This also means anything this session can't independently verify against
-live TheFlea state (exact MQTT field names, whether a service is actually
-running, etc.) should be flagged as unverified rather than assumed —
-several MQTT topic/field names in this codebase are exactly that: matched
-defensively in code, documented as unverified, not asserted as fact.
+**Everything system-level stays with the TheFlea session**: the Victron collector (`victron-ble-monitor`), Home Assistant, Mosquitto, Tailscale Serve/Funnel, the firewall, systemd unit files and env files under `/etc`, and anything that isn't GOMAC code. For those, write a handoff for that session instead of making the change.
+
+**A cloud session** (Claude Code on the web / Remote) is an isolated sandbox with no network path to TheFlea: no SSH, no Tailscale, and `theflea` doesn't resolve. It can build, test, and push code meant for TheFlea, but it can't deploy it, run it there, or verify it against real MQTT traffic. Hand deploy steps to the navigator as copy-paste commands.
+
+Anything a session can't verify against live TheFlea state (exact MQTT field names, whether a service is running, etc.) should be flagged as unverified rather than assumed. Several MQTT topic and field names in this codebase are exactly that: matched defensively in code, documented as unverified, not asserted as fact.
 
 ## GitHub Issues and PRs
 
