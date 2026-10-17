@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createPowerHistory, loadPowerHistory, recentSamples, recordPowerSample, savePowerHistory } from "../src/history.js";
+import { createPowerHistory, loadPowerHistory, recordPowerSample, savePowerHistory } from "../src/history.js";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -78,18 +78,6 @@ describe("energy charged into the battery", () => {
     recordPowerSample(history, { soc: 50, power: 500, batteryUpdatedAt: base + 61_000 }, base + 61_000);
     const total = history.samples.reduce((sum, s) => sum + (s.chargedWh ?? 0), 0);
     expect(total).toBe(0);
-  });
-});
-
-describe("recentSamples", () => {
-  it("returns only samples within the given span", () => {
-    const history = createPowerHistory();
-    const base = 1_000_000;
-    for (let m = 0; m <= 90; m++) recordPowerSample(history, { soc: 50 }, base + m * 60_000);
-    const now = base + 90 * 60_000;
-    const recent = recentSamples(history, 60 * 60_000, now);
-    expect(recent[0]!.t).toBeGreaterThanOrEqual(now - 60 * 60_000);
-    expect(recent.at(-1)!.t).toBe(now);
   });
 });
 

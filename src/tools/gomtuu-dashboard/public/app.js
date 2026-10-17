@@ -285,11 +285,18 @@ function setLiveTargets(values) {
   }
 }
 
-function renderChart(history, solarPeakW) {
+function renderChart(victron, serverTime) {
+  // A server from before the daylight window sends a one-hour `history` instead of `chart`.
+  const chart = victron.chart ?? {
+    start: victron.history?.[0]?.t ?? serverTime,
+    end: victron.history?.at(-1)?.t ?? serverTime,
+    samples: victron.history ?? [],
+  };
   const el = document.getElementById("powerChart");
-  const svg = buildChartSvg(history, solarPeakW);
+  const svg = buildChartSvg(chart, victron.solarPeak?.watts, serverTime);
   el.innerHTML = svg ?? `<div class="chart-empty">collecting data — check back once a few readings have come in</div>`;
-  document.getElementById("historyMeta").textContent = `${history.length} sample${history.length === 1 ? "" : "s"}`;
+  const span = (ms) => new Date(ms).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  document.getElementById("historyMeta").textContent = `${span(chart.start)} – ${chart.end >= serverTime - 60_000 ? "now" : span(chart.end)}`;
 }
 
 function renderSensorTables(devices) {
@@ -548,7 +555,7 @@ function render(snapshot) {
     setLiveTargets({ ...power, speedMps: snapshot.position.speedMps, courseDeg: snapshot.position.courseDeg });
   }
   renderPowerGauge(snapshot.victron.power, snapshot.victron.solarPeak);
-  renderChart(snapshot.victron.history, snapshot.victron.solarPeak?.watts);
+  renderChart(snapshot.victron, snapshot.serverTime);
   renderSensorTables(snapshot.victron.devices);
   renderNowPlaying(snapshot.nowPlaying);
   renderPosition(live.lastSnapshotPosition);

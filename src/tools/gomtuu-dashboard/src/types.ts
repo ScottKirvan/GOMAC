@@ -75,8 +75,13 @@ export interface WeatherState {
   windGustKph?: number;
   /** Today first; empty when no forecast came back. */
   forecast?: DailyForecast[];
+  /** Today's sunrise and sunset, as naive local times at the queried location (e.g. "2026-10-15T07:28"). */
   sunrise?: string;
   sunset?: string;
+  yesterdaySunrise?: string;
+  yesterdaySunset?: string;
+  /** The queried location's offset from UTC, for converting the naive local times above. */
+  utcOffsetSeconds?: number;
   updatedAt?: number;
   sourceLatitude?: number;
   sourceLongitude?: number;
@@ -129,7 +134,8 @@ export interface DashboardSnapshot {
   victron: {
     devices: Record<string, VictronDeviceState>;
     power: PowerSummary;
-    history: PowerSample[];
+    /** The trend chart's time span and its 1-minute points (see chartWindow.ts). */
+    chart: { start: number; end: number; samples: PowerSample[] };
     solarPeak: SolarPeakSummary;
   };
   nowPlaying: NowPlayingState;

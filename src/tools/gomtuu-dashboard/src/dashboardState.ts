@@ -1,6 +1,7 @@
 import { createConnectivityHistory, type ConnectivityHistory } from "./connectivityHistory.js";
 import { createConnectivityState, summarizeConnectivity } from "./connectivityState.js";
-import { createPowerHistory, recentSamples, type PowerHistory } from "./history.js";
+import { chartSamples, chartWindow } from "./chartWindow.js";
+import { createPowerHistory, type PowerHistory } from "./history.js";
 import { createNowPlayingState } from "./pandoraState.js";
 import { coarsenPosition, createPositionState } from "./positionState.js";
 import { createSolarPeakStore, summarizeSolarPeak, type SolarPeakStore } from "./solarPeak.js";
@@ -34,16 +35,14 @@ export function createDashboardStores(
   };
 }
 
-/** How much of the stored history the snapshot carries for the trend chart. */
-const CHART_SPAN_MS = 60 * 60 * 1000;
-
-export function buildSnapshot(stores: DashboardStores): DashboardSnapshot {
+export function buildSnapshot(stores: DashboardStores, now: number = Date.now()): DashboardSnapshot {
+  const window = chartWindow(stores.weather, now);
   const connectivitySummary = summarizeConnectivity(stores.connectivity);
   return {
     victron: {
       devices: stores.victron.devices,
       power: summarizePower(stores.victron),
-      history: recentSamples(stores.powerHistory, CHART_SPAN_MS),
+      chart: { ...window, samples: chartSamples(stores.powerHistory.samples, window.start, window.end) },
       solarPeak: summarizeSolarPeak(stores.solarPeak),
     },
     nowPlaying: stores.nowPlaying,
@@ -54,7 +53,7 @@ export function buildSnapshot(stores: DashboardStores): DashboardSnapshot {
       summary: connectivitySummary,
       history: stores.connectivityHistory.samples,
     },
-    serverTime: Date.now(),
+    serverTime: now,
   };
 }
 

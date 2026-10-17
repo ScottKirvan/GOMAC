@@ -56,8 +56,8 @@ export function polarPointFromTop(cx, cy, r, angleDeg) {
 
 const CHART_LEFT = 40;
 // Leaves a gutter right of the plot for the end-of-line value labels
-// (up to "-1234W" at 11px monospace) inside the 600-wide viewBox.
-const CHART_RIGHT = 548;
+// (up to "12.34 kWh" at 11px monospace) inside the 600-wide viewBox.
+const CHART_RIGHT = 536;
 const END_LABEL_MIN_GAP = 12;
 
 /**
@@ -83,60 +83,61 @@ function separateLabelYs(solarPointY, battPointY) {
   return [solarY, battY];
 }
 
-export function buildChartSvg(history, solarPeakW) {
-  const pts = history.filter((s) => s.solarPower !== undefined || s.power !== undefined);
+/** Right-hand (Wh) scale headroom above the banked total, so its end label clears the scale label. */
+const BANKED_SCALE_HEADROOM = 1.25;
+const BANKED_SCALE_MIN_WH = 10;
+const CHART_TOP = 10;
+const CHART_BOTTOM = 150;
+
+function energyLabel(wh) {
+  return wh >= 1000 ? `${(wh / 1000).toFixed(2)} kWh` : `${Math.round(wh)} Wh`;
+}
+
+function clockLabel(ms) {
+  return new Date(ms).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
+
+/**
+ * Solar power (W, left scale) and energy banked into the battery since the
+ * window start (Wh, right scale, charging only) across the chart window.
+ * `chart` is the snapshot's { start, end, samples }; `nowMs` is the server
+ * time, used to label the right edge "now" while the window is growing.
+ */
+export function buildChartSvg(chart, solarPeakW, nowMs) {
+  const pts = chart.samples.filter((s) => s.solarPower !== undefined || s.chargedWh !== undefined);
   if (pts.length < 2) return undefined;
 
-  const allVals = [
-    ...pts.map((p) => p.solarPower).filter((v) => v !== undefined),
-    ...pts.map((p) => p.power).filter((v) => v !== undefined),
-    0,
-    // Fixed top at the all-time solar peak, so the chart's scale is stable
-    // and comparable over time instead of rescaling to whatever's visible.
-    solarPeakW ?? 0,
-  ];
-  let min = Math.min(...allVals);
-  let max = Math.max(...allVals);
-  if (min === max) {
-    min -= 10;
-    max += 10;
-  }
-  const pad = (max - min) * 0.1 || 10;
-  min -= pad;
-  max += pad;
+  const t0 = chart.start;
+  const t1 = Math.max(chart.end, t0 + 1);
+  const xFor = (t) => CHART_LEFT + ((t - t0) / (t1 - t0)) * (CHART_RIGHT - CHART_LEFT);
 
-  const t0 = pts[0].t;
-  const t1 = pts[pts.length - 1].t;
-  const xFor = (t) => (t1 === t0 ? CHART_LEFT : CHART_LEFT + ((t - t0) / (t1 - t0)) * (CHART_RIGHT - CHART_LEFT));
-  const yFor = (v) => 150 - ((v - min) / (max - min)) * 140;
+  // Fixed top at the all-time solar peak, so the scale is stable and
+  // comparable from day to day instead of rescaling to what's visible.
+  const solarMax = Math.max(1, solarPeakW ?? 0, ...pts.map((p) => p.solarPower ?? 0)) * 1.1;
+  const yForSolar = (w) => CHART_BOTTOM - (w / solarMax) * (CHART_BOTTOM - CHART_TOP);
+
+  let banked = 0;
+  const bankedPts = pts.map((p) => {
+    banked += p.chargedWh ?? 0;
+    return { t: p.t, wh: banked };
+  });
+  const bankedMax = Math.max(BANKED_SCALE_MIN_WH, banked * BANKED_SCALE_HEADROOM);
+  const yForBanked = (wh) => CHART_BOTTOM - (wh / bankedMax) * (CHART_BOTTOM - CHART_TOP);
 
   const solarPts = pts.filter((p) => p.solarPower !== undefined);
-  const battPts = pts.filter((p) => p.power !== undefined);
-  const solarLine = solarPts.map((p) => `${xFor(p.t).toFixed(1)},${yFor(p.solarPower).toFixed(1)}`).join(" ");
-  const battLine = battPts.map((p) => `${xFor(p.t).toFixed(1)},${yFor(p.power).toFixed(1)}`).join(" ");
-
-  const zeroInRange = min <= 0 && 0 <= max;
-  const zeroY = yFor(0);
+  const solarLine = solarPts.map((p) => `${xFor(p.t).toFixed(1)},${yForSolar(p.solarPower).toFixed(1)}`).join(" ");
+  const bankedLine = bankedPts.map((p) => `${xFor(p.t).toFixed(1)},${yForBanked(p.wh).toFixed(1)}`).join(" ");
 
   const lastSolar = solarPts[solarPts.length - 1];
-  const lastBatt = battPts[battPts.length - 1];
-  const [solarLabelY, battLabelY] = separateLabelYs(
-    lastSolar ? yFor(lastSolar.solarPower) : undefined,
-    lastBatt ? yFor(lastBatt.power) : undefined,
+  const lastBanked = bankedPts[bankedPts.length - 1];
+  const [solarLabelY, bankedLabelY] = separateLabelYs(
+    lastSolar ? yForSolar(lastSolar.solarPower) : undefined,
+    lastBanked ? yForBanked(lastBanked.wh) : undefined,
   );
 
-  const gridLines = [
-    `<line class="chart-grid-line" x1="40" y1="10" x2="${CHART_RIGHT}" y2="10" /><text class="chart-axis-label" x="34" y="13" text-anchor="end">${Math.round(max)}W</text>`,
-    `<line class="chart-grid-line" x1="40" y1="150" x2="${CHART_RIGHT}" y2="150" /><text class="chart-axis-label" x="34" y="153" text-anchor="end">${Math.round(min)}W</text>`,
-  ];
-  if (zeroInRange) {
-    gridLines.push(
-      `<line class="chart-baseline" x1="40" y1="${zeroY.toFixed(1)}" x2="${CHART_RIGHT}" y2="${zeroY.toFixed(1)}" /><text class="chart-axis-label" x="34" y="${(zeroY + 3.5).toFixed(1)}" text-anchor="end">0W</text>`,
-    );
-  }
-
-  const solarGrad = solarLine
-    ? `<polygon points="${solarLine} ${xFor(t1).toFixed(1)},150 40,150" fill="url(#solarChartGrad)" />`
+  const growing = nowMs !== undefined && chart.end >= nowMs - 60_000;
+  const solarArea = solarLine
+    ? `<polygon points="${solarLine} ${xFor(lastSolar.t).toFixed(1)},${CHART_BOTTOM} ${xFor(solarPts[0].t).toFixed(1)},${CHART_BOTTOM}" fill="url(#solarChartGrad)" />`
     : "";
 
   return `
@@ -147,14 +148,18 @@ export function buildChartSvg(history, solarPeakW) {
           <stop offset="100%" stop-color="var(--solar)" stop-opacity="0" />
         </linearGradient>
       </defs>
-      ${gridLines.join("")}
-      ${solarGrad}
+      <line class="chart-grid-line" x1="${CHART_LEFT}" y1="${CHART_TOP}" x2="${CHART_RIGHT}" y2="${CHART_TOP}" />
+      <text class="chart-axis-label" x="34" y="${CHART_TOP + 3}" text-anchor="end">${Math.round(solarMax)}W</text>
+      <text class="chart-axis-label chart-axis-banked" x="${CHART_RIGHT}" y="${CHART_TOP - 2}" text-anchor="end">${energyLabel(bankedMax)}</text>
+      <line class="chart-baseline" x1="${CHART_LEFT}" y1="${CHART_BOTTOM}" x2="${CHART_RIGHT}" y2="${CHART_BOTTOM}" />
+      <text class="chart-axis-label" x="34" y="${CHART_BOTTOM + 3}" text-anchor="end">0</text>
+      ${solarArea}
       ${solarLine ? `<polyline points="${solarLine}" fill="none" stroke="var(--solar)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />` : ""}
-      ${lastSolar ? `<circle cx="${xFor(lastSolar.t).toFixed(1)}" cy="${yFor(lastSolar.solarPower).toFixed(1)}" r="4" fill="var(--solar)" /><text class="chart-endlabel" x="${(xFor(lastSolar.t) + 6).toFixed(1)}" y="${solarLabelY.toFixed(1)}" fill="var(--solar)">${Math.round(lastSolar.solarPower)}W</text>` : ""}
-      ${battLine ? `<polyline points="${battLine}" fill="none" stroke="var(--battery)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />` : ""}
-      ${lastBatt ? `<circle cx="${xFor(lastBatt.t).toFixed(1)}" cy="${yFor(lastBatt.power).toFixed(1)}" r="4" fill="var(--battery)" /><text class="chart-endlabel" x="${(xFor(lastBatt.t) + 6).toFixed(1)}" y="${battLabelY.toFixed(1)}" fill="var(--battery)">${Math.round(lastBatt.power)}W</text>` : ""}
-      <text class="chart-axis-label" x="40" y="170" text-anchor="start">${formatDuration(t1 - t0)} ago</text>
-      <text class="chart-axis-label" x="${CHART_RIGHT}" y="170" text-anchor="end">now</text>
+      ${lastSolar ? `<circle cx="${xFor(lastSolar.t).toFixed(1)}" cy="${yForSolar(lastSolar.solarPower).toFixed(1)}" r="4" fill="var(--solar)" /><text class="chart-endlabel" x="${(xFor(lastSolar.t) + 6).toFixed(1)}" y="${solarLabelY.toFixed(1)}" fill="var(--solar)">${Math.round(lastSolar.solarPower)}W</text>` : ""}
+      <polyline points="${bankedLine}" fill="none" stroke="var(--battery)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />
+      <circle cx="${xFor(lastBanked.t).toFixed(1)}" cy="${yForBanked(lastBanked.wh).toFixed(1)}" r="4" fill="var(--battery)" /><text class="chart-endlabel" x="${(xFor(lastBanked.t) + 6).toFixed(1)}" y="${bankedLabelY.toFixed(1)}" fill="var(--battery)">${energyLabel(lastBanked.wh)}</text>
+      <text class="chart-axis-label" x="${CHART_LEFT}" y="170" text-anchor="start">${clockLabel(chart.start)}</text>
+      <text class="chart-axis-label" x="${CHART_RIGHT}" y="170" text-anchor="end">${growing ? "now" : clockLabel(chart.end)}</text>
     </svg>
   `;
 }

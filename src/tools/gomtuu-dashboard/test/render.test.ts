@@ -68,19 +68,27 @@ function endLabels(svg: string): { x: number; y: number; text: string }[] {
 }
 
 describe("buildChartSvg", () => {
-  it("returns undefined until there are at least two samples", () => {
-    expect(buildChartSvg([{ t: 0, solarPower: 10 }], 100)).toBeUndefined();
+  const start = Date.parse("2026-10-17T13:28:00Z");
+  const minute = 60_000;
+  const chart = (samples: { t: number; solarPower?: number; chargedWh?: number }[], end = start + 120 * minute) => ({
+    start,
+    end,
+    samples,
+  });
+
+  it("returns undefined until there are at least two points", () => {
+    expect(buildChartSvg(chart([{ t: start, solarPower: 10 }]), 100, start)).toBeUndefined();
   });
 
   it("keeps the end-of-line value labels inside the viewBox", () => {
     const svg = buildChartSvg(
-      [
-        { t: 0, solarPower: 120, power: -1250 },
-        { t: 60_000, solarPower: 238, power: -1180 },
-      ],
+      chart([
+        { t: start, solarPower: 120, chargedWh: 400 },
+        { t: start + 60 * minute, solarPower: 238, chargedWh: 900 },
+      ]),
       238,
+      start + 120 * minute,
     );
-    expect(svg).toBeDefined();
     const viewBoxWidth = Number(/viewBox="0 0 (\d+) /.exec(svg!)?.[1]);
     const labels = endLabels(svg!);
     expect(labels).toHaveLength(2);
@@ -89,16 +97,47 @@ describe("buildChartSvg", () => {
     }
   });
 
-  it("separates the two end labels when the lines finish at nearly the same value", () => {
+  it("separates the two end labels when the lines finish close together", () => {
+    // Banked ends at 80% of its scale (scale headroom is 1.25x); solar at 80% of 238W.
     const svg = buildChartSvg(
-      [
-        { t: 0, solarPower: 50, power: 48 },
-        { t: 60_000, solarPower: 60, power: 59 },
-      ],
+      chart([
+        { t: start, solarPower: 0, chargedWh: 0 },
+        { t: start + 60 * minute, solarPower: 0.8 * 238 / 1.1, chargedWh: 100 },
+      ]),
       238,
+      start + 120 * minute,
     );
     const [a, b] = endLabels(svg!);
     expect(Math.abs(a!.y - b!.y)).toBeGreaterThanOrEqual(END_LABEL_FONT_SIZE);
+  });
+
+  it("keeps a multi-kWh banked label inside the viewBox, shown in kWh", () => {
+    const svg = buildChartSvg(chart([{ t: start, solarPower: 10, chargedWh: 1500 }, { t: start + minute, solarPower: 20, chargedWh: 1575 }]), 238, start + minute);
+    const label = endLabels(svg!).find((l) => l.text.endsWith("kWh"))!;
+    expect(label.text).toBe("3.08 kWh");
+    expect(label.x + label.text.length * END_LABEL_CHAR_WIDTH).toBeLessThanOrEqual(600);
+  });
+
+  it("plots energy banked as a running total of charging since the window start", () => {
+    const svg = buildChartSvg(
+      chart([
+        { t: start, solarPower: 50, chargedWh: 1.5 },
+        { t: start + minute, solarPower: 60 },
+        { t: start + 2 * minute, solarPower: 70, chargedWh: 2 },
+      ]),
+      238,
+      start + 2 * minute,
+    );
+    const labels = endLabels(svg!).map((l) => l.text);
+    expect(labels).toContain("4 Wh");
+    expect(labels).toContain("70W");
+  });
+
+  it("labels the axis with the window's clock times, and 'now' while it's still growing", () => {
+    const growing = buildChartSvg(chart([{ t: start, solarPower: 1 }, { t: start + minute, solarPower: 2 }], start + minute), 238, start + minute)!;
+    expect(growing).toMatch(/>now<\/text>/);
+    const finished = buildChartSvg(chart([{ t: start, solarPower: 1 }, { t: start + minute, solarPower: 2 }]), 238, start + 600 * minute)!;
+    expect(finished).not.toMatch(/>now<\/text>/);
   });
 });
 

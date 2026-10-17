@@ -28,7 +28,12 @@ describe("fetchWeather", () => {
   it("maps a successful Open-Meteo response into WeatherState", async () => {
     const mockResponse = {
       current: { temperature_2m: 19, apparent_temperature: 17, weather_code: 2, wind_speed_10m: 14 },
-      daily: { sunrise: ["2026-09-13T06:42"], sunset: ["2026-09-13T19:18"] },
+      daily: {
+        time: ["2026-09-12", "2026-09-13"],
+        sunrise: ["2026-09-12T06:41", "2026-09-13T06:42"],
+        sunset: ["2026-09-12T19:20", "2026-09-13T19:18"],
+      },
+      utc_offset_seconds: -14400,
     };
     vi.stubGlobal(
       "fetch",
@@ -50,14 +55,15 @@ describe("fetchWeather", () => {
   it("maps wind direction, gusts, and the daily forecast", async () => {
     const mockResponse = {
       current: { temperature_2m: 19, weather_code: 2, wind_speed_10m: 14, wind_direction_10m: 225, wind_gusts_10m: 31 },
+      // past_days=1: the first day is yesterday.
       daily: {
-        time: ["2026-09-13", "2026-09-14", "2026-09-15"],
-        weather_code: [2, 61, 0],
-        temperature_2m_max: [21, 17.5, 24],
-        temperature_2m_min: [9, 8, 11],
-        precipitation_probability_max: [5, 80, 0],
-        sunrise: ["2026-09-13T06:42", "2026-09-14T06:43", "2026-09-15T06:45"],
-        sunset: ["2026-09-13T19:18", "2026-09-14T19:16", "2026-09-15T19:14"],
+        time: ["2026-09-12", "2026-09-13", "2026-09-14", "2026-09-15"],
+        weather_code: [3, 2, 61, 0],
+        temperature_2m_max: [15, 21, 17.5, 24],
+        temperature_2m_min: [7, 9, 8, 11],
+        precipitation_probability_max: [40, 5, 80, 0],
+        sunrise: ["2026-09-12T06:41", "2026-09-13T06:42", "2026-09-14T06:43", "2026-09-15T06:45"],
+        sunset: ["2026-09-12T19:20", "2026-09-13T19:18", "2026-09-14T19:16", "2026-09-15T19:14"],
       },
     };
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(mockResponse) });
@@ -73,12 +79,23 @@ describe("fetchWeather", () => {
       { date: "2026-09-15", conditionCode: 0, condition: "Clear sky", highC: 24, lowC: 11, precipitationChancePct: 0 },
     ]);
     expect(weather.sunrise).toBe("2026-09-13T06:42");
+    expect(weather.yesterdaySunrise).toBe("2026-09-12T06:41");
+    expect(weather.yesterdaySunset).toBe("2026-09-12T19:20");
 
     const url = new URL(String(fetchMock.mock.calls[0][0]));
     expect(url.searchParams.get("current")).toContain("wind_direction_10m");
     expect(url.searchParams.get("current")).toContain("wind_gusts_10m");
     expect(url.searchParams.get("daily")).toContain("temperature_2m_max");
     expect(url.searchParams.get("forecast_days")).toBe("4");
+    expect(url.searchParams.get("past_days")).toBe("1");
+  });
+
+  it("records the location's UTC offset so local times can be converted exactly", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({ current: { temperature_2m: 19 }, daily: {}, utc_offset_seconds: -10800 }) }),
+    );
+    expect((await fetchWeather(0, 0)).utcOffsetSeconds).toBe(-10800);
   });
 
   it("leaves the forecast empty when the response has no daily dates", async () => {

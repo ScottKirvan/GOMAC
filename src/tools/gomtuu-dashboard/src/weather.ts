@@ -59,6 +59,7 @@ interface OpenMeteoResponse {
     wind_direction_10m?: number;
     wind_gusts_10m?: number;
   };
+  utc_offset_seconds?: number;
   daily?: {
     time?: string[];
     weather_code?: number[];
@@ -70,8 +71,12 @@ interface OpenMeteoResponse {
   };
 }
 
+/** Index of today in the daily arrays: past_days=1 puts yesterday first. */
+const TODAY = 1;
+
 function dailyForecast(daily: OpenMeteoResponse["daily"]): DailyForecast[] {
-  return (daily?.time ?? []).map((date, i) => {
+  return (daily?.time ?? []).slice(TODAY).map((date, offset) => {
+    const i = offset + TODAY;
     const conditionCode = daily?.weather_code?.[i];
     return {
       date,
@@ -101,6 +106,8 @@ export async function fetchWeather(
     "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset",
   );
   url.searchParams.set("forecast_days", String(FORECAST_DAYS));
+  // Yesterday's sunrise and sunset frame the power chart until today's window starts.
+  url.searchParams.set("past_days", "1");
   url.searchParams.set("timezone", "auto");
 
   // Without a timeout, a half-working link (WiFi up, no route out) can hang
@@ -130,8 +137,11 @@ export async function fetchWeather(
     windDirectionDeg: data.current?.wind_direction_10m,
     windGustKph: data.current?.wind_gusts_10m,
     forecast: dailyForecast(data.daily),
-    sunrise: data.daily?.sunrise?.[0],
-    sunset: data.daily?.sunset?.[0],
+    sunrise: data.daily?.sunrise?.[TODAY],
+    sunset: data.daily?.sunset?.[TODAY],
+    yesterdaySunrise: data.daily?.sunrise?.[TODAY - 1],
+    yesterdaySunset: data.daily?.sunset?.[TODAY - 1],
+    utcOffsetSeconds: data.utc_offset_seconds,
     updatedAt: Date.now(),
     sourceLatitude: latitude,
     sourceLongitude: longitude,

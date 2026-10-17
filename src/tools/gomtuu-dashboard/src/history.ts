@@ -80,13 +80,6 @@ export function recordPowerSample(history: PowerHistory, summary: PowerSummary, 
   }
 }
 
-/** Samples from the last `spanMs`, oldest first. */
-export function recentSamples(history: PowerHistory, spanMs: number, now: number = Date.now()): PowerSample[] {
-  const cutoff = now - spanMs;
-  const first = history.samples.findIndex((s) => s.t >= cutoff);
-  return first === -1 ? [] : history.samples.slice(first);
-}
-
 export function loadPowerHistory(path: string, now: number = Date.now()): PowerHistory {
   try {
     const raw = JSON.parse(readFileSync(path, "utf8")) as { samples?: unknown };
