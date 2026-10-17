@@ -554,11 +554,19 @@ function render(snapshot) {
   renderConnectivity(snapshot.connectivity);
   renderWeather(snapshot.weather);
 
-  document.getElementById("serverTime").textContent = new Date(snapshot.serverTime).toLocaleTimeString();
+  renderClock(snapshot.serverTime);
   renderLiveFields();
   document.getElementById("footerNote").textContent = live.streaming
     ? "live readings streaming, everything else polled every 10s, weather via Open-Meteo"
     : "polling /snapshot.json every 10s, weather via Open-Meteo";
+}
+
+/** The header clock shows the server time of the newest data received, from a snapshot or a live event. */
+let latestServerTime = 0;
+function renderClock(serverTime) {
+  if (serverTime === undefined || serverTime < latestServerTime) return;
+  latestServerTime = serverTime;
+  document.getElementById("serverTime").textContent = new Date(serverTime).toLocaleTimeString();
 }
 
 function definedOnly(obj) {
@@ -658,6 +666,7 @@ function openStream() {
     const update = JSON.parse(event.data);
     if (update.v !== 1) return;
     setStreaming(true);
+    renderClock(update.t);
     live.position = update.position;
     setLiveTargets({ ...update.power, speedMps: update.position.speedMps, courseDeg: update.position.courseDeg });
     const { latitude, longitude } = update.position;

@@ -57,13 +57,16 @@ recovers.
 whose `data` is JSON:
 
 ```json
-{ "v": 1,
+{ "v": 1, "t": 1792243397203,
   "power": { "current": -4.3, "solarPower": 59, "voltage": 13.29 },
   "position": { "latitude": 44.37, "longitude": -64.32, "speedMps": 5.4, "courseDeg": 271 } }
 ```
 
 - `v` is the format version, bumped on any incompatible change. Consumers
   should ignore fields they don't know. Missing values are omitted.
+- `t` is the server time the event was sent, in ms since the epoch. The
+  page's header clock shows the newest `t` or snapshot `serverTime` it has
+  received, so it updates as often as any data does.
 - On the public port, `position` is approximate: coordinates rounded to 1
   decimal place (about 11 km), speed and heading to whole numbers, and
   `"coarse": true`. `/snapshot.json` on that port uses the same rounding.

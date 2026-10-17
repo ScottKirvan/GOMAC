@@ -8,6 +8,8 @@ import type { PositionState, PowerSummary } from "./types.js";
  */
 export interface LiveUpdate {
   v: 1;
+  /** Server time the event was sent (ms since epoch). Added on send; not part of change detection. */
+  t?: number;
   power: Pick<PowerSummary, "current" | "solarPower" | "voltage">;
   position: Pick<PositionState, "latitude" | "longitude" | "speedMps" | "courseDeg" | "coarse">;
 }
@@ -52,8 +54,10 @@ export function createLiveStream({ getUpdate, rateHz, maxClients, keepAliveMs, l
   let sampleTimer: ReturnType<typeof setInterval> | undefined;
   let keepAliveTimer: ReturnType<typeof setInterval> | undefined;
 
+  // `json` is the update without its timestamp; the timestamp is spliced in
+  // at send time so it never makes an unchanged update look changed.
   const send = (res: ServerResponse, json: string): void => {
-    res.write(`event: live\ndata: ${json}\n\n`);
+    res.write(`event: live\ndata: {"t":${Date.now()},${json.slice(1)}\n\n`);
   };
 
   const sample = (): void => {

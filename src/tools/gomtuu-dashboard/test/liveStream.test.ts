@@ -76,7 +76,7 @@ describe("createLiveStream", () => {
     expect(res.status).toBe(200);
     expect(res.headers["content-type"]).toBe("text/event-stream");
     expect(res.headers["access-control-allow-origin"]).toBe("*");
-    expect(res.events()).toEqual([value]);
+    expect(res.events()).toEqual([{ ...value, t: expect.any(Number) }]);
     stream.close();
   });
 
@@ -92,6 +92,18 @@ describe("createLiveStream", () => {
     const events = res.events();
     expect(events.length).toBeLessThanOrEqual(6);
     expect(events.at(-1)!.power.current).toBe(40);
+    stream.close();
+  });
+
+  it("stamps each event with the server time it was sent", async () => {
+    vi.setSystemTime(1_700_000_000_000);
+    const stream = createLiveStream({ getUpdate, rateHz: 4, maxClients: 5, keepAliveMs: 15_000, logger: silentLogger });
+    const { res } = connect(stream);
+    value = buildLiveUpdate({ current: 2 }, {});
+    await vi.advanceTimersByTimeAsync(250);
+    const [first, second] = res.events();
+    expect(first!.t).toBe(1_700_000_000_000);
+    expect(second!.t).toBe(1_700_000_000_250);
     stream.close();
   });
 
