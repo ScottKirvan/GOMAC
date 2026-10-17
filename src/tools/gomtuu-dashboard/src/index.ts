@@ -1,9 +1,12 @@
 import { loadConfig } from "./config.js";
 import { buildSnapshot, createDashboardStores, redactPositionForPublic } from "./dashboardState.js";
+import { buildLiveUpdate, createLiveStream } from "./liveStream.js";
 import { consoleLogger } from "./logger.js";
 import { connectMqtt } from "./mqttClient.js";
+import { coarsenPosition } from "./positionState.js";
 import { startServer } from "./server.js";
 import { loadSolarPeakStore, saveSolarPeakStore } from "./solarPeak.js";
+import { summarizePower } from "./victronState.js";
 import { startWeatherPoller } from "./weather.js";
 
 const config = loadConfig();
@@ -17,14 +20,20 @@ function persistSolarPeak(): void {
   }
 }
 
-// Polling, not push: the browser fetches /snapshot.json on an interval
-// (see public/app.js), so nothing here needs to notify it of changes --
-// the stores are just kept current for whenever the next poll lands.
+// The browser polls /snapshot.json for everything (see public/app.js) and
+// also listens on /stream for the fast-changing readings. Both read the
+// same stores, which MQTT keeps current.
+const liveStreamOptions = { ...config.liveStream, logger: consoleLogger };
 const server = startServer(
   config,
   consoleLogger,
   () => buildSnapshot(stores),
   () => redactPositionForPublic(buildSnapshot(stores)),
+  createLiveStream({ ...liveStreamOptions, getUpdate: () => buildLiveUpdate(summarizePower(stores.victron), stores.position) }),
+  createLiveStream({
+    ...liveStreamOptions,
+    getUpdate: () => buildLiveUpdate(summarizePower(stores.victron), coarsenPosition(stores.position)),
+  }),
 );
 
 connectMqtt(config, stores, consoleLogger, () => {}, persistSolarPeak);

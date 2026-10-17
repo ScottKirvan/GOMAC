@@ -2,7 +2,7 @@ import { createConnectivityHistory, type ConnectivityHistory } from "./connectiv
 import { createConnectivityState, summarizeConnectivity } from "./connectivityState.js";
 import { createPowerHistory, type PowerHistory } from "./history.js";
 import { createNowPlayingState } from "./pandoraState.js";
-import { createPositionState } from "./positionState.js";
+import { coarsenPosition, createPositionState } from "./positionState.js";
 import { createSolarPeakStore, summarizeSolarPeak, type SolarPeakStore } from "./solarPeak.js";
 import type { ConnectivityState, DashboardSnapshot, NowPlayingState, PositionState, WeatherState } from "./types.js";
 import { createVictronStore, summarizePower, type VictronStore } from "./victronState.js";
@@ -53,9 +53,10 @@ export function buildSnapshot(stores: DashboardStores): DashboardSnapshot {
 }
 
 /**
- * Strips everything that reveals Gomtuu's real-world location, for the
- * port meant to be published publicly (`tailscale funnel`). `position` is
- * the obvious one; `weather.sourceLatitude/sourceLongitude` is a second,
+ * Limits what reveals Gomtuu's real-world location, for the port meant to
+ * be published publicly (`tailscale funnel`). `position` is coarsened to an
+ * approximate location (see coarsenPosition); `weather.sourceLatitude/
+ * sourceLongitude` is removed outright, since it's a second,
  * easy-to-miss leak of the exact same coordinates via a different field,
  * since weather is fetched by querying Open-Meteo with the live GPS fix.
  * The unredacted snapshot stays available on the private port
@@ -65,7 +66,7 @@ export function redactPositionForPublic(snapshot: DashboardSnapshot): DashboardS
   const { sourceLatitude, sourceLongitude, ...weatherWithoutSource } = snapshot.weather;
   return {
     ...snapshot,
-    position: {},
+    position: coarsenPosition(snapshot.position),
     weather: weatherWithoutSource,
   };
 }

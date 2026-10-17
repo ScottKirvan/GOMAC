@@ -62,3 +62,26 @@ export function handlePositionMessage(
 
   state.updatedAt = now;
 }
+
+const round = (value: number | undefined, decimals: number): number | undefined =>
+  value === undefined ? undefined : Number(value.toFixed(decimals));
+
+/**
+ * The public port's view of position: coordinates rounded to 1 decimal
+ * place (about 11 km), speed and heading to whole numbers, and accuracy
+ * and altitude dropped, so the van's whereabouts are only approximate.
+ */
+export function coarsenPosition(position: PositionState): PositionState {
+  if (position.latitude === undefined && position.longitude === undefined && position.speedMps === undefined && position.courseDeg === undefined) {
+    return {};
+  }
+  const coarse: PositionState = {
+    latitude: round(position.latitude, 1),
+    longitude: round(position.longitude, 1),
+    speedMps: round(position.speedMps, 0),
+    courseDeg: round(position.courseDeg, 0),
+    updatedAt: position.updatedAt,
+    coarse: true,
+  };
+  return Object.fromEntries(Object.entries(coarse).filter(([, v]) => v !== undefined)) as PositionState;
+}

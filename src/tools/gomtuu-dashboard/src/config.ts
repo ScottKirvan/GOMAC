@@ -21,6 +21,12 @@ export interface DashboardConfig {
   solarPeak: {
     stateFile: string;
   };
+  liveStream: {
+    rateHz: number;
+    /** Per port. Viewers past the cap fall back to polling /snapshot.json. */
+    maxClients: number;
+    keepAliveMs: number;
+  };
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): DashboardConfig {
@@ -58,6 +64,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): DashboardConfi
       // Relative to the working directory, so separate checkouts (production
       // deploy vs. a preview worktree) never share or clobber each other's state.
       stateFile: env.SOLAR_PEAK_STATE_FILE ?? "data/solar-peak.json",
+    },
+    liveStream: {
+      rateHz: Number(env.LIVE_STREAM_HZ ?? 4),
+      maxClients: Number(env.LIVE_STREAM_MAX_CLIENTS ?? 20),
+      keepAliveMs: 15_000,
     },
   };
 }

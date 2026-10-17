@@ -93,6 +93,8 @@ export interface PositionState {
   speedMps?: number;
   courseDeg?: number;
   updatedAt?: number;
+  /** Set on the public port's copy: values are rounded (see coarsenPosition). */
+  coarse?: boolean;
 }
 
 /**

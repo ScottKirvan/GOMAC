@@ -3,6 +3,7 @@ import { createServer, type Server } from "node:http";
 import { dirname, extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { DashboardConfig } from "./config.js";
+import type { LiveStream } from "./liveStream.js";
 import type { Logger } from "./logger.js";
 import type { DashboardSnapshot } from "./types.js";
 
@@ -36,8 +37,12 @@ export interface DashboardServer {
   close(): Promise<void>;
 }
 
-function createHandler(getSnapshot: () => DashboardSnapshot) {
+function createHandler(getSnapshot: () => DashboardSnapshot, liveStream: LiveStream) {
   return (req: import("node:http").IncomingMessage, res: import("node:http").ServerResponse): void => {
+    if (req.url === "/stream") {
+      liveStream.handle(req, res);
+      return;
+    }
     if (req.url === "/snapshot.json") {
       // Wildcard is fine here: read-only, no auth, no cookies -- there's
       // nothing same-origin policy would otherwise be protecting. This is
@@ -72,9 +77,16 @@ function createHandler(getSnapshot: () => DashboardSnapshot) {
  * (whichever command runs last wins for the whole port), so port-level
  * separation is the only isolation that's actually load-bearing here.
  */
-export function startServer(config: DashboardConfig, logger: Logger, getSnapshot: () => DashboardSnapshot, getPublicSnapshot: () => DashboardSnapshot): DashboardServer {
-  const httpServer = createServer(createHandler(getPublicSnapshot));
-  const privateServer = createServer(createHandler(getSnapshot));
+export function startServer(
+  config: DashboardConfig,
+  logger: Logger,
+  getSnapshot: () => DashboardSnapshot,
+  getPublicSnapshot: () => DashboardSnapshot,
+  liveStream: LiveStream,
+  publicLiveStream: LiveStream,
+): DashboardServer {
+  const httpServer = createServer(createHandler(getPublicSnapshot, publicLiveStream));
+  const privateServer = createServer(createHandler(getSnapshot, liveStream));
 
   httpServer.listen(config.http.port, config.http.host, () => {
     logger.info(`public (position-redacted) dashboard listening at http://${config.http.host}:${config.http.port}`);
@@ -86,10 +98,14 @@ export function startServer(config: DashboardConfig, logger: Logger, getSnapshot
   return {
     httpServer,
     privateServer,
-    close: () =>
-      Promise.all([
+    close: () => {
+      // Open streams would otherwise keep server.close() from ever resolving.
+      liveStream.close();
+      publicLiveStream.close();
+      return Promise.all([
         new Promise<void>((resolve, reject) => httpServer.close((err) => (err ? reject(err) : resolve()))),
         new Promise<void>((resolve, reject) => privateServer.close((err) => (err ? reject(err) : resolve()))),
-      ]).then(() => undefined),
+      ]).then(() => undefined);
+    },
   };
 }

@@ -19,9 +19,32 @@ function fixtureSnapshot(): DashboardSnapshot {
 }
 
 describe("redactPositionForPublic", () => {
-  it("strips position entirely", () => {
-    const result = redactPositionForPublic(fixtureSnapshot());
-    expect(result.position).toEqual({});
+  it("coarsens position: coordinates to 1 decimal place, speed and heading to whole numbers, no accuracy or altitude", () => {
+    const snapshot = fixtureSnapshot();
+    snapshot.position = {
+      latitude: 44.3712,
+      longitude: -64.3268,
+      accuracyM: 10,
+      altitudeM: 37.4,
+      speedMps: 5.38,
+      courseDeg: 271.6,
+      updatedAt: 1700000000000,
+    };
+    const result = redactPositionForPublic(snapshot);
+    expect(result.position).toEqual({
+      latitude: 44.4,
+      longitude: -64.3,
+      speedMps: 5,
+      courseDeg: 272,
+      updatedAt: 1700000000000,
+      coarse: true,
+    });
+  });
+
+  it("leaves an empty position empty rather than marking it coarse", () => {
+    const snapshot = fixtureSnapshot();
+    snapshot.position = {};
+    expect(redactPositionForPublic(snapshot).position).toEqual({});
   });
 
   it("strips the source coordinates weather was fetched with, since they leak the same location", () => {
