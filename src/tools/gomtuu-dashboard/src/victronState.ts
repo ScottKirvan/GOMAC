@@ -113,6 +113,15 @@ export function summarizePower(store: VictronStore): PowerSummary {
     summary.power = toNumber(findMetric(batteryDevice, METRIC_PATTERNS.power)?.value);
     summary.consumedAh = toNumber(findMetric(batteryDevice, METRIC_PATTERNS.consumedAh)?.value);
     summary.temperature = toNumber(findMetric(batteryDevice, METRIC_PATTERNS.temperature)?.value);
+    // The BMV-712 shunt reports current and voltage but no power reading.
+    if (summary.power === undefined && summary.voltage !== undefined && summary.current !== undefined) {
+      summary.power = summary.voltage * summary.current;
+    }
+    const readingTimes = [METRIC_PATTERNS.voltage, METRIC_PATTERNS.current]
+      .map((pattern) => findMetric(batteryDevice, pattern)?.metric)
+      .map((metric) => (metric === undefined ? undefined : batteryDevice.metrics[metric]?.updatedAt))
+      .filter((t): t is number => t !== undefined);
+    if (readingTimes.length > 0) summary.batteryUpdatedAt = Math.max(...readingTimes);
     summary.chargerState = findMetric(batteryDevice, METRIC_PATTERNS.chargerState)?.value;
   }
 

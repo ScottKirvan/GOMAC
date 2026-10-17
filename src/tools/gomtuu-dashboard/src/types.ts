@@ -30,6 +30,8 @@ export interface PowerSummary {
   solarPower?: number;
   batteryDeviceMac?: string;
   batteryDeviceName?: string;
+  /** Newest update time (epoch ms) of the battery device's voltage or current reading. */
+  batteryUpdatedAt?: number;
   solarDeviceMac?: string;
   solarDeviceName?: string;
 }
@@ -154,4 +156,6 @@ export interface PowerSample {
   voltage?: number;
   power?: number;
   solarPower?: number;
+  /** Energy charged into the battery during this bucket, in Wh (charging only, never negative). */
+  chargedWh?: number;
 }

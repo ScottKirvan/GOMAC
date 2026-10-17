@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { createPowerHistory, recordPowerSample } from "../src/history.js";
+import { createPowerHistory, loadPowerHistory, recentSamples, recordPowerSample, savePowerHistory } from "../src/history.js";
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 describe("recordPowerSample", () => {
   it("ignores a summary with no voltage, soc, or solarPower", () => {
@@ -8,37 +11,21 @@ describe("recordPowerSample", () => {
     expect(history.samples).toHaveLength(0);
   });
 
-  it("keeps samples within the 1-hour peak window", () => {
+  it("keeps 48 hours of samples and prunes older ones", () => {
     const history = createPowerHistory();
     const base = 1_000_000;
-    recordPowerSample(history, { soc: 50 }, base);
-    recordPowerSample(history, { soc: 51 }, base + 30 * 60 * 1000); // +30 min
-    expect(history.samples).toHaveLength(2);
+    const HOUR = 60 * 60 * 1000;
+    for (let h = 0; h <= 50; h++) recordPowerSample(history, { soc: 50 }, base + h * HOUR);
+    const now = base + 50 * HOUR;
+    expect(now - history.samples[0]!.t).toBe(48 * HOUR);
   });
 
-  it("prunes samples older than the 1-hour window regardless of count", () => {
+  it("keeps a full day at real-world rates within 10s buckets", () => {
     const history = createPowerHistory();
     const base = 1_000_000;
-    // one message per second for 90 minutes straight
-    for (let i = 0; i <= 90 * 60; i++) {
-      recordPowerSample(history, { soc: 50 }, base + i * 1000);
-    }
-    const now = base + 90 * 60 * 1000;
-    const oldestAge = now - history.samples[0].t;
-    expect(oldestAge).toBeLessThanOrEqual(60 * 60 * 1000);
-    // still covers (nearly) the full hour, not cut short by the sample cap
-    expect(oldestAge).toBeGreaterThan(59 * 60 * 1000);
-  });
-
-  it("covers the full hour at real-world message rates (~12/s)", () => {
-    const history = createPowerHistory();
-    const base = 1_000_000;
-    const end = base + 70 * 60 * 1000;
-    for (let t = base; t <= end; t += 83) {
-      recordPowerSample(history, { soc: 50 }, t);
-    }
-    expect(end - history.samples[0].t).toBeGreaterThan(59 * 60 * 1000);
-    expect(history.samples.length).toBeLessThanOrEqual(400);
+    const end = base + 24 * 60 * 60 * 1000;
+    for (let t = base; t <= end; t += 1000) recordPowerSample(history, { soc: 50 }, t);
+    expect(history.samples.length).toBeLessThanOrEqual(24 * 360 + 1);
   });
 
   it("merges readings within a 10s bucket, keeping the max solarPower", () => {
@@ -52,5 +39,77 @@ describe("recordPowerSample", () => {
 
     recordPowerSample(history, { solarPower: 10 }, base + 10_000);
     expect(history.samples).toHaveLength(2);
+  });
+});
+
+describe("energy charged into the battery", () => {
+  it("adds charging energy between consecutive shunt readings into the bucket", () => {
+    const history = createPowerHistory();
+    const base = 1_000_000;
+    // 100 W of charging, one shunt reading per second for 10 readings.
+    for (let i = 0; i < 10; i++) recordPowerSample(history, { soc: 50, power: 100, batteryUpdatedAt: base + i * 1000 }, base + i * 1000);
+    // 9 one-second intervals at 100 W = 900 J = 0.25 Wh.
+    expect(history.samples[0]!.chargedWh).toBeCloseTo(0.25, 6);
+  });
+
+  it("ignores drawing: only charging counts", () => {
+    const history = createPowerHistory();
+    const base = 1_000_000;
+    for (let i = 0; i < 5; i++) recordPowerSample(history, { soc: 50, power: -80, batteryUpdatedAt: base + i * 1000 }, base + i * 1000);
+    expect(history.samples[0]!.chargedWh ?? 0).toBe(0);
+  });
+
+  it("counts each shunt reading once, however many other messages arrive in between", () => {
+    const history = createPowerHistory();
+    const base = 1_000_000;
+    recordPowerSample(history, { soc: 50, power: 360, batteryUpdatedAt: base }, base);
+    // Solar messages arrive, but the shunt reading hasn't changed.
+    recordPowerSample(history, { soc: 50, power: 360, batteryUpdatedAt: base, solarPower: 50 }, base + 300);
+    recordPowerSample(history, { soc: 50, power: 360, batteryUpdatedAt: base, solarPower: 60 }, base + 600);
+    recordPowerSample(history, { soc: 50, power: 360, batteryUpdatedAt: base + 1000 }, base + 1000);
+    // One 1-second interval at 360 W = 0.1 Wh.
+    expect(history.samples[0]!.chargedWh).toBeCloseTo(0.1, 6);
+  });
+
+  it("doesn't count across a gap longer than 60 seconds", () => {
+    const history = createPowerHistory();
+    const base = 1_000_000;
+    recordPowerSample(history, { soc: 50, power: 500, batteryUpdatedAt: base }, base);
+    recordPowerSample(history, { soc: 50, power: 500, batteryUpdatedAt: base + 61_000 }, base + 61_000);
+    const total = history.samples.reduce((sum, s) => sum + (s.chargedWh ?? 0), 0);
+    expect(total).toBe(0);
+  });
+});
+
+describe("recentSamples", () => {
+  it("returns only samples within the given span", () => {
+    const history = createPowerHistory();
+    const base = 1_000_000;
+    for (let m = 0; m <= 90; m++) recordPowerSample(history, { soc: 50 }, base + m * 60_000);
+    const now = base + 90 * 60_000;
+    const recent = recentSamples(history, 60 * 60_000, now);
+    expect(recent[0]!.t).toBeGreaterThanOrEqual(now - 60 * 60_000);
+    expect(recent.at(-1)!.t).toBe(now);
+  });
+});
+
+describe("loadPowerHistory / savePowerHistory", () => {
+  it("round-trips samples through a file and drops ones older than 48 hours", () => {
+    const dir = mkdtempSync(join(tmpdir(), "gomac-history-"));
+    const path = join(dir, "nested", "power-history.json");
+    const now = 10 * 24 * 60 * 60 * 1000;
+    const history = createPowerHistory();
+    history.samples.push({ t: now - 49 * 60 * 60 * 1000, soc: 40 }, { t: now - 1000, soc: 60, chargedWh: 1.5 });
+    savePowerHistory(history, path);
+    const loaded = loadPowerHistory(path, now);
+    expect(loaded.samples).toEqual([{ t: now - 1000, soc: 60, chargedWh: 1.5 }]);
+  });
+
+  it("starts empty from a missing or corrupt file", () => {
+    const dir = mkdtempSync(join(tmpdir(), "gomac-history-"));
+    expect(loadPowerHistory(join(dir, "missing.json")).samples).toEqual([]);
+    const corrupt = join(dir, "corrupt.json");
+    writeFileSync(corrupt, "{not json");
+    expect(loadPowerHistory(corrupt).samples).toEqual([]);
   });
 });

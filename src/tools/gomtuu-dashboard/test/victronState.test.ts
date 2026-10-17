@@ -107,3 +107,24 @@ describe("device names", () => {
     expect(summarizePower(store).batteryDeviceName).toBeUndefined();
   });
 });
+
+describe("battery power and freshness", () => {
+  it("derives battery power from voltage and current when the shunt sends no power reading", () => {
+    const store = createVictronStore();
+    handleVictronMessage(store, "victron-ble/shunt/soc", "68", 1000);
+    handleVictronMessage(store, "victron-ble/shunt/voltage", "13.2", 1000);
+    handleVictronMessage(store, "victron-ble/shunt/current", "-4.5", 2000);
+    const summary = summarizePower(store);
+    expect(summary.power).toBeCloseTo(-59.4, 6);
+    expect(summary.batteryUpdatedAt).toBe(2000);
+  });
+
+  it("prefers a reported power reading over the derived one", () => {
+    const store = createVictronStore();
+    handleVictronMessage(store, "victron-ble/shunt/soc", "68", 1000);
+    handleVictronMessage(store, "victron-ble/shunt/voltage", "13.2", 1000);
+    handleVictronMessage(store, "victron-ble/shunt/current", "-4.5", 1000);
+    handleVictronMessage(store, "victron-ble/shunt/power", "-60", 1000);
+    expect(summarizePower(store).power).toBe(-60);
+  });
+});
