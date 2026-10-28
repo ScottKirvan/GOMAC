@@ -57,7 +57,7 @@ function createHandler(getSnapshot: () => DashboardSnapshot, liveStream: LiveStr
       res.end(JSON.stringify(getSnapshot()));
       return;
     }
-    serveStatic(req.url ?? "/", res);
+    serveStatic((req.url ?? "/").split("?")[0]!, res);
   };
 }
 

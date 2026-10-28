@@ -78,4 +78,16 @@ describe("startServer static files", () => {
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toBe("image/webp");
   });
+
+  it("ignores the cache-busting stamp on a file's address", async () => {
+    const config = loadConfig({ HTTP_PORT: "0", HTTP_PRIVATE_PORT: "0" });
+    const options = { ...config.liveStream, logger: silentLogger };
+    const stream = () => createLiveStream({ ...options, getUpdate: () => buildLiveUpdate({}, {}) });
+    server = startServer(config, silentLogger, () => emptySnapshot, () => emptySnapshot, stream(), stream());
+    await new Promise((r) => server!.httpServer.once("listening", r));
+
+    const res = await fetch(`http://127.0.0.1:${(server.httpServer.address() as AddressInfo).port}/style.css?v=abc123`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("text/css; charset=utf-8");
+  });
 });

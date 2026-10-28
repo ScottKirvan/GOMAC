@@ -227,6 +227,16 @@ points at never match `docs/**` on their own (this left Pages stuck on a
 2026-09-14 build until the path was added). It can also be run by hand:
 `gh workflow run docs.yml --ref main`.
 
+**Cache busting:** Pages serves every file with `max-age=600`, so without
+help a browser keeps running the old scripts and styles for up to 10
+minutes after a deploy. `index.html` therefore loads each `.js`/`.css`
+file with a content hash in its address (`style.css?v=…`), and an import
+map does the same for the imports between modules. A reload revalidates
+`index.html`, so it picks up a deploy right away. **After changing any
+file in `public/`, run `npm run stamp`**: a test fails if `index.html`'s
+stamps don't match the files. Images aren't stamped. The Node server
+ignores the query string when serving files.
+
 **Previewing a branch locally:** the committed `config.js` sends the page
 to the *production* backend, so a preview server on other ports would
 show new frontend code against production data. In the preview checkout,
