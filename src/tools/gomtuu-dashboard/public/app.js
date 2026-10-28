@@ -322,18 +322,21 @@ function isCardOpen(mac) {
   }
 }
 
-// "toggle" doesn't bubble, so listen in the capture phase; the cards are
-// re-rendered on every update, so the stored choice is what keeps them open.
-document.getElementById("sensorTables").addEventListener("toggle", (event) => {
-  const details = event.target;
-  if (!details.matches?.("details.dc-more")) return;
+// The cards are re-rendered on every update, so the stored choice is what
+// keeps them open.
+document.getElementById("sensorTables").addEventListener("click", (event) => {
+  const toggle = event.target.closest?.(".dc-toggle");
+  if (!toggle) return;
+  const open = toggle.getAttribute("aria-expanded") !== "true";
+  toggle.setAttribute("aria-expanded", String(open));
+  toggle.closest(".device-card").querySelector(".dc-more").hidden = !open;
   try {
-    if (details.open) localStorage.setItem(CARD_OPEN_KEY_PREFIX + details.dataset.mac, "1");
-    else localStorage.removeItem(CARD_OPEN_KEY_PREFIX + details.dataset.mac);
+    if (open) localStorage.setItem(CARD_OPEN_KEY_PREFIX + toggle.dataset.mac, "1");
+    else localStorage.removeItem(CARD_OPEN_KEY_PREFIX + toggle.dataset.mac);
   } catch {
     // Storage unavailable (private window, blocked site data): cards just start collapsed.
   }
-}, true);
+});
 
 function renderNowPlaying(np) {
   const el = document.getElementById("nowPlaying");

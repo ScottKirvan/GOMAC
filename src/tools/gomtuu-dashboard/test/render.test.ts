@@ -337,8 +337,8 @@ describe("deviceCardHtml", () => {
       yield_today: at("1250"),
     },
   };
-  const tileLabels = (html: string) => [...html.matchAll(/class="dc-label">(?:<svg[^]*?<\/svg>)?([^<]+)</g)].map((m) => m[1]);
-  const moreSection = (html: string) => html.slice(html.indexOf("<details"));
+  const tileLabels = (html: string) => [...html.matchAll(/class="dc-label">([^<]+)</g)].map((m) => m[1]);
+  const moreSection = (html: string) => html.slice(html.indexOf('class="dc-more '));
 
   it("shows the name, the model line, and an online indicator", () => {
     const html = deviceCardHtml(shunt.mac, shunt, false);
@@ -382,8 +382,11 @@ describe("deviceCardHtml", () => {
     expect(more).toContain("Aux mode");
     expect(more).toContain("e0b42569296f");
     expect(more).not.toContain("State of charge");
-    expect(html).toMatch(/<details class="dc-more" data-mac="e0b42569296f">/);
-    expect(deviceCardHtml(shunt.mac, shunt, true)).toMatch(/<details class="dc-more" data-mac="e0b42569296f" open>/);
+    expect(html).toContain('<button class="dc-toggle" type="button" data-mac="e0b42569296f" aria-expanded="false"');
+    expect(html).toContain('<div class="dc-more mono" hidden>');
+    const open = deviceCardHtml(shunt.mac, shunt, true);
+    expect(open).toContain('aria-expanded="true"');
+    expect(open).toContain('<div class="dc-more mono">');
   });
 
   it("picks the product photo from the readings the device sends", () => {

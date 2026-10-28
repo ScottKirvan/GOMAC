@@ -436,7 +436,7 @@ export function deviceCardHtml(mac, device, open) {
     .filter(([metric]) => metric in device.metrics)
     .map(([metric, label, icon]) => {
       const data = device.metrics[metric];
-      return `<div class="dc-tile" title="Changed ${formatAge(data.updatedAt)}"><span class="dc-label">${iconSvg(icon)}${label}</span>${readingHtml(metric, data.value)}</div>`;
+      return `<div class="dc-tile" title="Changed ${formatAge(data.updatedAt)}"><span class="dc-label">${label}</span><span class="dc-reading">${iconSvg(icon)}${readingHtml(metric, data.value)}</span></div>`;
     })
     .join("");
 
@@ -449,22 +449,18 @@ export function deviceCardHtml(mac, device, open) {
 
   return `
     <div class="panel device-card${offline ? " is-offline" : ""}">
-      <div class="dc-head">
-        ${photo ? `<img class="dc-photo" src="img/victron/${photo}.webp" alt="" />` : ""}
-        <div class="dc-id">
-          <div class="dc-name">${escapeHtml(device.name ?? mac)}</div>
-          ${device.model ? `<div class="dc-model">${escapeHtml(device.model)}</div>` : ""}
-        </div>
-        ${indicator}
+      <div class="dc-photo">${photo ? `<img src="img/victron/${photo}.webp" alt="" />` : ""}</div>
+      <div class="dc-id">
+        <div class="dc-name">${escapeHtml(device.name ?? mac)}</div>
+        ${device.model ? `<div class="dc-model">${escapeHtml(device.model)}</div>` : ""}
       </div>
-      ${tiles ? `<div class="dc-tiles">${tiles}</div>` : ""}
-      <details class="dc-more" data-mac="${escapeHtml(mac)}"${open ? " open" : ""}>
-        <summary><svg class="dc-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>More${rest.length ? ` · ${rest.length}` : ""}</summary>
-        <div class="dc-more-body mono">
-          ${restRows}
-          <div class="stat-row"><span class="k">MAC</span><span class="v">${escapeHtml(mac)}</span></div>
-        </div>
-      </details>
+      <div class="dc-indicator">${indicator}</div>
+      <div class="dc-tiles">${tiles}</div>
+      <button class="dc-toggle" type="button" data-mac="${escapeHtml(mac)}" aria-expanded="${open ? "true" : "false"}" aria-label="All readings"><svg class="dc-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg></button>
+      <div class="dc-more mono"${open ? "" : " hidden"}>
+        ${restRows}
+        <div class="stat-row"><span class="k">MAC</span><span class="v">${escapeHtml(mac)}</span></div>
+      </div>
     </div>
   `;
 }
