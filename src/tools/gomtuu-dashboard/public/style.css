@@ -87,9 +87,8 @@ header {
 .panel-title .swatch { width: 7px; height: 7px; border-radius: 1px; flex: 0 0 auto; }
 .panel-meta { font-size: 0.68rem; color: var(--ink-mute); }
 .panel.is-offline { opacity: 0.55; }
-.panel.is-offline .panel-title, .panel.is-offline table.sensors td { color: var(--ink-mute); }
+.panel.is-offline .panel-title { color: var(--ink-mute); }
 .offline-label { color: var(--warn); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
-.device-mac { font-size: 0.62rem; font-weight: 400; letter-spacing: 0.02em; text-transform: none; color: var(--ink-mute); }
 
 .hero-body { display: flex; gap: 14px; padding: 14px; align-items: center; flex-wrap: wrap; }
 .dial-wrap { position: relative; flex: 0 0 auto; width: 128px; height: 128px; }
@@ -194,16 +193,38 @@ header {
 .legend-row span { display: inline-flex; align-items: center; gap: 6px; }
 .legend-row i { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
 
-table.sensors { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
-table.sensors td, table.sensors th { padding: 6px 14px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.05); }
-table.sensors th {
-  font-size: 0.64rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
-  color: var(--ink-mute); background: var(--surface-2); border-bottom: 1px solid var(--border);
+.dc-head {
+  display: flex; align-items: center; gap: 14px; padding: 12px 14px;
+  border-bottom: 1px solid var(--border); background: var(--surface-2);
 }
-table.sensors tr:last-child td { border-bottom: none; }
-table.sensors tr:hover td { background: rgba(255,255,255,0.02); }
-table.sensors td.metric { color: var(--ink-dim); }
-table.sensors td.value { font-family: "IBM Plex Mono", monospace; color: var(--ink); text-align: right; }
+.dc-photo { width: 56px; height: 56px; object-fit: contain; flex: 0 0 auto; }
+.dc-id { flex: 1; min-width: 0; }
+.dc-name { font-size: 1.02rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dc-model { font-size: 0.74rem; color: var(--ink-dim); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dc-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px 12px; padding: 14px; }
+@media (max-width: 420px) { .dc-tiles { grid-template-columns: repeat(2, 1fr); } }
+.dc-tile { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.dc-label {
+  display: flex; align-items: center; gap: 5px; font-size: 0.66rem; color: var(--ink-mute);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.dc-icon { width: 13px; height: 13px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.dc-tile .dc-value { font-family: "IBM Plex Mono", monospace; font-size: 1.15rem; font-weight: 600; color: var(--ink); white-space: nowrap; }
+.dc-value .u { font-size: 0.72em; font-weight: 500; color: var(--ink-dim); margin-left: 2px; }
+.dc-more { border-top: 1px solid rgba(255,255,255,0.05); }
+.dc-more summary {
+  display: flex; align-items: center; gap: 6px; padding: 8px 14px; cursor: pointer; list-style: none;
+  font-size: 0.68rem; color: var(--ink-mute); letter-spacing: 0.04em; text-transform: uppercase;
+}
+.dc-more summary::-webkit-details-marker { display: none; }
+.dc-more summary:hover { color: var(--ink-dim); }
+.dc-chevron { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; transition: transform 0.15s; }
+.dc-more[open] .dc-chevron { transform: rotate(90deg); }
+@media (prefers-reduced-motion: reduce) { .dc-chevron { transition: none; } }
+.dc-more-body { padding: 0 14px 10px; }
+.dc-more-body .stat-row .v { display: inline-flex; align-items: baseline; gap: 10px; }
+.dc-more-body .age { color: var(--ink-mute); font-size: 0.66rem; font-weight: 400; }
+.panel.is-offline .dc-name, .panel.is-offline .dc-tile .dc-value { color: var(--ink-mute); }
 .charge-state { font-weight: 600; letter-spacing: 0.03em; }
 .cs-bulk       { color: var(--cs-bulk) !important; }
 .cs-absorption { color: var(--cs-absorption) !important; }
@@ -212,7 +233,6 @@ table.sensors td.value { font-family: "IBM Plex Mono", monospace; color: var(--i
 .cs-off        { color: var(--cs-off) !important; }
 .cs-neutral    { color: var(--cs-neutral) !important; }
 .cs-fault      { color: var(--cs-fault) !important; }
-table.sensors td.age { text-align: right; color: var(--ink-mute); font-family: "IBM Plex Mono", monospace; font-size: 0.7rem; }
 
 .empty-state { padding: 20px 14px; color: var(--ink-mute); font-size: 0.78rem; text-align: center; }
 

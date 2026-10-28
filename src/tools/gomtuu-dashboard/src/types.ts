@@ -7,6 +7,8 @@ export interface VictronDeviceState {
   mac: string;
   /** The device's own BLE advertised name, from the retained `victron-ble/<mac>/name` topic. */
   name?: string;
+  /** victron_ble's model name for the device (e.g. "BMV-712 Smart"), from the retained `victron-ble/<mac>/model` topic. */
+  model?: string;
   /**
    * From the retained `victron-ble/<mac>/availability` topic: false after 30s
    * with no BLE reading, true again on the next one; undefined until known.

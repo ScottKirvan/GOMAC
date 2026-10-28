@@ -325,31 +325,146 @@ export function lockIconSvg(locked) {
     + `</svg>`;
 }
 
+const ICON_PATHS = {
+  voltage: "M13 2 4 14h7l-1 8 9-12h-7z",
+  current: "M3 12h4l3-7 4 14 3-7h4",
+  power: "M12 2v10M5.6 6.6a8 8 0 1 0 12.8 0",
+  soc: "M3 7h15v10H3zM21 10v4M6 10v4M9 10v4",
+  state: "M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5",
+  time: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 7v5l3 2",
+  consumed: "M3 7h15v10H3zM21 10v4M7 12h7",
+  yield: "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4",
+  load: "M9 2v6M15 2v6M6 8h12v4a6 6 0 0 1-12 0zM12 18v4",
+};
+
+function iconSvg(name) {
+  return `<svg class="dc-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="${ICON_PATHS[name]}" /></svg>`;
+}
+
 /**
- * One Victron device's table. The "Changed" column is when each value last
- * changed (the collector publishes on change only), not when the device was
- * last heard; `device.available` is the freshness signal. An offline device
- * keeps its last values, greyed out and labelled.
+ * The BMV reports 14400 min (exactly 10 days) while it isn't discharging;
+ * treated as its cap, shown as infinity like VictronConnect does.
  */
-export function sensorTableHtml(mac, device) {
+const REMAINING_MINS_CAP = 14400;
+
+function formatRemaining(mins) {
+  if (mins >= REMAINING_MINS_CAP) return { text: "∞" };
+  const h = Math.floor(mins / 60);
+  const m = Math.round(mins % 60);
+  return { text: h > 0 ? `${h}h ${m}m` : `${m}m` };
+}
+
+function formatEnergy(wh) {
+  return wh >= 1000 ? { text: (wh / 1000).toFixed(2), unit: "kWh" } : { text: String(Math.round(wh)), unit: "Wh" };
+}
+
+/** "SWITCHED_OFF_REGISTER" -> "Switched off register". */
+function humanize(text) {
+  const words = String(text).replace(/_/g, " ").toLowerCase();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+function formatReading(metric, raw) {
+  const n = raw === "" ? Number.NaN : Number(raw);
+  if (!Number.isFinite(n)) return { text: humanize(raw) };
+  if (metric === "remaining_mins") return formatRemaining(n);
+  if (/yield/.test(metric)) return formatEnergy(n);
+  if (metric === "consumed_ah") return { text: n.toFixed(1), unit: "Ah" };
+  if (metric === "soc") return { text: n.toFixed(1), unit: "%" };
+  if (/power/.test(metric)) return { text: n.toFixed(0), unit: "W" };
+  if (/voltage/.test(metric)) return { text: n.toFixed(2), unit: "V" };
+  if (/current|load/.test(metric)) return { text: n.toFixed(2), unit: "A" };
+  return { text: String(raw) };
+}
+
+/**
+ * The readings shown as tiles, in display order; a device shows the ones it
+ * sends. Everything else it sends goes behind the expand arrow.
+ */
+const TILE_METRICS = [
+  ["battery_voltage", "Battery voltage", "voltage"],
+  ["voltage", "Battery voltage", "voltage"],
+  ["input_voltage", "Input voltage", "voltage"],
+  ["output_voltage1", "Voltage", "voltage"],
+  ["current", "Current", "current"],
+  ["output_current1", "Current", "current"],
+  ["solar_power", "Power", "power"],
+  ["soc", "State of charge", "soc"],
+  ["charge_state", "State", "state"],
+  ["remaining_mins", "Remaining time", "time"],
+  ["consumed_ah", "Consumed", "consumed"],
+  ["yield_today", "Yield today", "yield"],
+  ["battery_charging_current", "Current", "current"],
+  ["external_device_load", "Load current", "load"],
+];
+const TILE_METRIC_NAMES = new Set(TILE_METRICS.map(([metric]) => metric));
+
+/**
+ * Product photo by what the device reports, since each kind of reading set
+ * belongs to exactly one of Gomtuu's devices.
+ */
+function devicePhoto(metrics) {
+  if ("soc" in metrics) return "bmv-712";
+  if ("solar_power" in metrics) return "smartsolar-mppt";
+  if ("off_reason" in metrics || "input_voltage" in metrics) return "orion-smart";
+  if ("output_voltage1" in metrics) return "blue-smart-ip22";
+  return undefined;
+}
+
+function readingHtml(metric, raw) {
+  const { text, unit } = formatReading(metric, raw);
+  const tone = metric === "charge_state" ? ` charge-state cs-${chargeStateTone(raw)}` : "";
+  return `<span class="dc-value${tone}">${escapeHtml(text)}${unit ? `<span class="u">${unit}</span>` : ""}</span>`;
+}
+
+/**
+ * One Victron device as a VictronConnect-style card: photo, name, model and
+ * an online/offline indicator, the key readings as tiles, and everything
+ * else behind an expand arrow (`open` restores the viewer's choice). An
+ * offline device keeps its last values, greyed out.
+ */
+export function deviceCardHtml(mac, device, open) {
   const offline = device.available === false;
-  const metrics = Object.entries(device.metrics).sort(([a], [b]) => a.localeCompare(b));
-  const rows = metrics
-    .map(
-      ([metric, data]) =>
-        `<tr><td class="metric">${metric}</td><td class="value${metric === "charge_state" ? ` charge-state cs-${chargeStateTone(data.value)}` : ""}">${data.value}</td><td class="age">${formatAge(data.updatedAt)}</td></tr>`,
-    )
+  const photo = devicePhoto(device.metrics);
+  const indicator = device.available === undefined
+    ? ""
+    : offline
+      ? `<span class="status-pill warn" title="No reading from this device for over 30 seconds. Showing its last values."><span class="dot"></span>offline</span>`
+      : `<span class="status-pill good"><span class="dot"></span>online</span>`;
+
+  const tiles = TILE_METRICS
+    .filter(([metric]) => metric in device.metrics)
+    .map(([metric, label, icon]) => {
+      const data = device.metrics[metric];
+      return `<div class="dc-tile" title="Changed ${formatAge(data.updatedAt)}"><span class="dc-label">${iconSvg(icon)}${label}</span>${readingHtml(metric, data.value)}</div>`;
+    })
     .join("");
+
+  const rest = Object.entries(device.metrics)
+    .filter(([metric]) => !TILE_METRIC_NAMES.has(metric))
+    .sort(([a], [b]) => a.localeCompare(b));
+  const restRows = rest
+    .map(([metric, data]) => `<div class="stat-row"><span class="k">${escapeHtml(humanize(metric))}</span><span class="v">${readingHtml(metric, data.value)}<span class="age">${formatAge(data.updatedAt)}</span></span></div>`)
+    .join("");
+
   return `
-    <div class="panel${offline ? " is-offline" : ""}">
-      <div class="panel-head">
-        <span class="panel-title">${device.name ? `${escapeHtml(device.name)}<span class="device-mac mono">${mac}</span>` : mac}</span>
-        <span class="panel-meta mono">${offline ? `<span class="offline-label" title="No reading from this device for over 30 seconds. Showing its last values.">offline</span> · ` : ""}${metrics.length} metrics</span>
+    <div class="panel device-card${offline ? " is-offline" : ""}">
+      <div class="dc-head">
+        ${photo ? `<img class="dc-photo" src="img/victron/${photo}.webp" alt="" />` : ""}
+        <div class="dc-id">
+          <div class="dc-name">${escapeHtml(device.name ?? mac)}</div>
+          ${device.model ? `<div class="dc-model">${escapeHtml(device.model)}</div>` : ""}
+        </div>
+        ${indicator}
       </div>
-      <table class="sensors">
-        <tr><th>Metric</th><th style="text-align:right">Value</th><th style="text-align:right">Changed</th></tr>
-        ${rows}
-      </table>
+      ${tiles ? `<div class="dc-tiles">${tiles}</div>` : ""}
+      <details class="dc-more" data-mac="${escapeHtml(mac)}"${open ? " open" : ""}>
+        <summary><svg class="dc-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>More${rest.length ? ` · ${rest.length}` : ""}</summary>
+        <div class="dc-more-body mono">
+          ${restRows}
+          <div class="stat-row"><span class="k">MAC</span><span class="v">${escapeHtml(mac)}</span></div>
+        </div>
+      </details>
     </div>
   `;
 }

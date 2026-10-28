@@ -59,9 +59,11 @@ export function parseVictronTopic(topic: string): { mac: string; metric: string 
 /**
  * Reserved, retained topics that describe the device rather than carry a
  * reading, so they never appear among the metrics: `name` (BLE advertised
- * name) and `availability` ("online"/"offline").
+ * name), `model` (victron_ble's model name for the device) and
+ * `availability` ("online"/"offline").
  */
 const DEVICE_NAME_METRIC = "name";
+const DEVICE_MODEL_METRIC = "model";
 const DEVICE_AVAILABILITY_METRIC = "availability";
 
 export function handleVictronMessage(store: VictronStore, topic: string, payload: string, now: number = Date.now()): void {
@@ -73,6 +75,10 @@ export function handleVictronMessage(store: VictronStore, topic: string, payload
   const device = (store.devices[mac] ??= { mac, metrics: {} });
   if (metric === DEVICE_NAME_METRIC) {
     device.name = payload.trim() || undefined;
+    return;
+  }
+  if (metric === DEVICE_MODEL_METRIC) {
+    device.model = payload.trim() || undefined;
     return;
   }
   if (metric === DEVICE_AVAILABILITY_METRIC) {

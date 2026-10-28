@@ -16,7 +16,7 @@ import {
   easeToward,
   easeAngleToward,
   lockIconSvg,
-  sensorTableHtml,
+  deviceCardHtml,
 } from "../public/render.js";
 
 describe("fmt / fmtSigned", () => {
@@ -306,24 +306,110 @@ describe("lockIconSvg", () => {
   });
 });
 
-describe("sensorTableHtml", () => {
-  const metrics = { charge_state: { value: "BULK", updatedAt: Date.now() - 5000 } };
+describe("deviceCardHtml", () => {
+  const at = (value: string) => ({ value, updatedAt: Date.now() - 5000 });
+  const shunt = {
+    mac: "e0b42569296f",
+    name: "Shunt",
+    model: "BMV-712 Smart",
+    available: true,
+    metrics: {
+      alarm: at("NO_ALARM"),
+      aux_mode: at("DISABLED"),
+      consumed_ah: at("-51.6"),
+      current: at("-1.862"),
+      remaining_mins: at("14400"),
+      soc: at("75.4"),
+      voltage: at("13.26"),
+    },
+  };
+  const solar = {
+    mac: "dd1cc7607ae4",
+    name: "Solar",
+    available: true,
+    metrics: {
+      battery_charging_current: at("2.4"),
+      battery_voltage: at("13.27"),
+      charge_state: at("BULK"),
+      charger_error: at("NO_ERROR"),
+      external_device_load: at("0.0"),
+      solar_power: at("35"),
+      yield_today: at("1250"),
+    },
+  };
+  const tileLabels = (html: string) => [...html.matchAll(/class="dc-label">(?:<svg[^]*?<\/svg>)?([^<]+)</g)].map((m) => m[1]);
+  const moreSection = (html: string) => html.slice(html.indexOf("<details"));
 
-  it("shows an online device normally, with a Changed column", () => {
-    const html = sensorTableHtml("f0ead52388a9", { mac: "f0ead52388a9", name: "Shore Power", available: true, metrics });
+  it("shows the name, the model line, and an online indicator", () => {
+    const html = deviceCardHtml(shunt.mac, shunt, false);
+    expect(html).toContain(">Shunt<");
+    expect(html).toContain(">BMV-712 Smart<");
+    expect(html).toMatch(/status-pill good[^]*>online</);
     expect(html).not.toContain("is-offline");
-    expect(html).toContain(">Changed<");
-    expect(html).toContain("Shore Power");
+  });
+
+  it("leaves out the model line until the model is known", () => {
+    expect(deviceCardHtml(solar.mac, solar, false)).not.toContain("dc-model");
+  });
+
+  it("shows the key readings as tiles in a fixed order, with units", () => {
+    const html = deviceCardHtml(solar.mac, solar, false);
+    expect(tileLabels(html)).toEqual(["Battery voltage", "Power", "State", "Yield today", "Current", "Load current"]);
+    expect(html).toContain("13.27<span class=\"u\">V</span>");
+    expect(html).toContain("35<span class=\"u\">W</span>");
+    expect(html).toContain("1.25<span class=\"u\">kWh</span>");
+    expect(html).toMatch(/cs-bulk[^>]*>Bulk</);
+  });
+
+  it("shows the shunt's capped remaining time as infinity", () => {
+    const html = deviceCardHtml(shunt.mac, shunt, false);
+    expect(tileLabels(html)).toEqual(["Battery voltage", "Current", "State of charge", "Remaining time", "Consumed"]);
+    expect(html).toContain(">∞<");
+    expect(html).toContain("-1.86<span class=\"u\">A</span>");
+    expect(html).toContain("75.4<span class=\"u\">%</span>");
+  });
+
+  it("formats an uncapped remaining time as hours and minutes", () => {
+    const html = deviceCardHtml(shunt.mac, { ...shunt, metrics: { remaining_mins: at("605") } }, false);
+    expect(html).toContain("10h 5m");
+  });
+
+  it("puts every other reading and the MAC behind the expand arrow, collapsed unless asked", () => {
+    const html = deviceCardHtml(shunt.mac, shunt, false);
+    const more = moreSection(html);
+    expect(more).toContain("Alarm");
+    expect(more).toContain("No alarm");
+    expect(more).toContain("Aux mode");
+    expect(more).toContain("e0b42569296f");
+    expect(more).not.toContain("State of charge");
+    expect(html).toMatch(/<details class="dc-more" data-mac="e0b42569296f">/);
+    expect(deviceCardHtml(shunt.mac, shunt, true)).toMatch(/<details class="dc-more" data-mac="e0b42569296f" open>/);
+  });
+
+  it("picks the product photo from the readings the device sends", () => {
+    expect(deviceCardHtml(shunt.mac, shunt, false)).toContain('src="img/victron/bmv-712.webp"');
+    expect(deviceCardHtml(solar.mac, solar, false)).toContain('src="img/victron/smartsolar-mppt.webp"');
+    expect(deviceCardHtml("x", { mac: "x", metrics: { input_voltage: at("13.2"), off_reason: at("NONE") } }, false)).toContain('src="img/victron/orion-smart.webp"');
+    expect(deviceCardHtml("x", { mac: "x", metrics: { output_voltage1: at("13.2") } }, false)).toContain('src="img/victron/blue-smart-ip22.webp"');
+    expect(deviceCardHtml("x", { mac: "x", metrics: { unknown: at("1") } }, false)).not.toContain("<img");
   });
 
   it("greys out an offline device and labels it, keeping its last values", () => {
-    const html = sensorTableHtml("f0ead52388a9", { mac: "f0ead52388a9", name: "Shore Power", available: false, metrics });
-    expect(html).toContain('class="panel is-offline"');
-    expect(html).toMatch(/>offline</);
-    expect(html).toContain(">BULK<");
+    const html = deviceCardHtml(shunt.mac, { ...shunt, available: false }, false);
+    expect(html).toContain("is-offline");
+    expect(html).toMatch(/status-pill warn[^]*>offline</);
+    expect(html).toContain("75.4");
   });
 
-  it("treats unknown availability as online", () => {
-    expect(sensorTableHtml("x", { mac: "x", metrics })).not.toContain("is-offline");
+  it("shows no indicator while availability is unknown, and falls back to the MAC as the name", () => {
+    const html = deviceCardHtml("x", { mac: "x", metrics: {} }, false);
+    expect(html).not.toContain("status-pill");
+    expect(html).toContain('class="dc-name">x<');
+  });
+
+  it("escapes names and models", () => {
+    const html = deviceCardHtml("x", { mac: "x", name: "<b>", model: "a&b", metrics: {} }, false);
+    expect(html).toContain("&lt;b&gt;");
+    expect(html).toContain("a&amp;b");
   });
 });

@@ -35,7 +35,7 @@ empty state until it can reach a broker with real traffic.
 | Amp gauge (bidirectional draw/charge ring) | **live** | `power.current`, surfaced live as the dial center's `ampReading` line and the stats column's Current row -- no new plumbing, just a visualization of a field the backend already summarized. Outermost of the Power Gauge dial's three concentric rings (amp outer, SOC middle, solar inner, all sharing one center). 0A at top dead center, charge fills clockwise (green), draw fills counter-clockwise (red), full ring = `AMP_GAUGE_FULL_SCALE_A` in `public/app.js` (currently ±30A, tune there). All three rings are gradient arcs: each ring's soft-to-vivid color pair is derived from its base color in `style.css` by `gradientPair` in `public/color.js`, whose tuning constants are at the top of that file. |
 | SOC ring center readout (Ah remaining) | **live** | `power.consumedAh` (BMV-712's `consumed_ah`, newly captured in `victronState.ts`) against a `BATTERY_CAPACITY_AH` (200Ah) nominal pack assumption in `public/app.js` -- deliberately not derived from `soc`%, since the two don't necessarily agree (the BMV-712's own internally configured capacity setting may differ from 200Ah). Falls back to a soc%-derived estimate, flagged as such in the number's tooltip, only if `consumed_ah` itself isn't being reported. The ring's fill is unchanged and still driven by `soc`% directly. |
 | Solar input & energy banked chart | **live** | Spans an hour before sunrise to now, stopping an hour after sunset. Until an hour before sunrise, it shows the previous day's span (sun times from Open-Meteo, `past_days=1`; without them, the last 12 hours). Solar power (W) on the left scale; energy charged into the battery since the span started (Wh, charging only, not net of draw) on the right. The snapshot carries the span as `victron.chart` (`start`, `end`, and 1-minute points). Readings are merged into 10-second buckets. 48 hours are kept and saved to `POWER_HISTORY_STATE_FILE` (default `data/power-history.json`, relative to the working directory, gitignored) every minute and on shutdown, so restarts don't blank the chart. Battery power is voltage × current, since the BMV-712 shunt doesn't report power itself. Each bucket also records the energy charged into the battery during it (`chargedWh`, charging only), counted by elapsed time at the latest battery power while the battery monitor is online (gaps of over 60s with no Victron messages at all aren't counted). |
-| All-sensors tables | **live** | same, one table per device MAC, every metric it publishes |
+| Device cards | **live** | same, one VictronConnect-style card per device: photo, name, model, online/offline, key readings as tiles, every other metric behind an expand arrow |
 | Now Playing | **live** | `gomac/pandora/state/<metric>` (verified against `src/integrations/pianobar/src/telemetry.ts`) |
 | Position (speed, heading, coords) | **live** | `gps/phone/<metric>` (phone GPS, rides HA's MQTT connection) |
 | Connectivity (ping success, RTT) | **live** | `ping-monitor/<target>/<metric>`, sampled into an in-memory ring buffer |
@@ -125,17 +125,19 @@ whose `data` is JSON:
 HA entity name. `src/victronState.ts` matches metric names by keyword
 (`soc`, `voltage`, `current`, `power`, `solar_power`, etc.) rather than
 hardcoding exact strings, specifically so the Power Gauge widget degrades
-gracefully instead of silently being wrong if a guess is off. The raw
-per-device sensor tables show every metric regardless of whether the
-Power Gauge recognized it, so nothing is hidden either way.
+gracefully instead of silently being wrong if a guess is off. The device
+cards show every metric regardless of whether the Power Gauge recognized
+it (key readings as tiles, the rest behind the expand arrow), so nothing
+is hidden either way.
 
 **Device availability:** `victron-ble/<mac>/availability` (retained,
 `online`/`offline`) is reserved too and never shown as a metric. The
 collector marks a device offline after 30s with no BLE reading (e.g. the AC
-charger when shore power is unplugged). Offline devices' tables are greyed
+charger when shore power is unplugged). Offline devices' cards are greyed
 out and labelled, keeping their last values, and the Power Gauge header
 says when the battery monitor is offline. The collector publishes on change
-only, so a metric's `updatedAt` (the tables' "Changed" column) is when the
+only, so a metric's `updatedAt` (the "ago" times behind a card's expand arrow,
+and a tile's tooltip) is when the
 value last changed, not when the device was last heard. Availability is
 the freshness signal: the energy-banked count only adds time while the
 battery monitor is online.
@@ -143,8 +145,21 @@ battery monitor is online.
 **Device names:** `victron-ble/<mac>/name` (retained) is reserved for the
 device's own BLE advertised name: the custom name set in VictronConnect,
 or its factory default (model + serial). It's shown in place of the MAC in
-the sensor table headers and the Power Gauge header, and never as a
+the device card headers and the Power Gauge header, and never as a
 metric. Until that topic is published, the dashboard falls back to MACs.
+
+**Device models:** `victron-ble/<mac>/model` (retained) is reserved for
+victron_ble's model name for the device (e.g. `BMV-712 Smart`). It's the
+line under the name on each device card, and never a metric. Until it's
+published for a device, the card leaves the line out.
+
+**Device photos** (`public/img/victron/`) are the device photos from
+VictronConnect's device list, cropped from a screenshot with the background
+removed. A card picks its photo by what the device
+reports (`soc` → BMV-712, `solar_power` → SmartSolar MPPT, `input_voltage`
+or `off_reason` → Orion Smart, `output_voltage1` → Blue Smart IP22), since
+each reading set belongs to exactly one of Gomtuu's devices; a device that
+matches none gets no photo. Swapping hardware means revisiting that mapping.
 
 **Before relying on the Power Gauge for anything real**, verify the actual
 metric names against the live broker:

@@ -58,3 +58,24 @@ describe("startServer /stream", () => {
     expect(pub.data).toMatchObject({ position: { latitude: 44.4, longitude: -64.3, speedMps: 5, courseDeg: 272, coarse: true } });
   });
 });
+
+describe("startServer static files", () => {
+  let server: DashboardServer | undefined;
+
+  afterEach(async () => {
+    await server?.close();
+    server = undefined;
+  });
+
+  it("serves the device photos as images", async () => {
+    const config = loadConfig({ HTTP_PORT: "0", HTTP_PRIVATE_PORT: "0" });
+    const options = { ...config.liveStream, logger: silentLogger };
+    const stream = () => createLiveStream({ ...options, getUpdate: () => buildLiveUpdate({}, {}) });
+    server = startServer(config, silentLogger, () => emptySnapshot, () => emptySnapshot, stream(), stream());
+    await new Promise((r) => server!.httpServer.once("listening", r));
+
+    const res = await fetch(`http://127.0.0.1:${(server.httpServer.address() as AddressInfo).port}/img/victron/bmv-712.webp`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("image/webp");
+  });
+});

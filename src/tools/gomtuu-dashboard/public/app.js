@@ -17,7 +17,7 @@ import {
   easeToward,
   easeAngleToward,
   lockIconSvg,
-  sensorTableHtml,
+  deviceCardHtml,
 } from "./render.js";
 import { gradientPair } from "./color.js";
 
@@ -309,8 +309,31 @@ function renderSensorTables(devices) {
     return;
   }
 
-  container.innerHTML = macs.map((mac) => sensorTableHtml(mac, devices[mac])).join("");
+  container.innerHTML = macs.map((mac) => deviceCardHtml(mac, devices[mac], isCardOpen(mac))).join("");
 }
+
+const CARD_OPEN_KEY_PREFIX = "gomac.deviceCard.open.";
+
+function isCardOpen(mac) {
+  try {
+    return localStorage.getItem(CARD_OPEN_KEY_PREFIX + mac) === "1";
+  } catch {
+    return false;
+  }
+}
+
+// "toggle" doesn't bubble, so listen in the capture phase; the cards are
+// re-rendered on every update, so the stored choice is what keeps them open.
+document.getElementById("sensorTables").addEventListener("toggle", (event) => {
+  const details = event.target;
+  if (!details.matches?.("details.dc-more")) return;
+  try {
+    if (details.open) localStorage.setItem(CARD_OPEN_KEY_PREFIX + details.dataset.mac, "1");
+    else localStorage.removeItem(CARD_OPEN_KEY_PREFIX + details.dataset.mac);
+  } catch {
+    // Storage unavailable (private window, blocked site data): cards just start collapsed.
+  }
+}, true);
 
 function renderNowPlaying(np) {
   const el = document.getElementById("nowPlaying");

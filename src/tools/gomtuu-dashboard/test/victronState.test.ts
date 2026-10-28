@@ -81,6 +81,17 @@ describe("device names", () => {
     expect(Object.keys(device.metrics)).toEqual(["soc"]);
   });
 
+  it("stores the retained model topic as the device model, not as a metric", () => {
+    const store = createVictronStore();
+    handleVictronMessage(store, "victron-ble/e0b42569296f/model", "BMV-712 Smart");
+    handleVictronMessage(store, "victron-ble/e0b42569296f/model", "");
+    handleVictronMessage(store, "victron-ble/dd1cc7607ae4/model", "SmartSolar Charger MPPT 100/15");
+
+    expect(store.devices["e0b42569296f"]!.model).toBeUndefined();
+    expect(store.devices["dd1cc7607ae4"]!.model).toBe("SmartSolar Charger MPPT 100/15");
+    expect(store.devices["dd1cc7607ae4"]!.metrics).not.toHaveProperty("model");
+  });
+
   it("clears the name when the retained topic is emptied", () => {
     const store = createVictronStore();
     handleVictronMessage(store, "victron-ble/e0b42569296f/name", "SmartBMV HQ25363ZHH4");
