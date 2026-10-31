@@ -41,7 +41,6 @@ function findDevice(store: VictronStore, metric: string): VictronDeviceState | u
 }
 
 function watts(device: VictronDeviceState | undefined, amps: string, volts: string): number {
-  if (!online(device)) return 0;
   return (num(device, amps) ?? 0) * (num(device, volts) ?? 0);
 }
 
@@ -51,14 +50,19 @@ export function computeEnergyFlows(store: VictronStore, starlink: StarlinkSummar
   const orion = findDevice(store, "off_reason");
 
   // Battery side, so it balances against the shunt (PV watts include conversion loss).
-  const solarW = watts(solarCharger, "battery_charging_current", "battery_voltage");
-  const loadW = watts(solarCharger, "external_device_load", "battery_voltage");
-  const shoreW = watts(shore, "output_current1", "output_voltage1");
+  // An offline MPPT is unheard, not off (it runs from the battery), so its
+  // flows, and everything inferred from them, are unknown. An offline shore
+  // charger is unplugged: 0 W.
+  const mpptHeard = online(solarCharger);
+  const solarW = mpptHeard ? watts(solarCharger, "battery_charging_current", "battery_voltage") : undefined;
+  const loadW = mpptHeard ? watts(solarCharger, "external_device_load", "battery_voltage") : undefined;
+  const shoreW = online(shore) ? watts(shore, "output_current1", "output_voltage1") : 0;
   const starlinkW = starlink.powerW ?? 0;
   const orionCharging = online(orion) && !ORION_IDLE_STATES.has(orion?.metrics.charge_state?.value.toUpperCase() ?? "OFF");
 
   const flows: EnergyFlows = { solarW, shoreW, loadW, starlinkW, starlinkPeakW: starlink.peakW, ghostEstimated: orionCharging };
   const batteryW = summarizePower(store).power;
+  if (solarW === undefined || loadW === undefined) return flows;
   if (batteryW === undefined) {
     flows.chargeW = solarW + shoreW;
     return flows;

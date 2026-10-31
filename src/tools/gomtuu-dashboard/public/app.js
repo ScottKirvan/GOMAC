@@ -21,7 +21,7 @@ import {
 import { gradientPair } from "./color.js";
 
 /**
- * Shared concentric-ring dial geometry for the Current gauge: amp (outer) /
+ * Shared concentric-ring dial geometry for the Battery gauge: power (outer) /
  * SOC (middle) / produced (inner), all centered on the same point; the
  * Charge and Draw gauges use the same radii (see FLOW_RINGS). Radii/stroke-widths are chosen
  * for even breathing room between all three rings at the current viewBox
@@ -34,7 +34,7 @@ const SOC_RING_RADIUS = 47;
 const SOC_RING_STROKE = 7;
 const INNER_RING_RADIUS = 35;
 const INNER_RING_STROKE = 6;
-const AMP_RING_STROKE = 7;
+const BATTERY_POWER_STROKE = 7;
 
 /**
  * Gradient endpoints for each ring, derived from the theme's base colors
@@ -66,26 +66,26 @@ function getRingGradients() {
 }
 
 /**
- * Amp gauge geometry/scale. Deliberately a named constant, not a magic
- * number buried in the arc math below -- Scott's observed real-world peaks
- * are ~30A on both draw and charge, but that's a starting point to tune,
- * not a hard spec. +-AMP_GAUGE_FULL_SCALE_A maps to a full 360 degree fill.
+ * Battery power ring scale: +-BATTERY_POWER_FULL_SCALE_W maps to a full 360
+ * degree fill. Scott's observed real-world peaks are ~30 A on both draw and
+ * charge, about 400 W at 13.3 V -- a starting point to tune, not a spec.
  */
-const AMP_GAUGE_FULL_SCALE_A = 30;
-const AMP_GAUGE_CENTER = DIAL_CENTER;
-const AMP_GAUGE_RADIUS = 58;
+const BATTERY_POWER_FULL_SCALE_W = 400;
+const BATTERY_POWER_RADIUS = 58;
 
 /**
  * Battery pack nominal capacity, used to convert the BMV-712's hardware
  * consumed_ah reading into the SOC ring's "Ah remaining" center readout.
- * A named, tunable constant like AMP_GAUGE_FULL_SCALE_A above -- this is
+ * A named, tunable constant like BATTERY_POWER_FULL_SCALE_W above -- this is
  * Scott's stated assumption for his system, not a value read off the
  * device itself (the BMV-712 has its own internally configured capacity
  * setting, which this may not exactly match -- see renderPowerGauge).
  */
 const BATTERY_CAPACITY_AH = 200;
+/** Two Battle Born 12 V LiFePO4 batteries: Ah remaining becomes Wh at this nominal voltage, not the live one, which sags under load. */
+const BATTERY_NOMINAL_V = 12.8;
 
-/** Full scale of the Current gauge's inner ring: energy produced by all charge sources today. */
+/** Full scale of the Battery gauge's inner ring: energy produced by all charge sources today. */
 const PRODUCED_FULL_SCALE_WH = 1000;
 
 /**
@@ -154,11 +154,12 @@ function renderPowerGauge(power, chart) {
     socNum.textContent = "—";
     socNum.title = "";
   } else {
-    const clampedAh = Math.min(BATTERY_CAPACITY_AH, Math.max(0, remainingAh));
-    socNum.textContent = `${Math.round(clampedAh)}Ah`;
+    const wh = Math.min(BATTERY_CAPACITY_AH, Math.max(0, remainingAh)) * BATTERY_NOMINAL_V;
+    socNum.innerHTML = wh >= 1000 ? `${(wh / 1000).toFixed(2)}<span class="unit">kWh</span>` : `${Math.round(wh)}<span class="unit">Wh</span>`;
+    const capacity = `${BATTERY_CAPACITY_AH}Ah × ${BATTERY_NOMINAL_V}V nominal`;
     socNum.title = remainingAhIsEstimate
-      ? `Estimated as ${Math.round(soc)}% of a ${BATTERY_CAPACITY_AH}Ah nominal pack -- the battery monitor isn't reporting consumed_ah right now, which is the more accurate source this normally uses.`
-      : `${BATTERY_CAPACITY_AH}Ah nominal capacity minus ${Math.abs(consumedAh).toFixed(1)}Ah consumed since last full charge (consumed_ah).`;
+      ? `Energy remaining, estimated as ${Math.round(soc)}% of ${capacity} -- the battery monitor isn't reporting consumed_ah right now, which is the more accurate source this normally uses.`
+      : `Energy remaining: ${capacity}, minus ${Math.abs(consumedAh).toFixed(1)}Ah consumed since last full charge (consumed_ah).`;
   }
 
   document.getElementById("keySoc").title = soc === undefined ? "State of charge" : `State of charge: ${fmt(soc, 1, "%")}`;
@@ -179,55 +180,52 @@ function renderPowerGauge(power, chart) {
 }
 
 /**
- * Bidirectional amp gauge: 0A sits at top dead center with an empty bar.
- * Charge (positive current) fills clockwise in green; draw/discharge
- * (negative current) fills counter-clockwise in red. +-AMP_GAUGE_FULL_SCALE_A
- * is a full 360 degree fill. This is now the outermost of the three
- * concentric dial rings (amp / SOC / produced), sharing one center with
- * renderPowerGauge's rings -- see DIAL_CENTER / AMP_GAUGE_RADIUS above.
- * Values beyond full scale are capped visually at 100% (not wrapped) but a
- * small pulsing dot marks the pegged end of the bar so the overflow is
- * obvious -- the live numeric amp reading in the dial center is always the
- * real, uncapped value regardless of pegging.
+ * Bidirectional battery power ring: 0 W sits at top dead center with an
+ * empty bar. Charging fills clockwise in green; drawing fills
+ * counter-clockwise in red. +-BATTERY_POWER_FULL_SCALE_W is a full 360
+ * degree fill. Outermost of the Battery gauge's rings (power / SOC /
+ * produced). Values beyond full scale are capped visually at 100% (not
+ * wrapped) but a small pulsing dot marks the pegged end of the bar -- the
+ * numeric reading in the dial center is always the real, uncapped value.
  */
-function renderAmpGauge(current) {
-  const arc = document.getElementById("ampArc");
-  const overflowDot = document.getElementById("ampOverflowDot");
-  const reading = document.getElementById("ampReading");
+function renderBatteryPower(watts) {
+  const arc = document.getElementById("batteryArc");
+  const overflowDot = document.getElementById("batteryOverflowDot");
+  const reading = document.getElementById("batteryReading");
 
-  const direction = currentDirection(current);
-  reading.textContent = fmtSigned(current, 1, " A");
+  const direction = currentDirection(watts === undefined ? undefined : Math.round(watts));
+  reading.textContent = fmtSigned(watts, 0, " W");
   reading.classList.remove("is-charge", "is-draw");
   if (direction) reading.classList.add(`is-${direction}`);
   reading.title = direction === "charge" ? "charging" : direction === "draw" ? "drawing" : "";
-  document.getElementById("keyAmps").title = `Battery current: ${fmtSigned(current, 1, " A")} of ±${AMP_GAUGE_FULL_SCALE_A} A full scale`;
+  document.getElementById("keyPower").title = `Battery power: ${fmtSigned(watts, 0, " W")} of ±${BATTERY_POWER_FULL_SCALE_W} W full scale`;
 
   if (!direction) {
     arc.innerHTML = "";
-    arc.classList.remove("amp-arc-overflow");
+    arc.classList.remove("battery-arc-overflow");
     overflowDot.setAttribute("r", "0");
     return;
   }
 
-  const magnitude = Math.abs(current);
-  const pct = Math.min(1, magnitude / AMP_GAUGE_FULL_SCALE_A);
-  const overflowing = magnitude > AMP_GAUGE_FULL_SCALE_A;
+  const magnitude = Math.abs(watts);
+  const pct = Math.min(1, magnitude / BATTERY_POWER_FULL_SCALE_W);
+  const overflowing = magnitude > BATTERY_POWER_FULL_SCALE_W;
   const extent = (direction === "charge" ? 1 : -1) * pct * 360;
   const gradient = getRingGradients()[direction];
 
   arc.innerHTML = gradientArcSvg({
-    cx: AMP_GAUGE_CENTER, cy: AMP_GAUGE_CENTER, r: AMP_GAUGE_RADIUS, strokeWidth: AMP_RING_STROKE,
+    cx: DIAL_CENTER, cy: DIAL_CENTER, r: BATTERY_POWER_RADIUS, strokeWidth: BATTERY_POWER_STROKE,
     extentDeg: extent, ...gradient,
   });
-  arc.classList.toggle("amp-arc-overflow", overflowing);
+  arc.classList.toggle("battery-arc-overflow", overflowing);
 
   if (overflowing) {
-    const tip = polarPointFromTop(AMP_GAUGE_CENTER, AMP_GAUGE_CENTER, AMP_GAUGE_RADIUS, extent);
+    const tip = polarPointFromTop(DIAL_CENTER, DIAL_CENTER, BATTERY_POWER_RADIUS, extent);
     overflowDot.setAttribute("cx", tip.x.toFixed(3));
     overflowDot.setAttribute("cy", tip.y.toFixed(3));
     overflowDot.setAttribute("fill", gradient.end);
     overflowDot.setAttribute("r", "3.5");
-    reading.title = `${reading.title}, pegged — exceeds the ±${AMP_GAUGE_FULL_SCALE_A}A gauge scale`;
+    reading.title = `${reading.title}, pegged — exceeds the ±${BATTERY_POWER_FULL_SCALE_W} W gauge scale`;
   } else {
     overflowDot.setAttribute("r", "0");
   }
@@ -287,8 +285,8 @@ function renderMotion(speedMps, courseDeg) {
  * Displayed values ease toward their targets (EASE_TAU_MS) at up to
  * MAX_FRAME_RATE, and the animation stops once everything has settled.
  */
-const LIVE_KEYS = ["current", "speedMps", "courseDeg", ...FLOW_KEYS];
-const SETTLE_EPSILON = { current: 0.01, speedMps: 0.01, courseDeg: 0.1, ...Object.fromEntries(FLOW_KEYS.map((key) => [key, 0.2])) };
+const LIVE_KEYS = ["current", "voltage", "speedMps", "courseDeg", ...FLOW_KEYS];
+const SETTLE_EPSILON = { current: 0.01, voltage: 0.001, speedMps: 0.01, courseDeg: 0.1, ...Object.fromEntries(FLOW_KEYS.map((key) => [key, 0.2])) };
 const EASE_TAU_MS = 120;
 const MIN_FRAME_MS = 1000 / 30;
 const prefersReducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
@@ -297,7 +295,7 @@ const live = { streaming: false, targets: {}, shown: {}, ghostEstimated: false, 
 
 function renderLiveFields() {
   const { shown } = live;
-  renderAmpGauge(shown.current);
+  renderBatteryPower(shown.current === undefined || shown.voltage === undefined ? undefined : shown.current * shown.voltage);
   renderFlowGauges(shown, live.ghostEstimated);
   renderMotion(shown.speedMps, shown.courseDeg);
 }
@@ -609,7 +607,7 @@ function render(snapshot) {
   if (!live.streaming) {
     const { power, flows } = snapshot.victron;
     live.ghostEstimated = flows?.ghostEstimated === true;
-    setLiveTargets({ current: power.current, ...flows, speedMps: snapshot.position.speedMps, courseDeg: snapshot.position.courseDeg });
+    setLiveTargets({ current: power.current, voltage: power.voltage, ...flows, speedMps: snapshot.position.speedMps, courseDeg: snapshot.position.courseDeg });
   }
   renderPowerGauge(snapshot.victron.power, snapshot.victron.chart);
   renderChart(snapshot.victron, snapshot.serverTime);
@@ -771,7 +769,7 @@ function openStream() {
     renderClock(update.t);
     live.position = update.position;
     live.ghostEstimated = update.flows?.ghostEstimated === true;
-    setLiveTargets({ current: update.power.current, ...update.flows, speedMps: update.position.speedMps, courseDeg: update.position.courseDeg });
+    setLiveTargets({ current: update.power.current, voltage: update.power.voltage, ...update.flows, speedMps: update.position.speedMps, courseDeg: update.position.courseDeg });
     const { latitude, longitude } = update.position;
     if (latitude !== live.lastSnapshotPosition?.latitude || longitude !== live.lastSnapshotPosition?.longitude) {
       live.lastSnapshotPosition = { ...live.lastSnapshotPosition, ...definedOnly(update.position) };

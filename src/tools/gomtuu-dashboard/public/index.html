@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" />
-<link rel="stylesheet" href="style.css?v=150d910fdb" />
+<link rel="stylesheet" href="style.css?v=1b4a1ebcfb" />
 </head>
 <body>
   <div class="wrap">
@@ -34,8 +34,8 @@
             <div class="dial-wrap">
               <svg viewBox="0 0 128 128">
                 <circle class="dial-track" cx="64" cy="64" r="58" stroke-width="7" />
-                <g id="ampArc" class="amp-arc"></g>
-                <circle id="ampOverflowDot" class="amp-overflow-dot" r="0" cx="64" cy="6" fill="var(--crit)" />
+                <g id="batteryArc" class="battery-arc"></g>
+                <circle id="batteryOverflowDot" class="battery-overflow-dot" r="0" cx="64" cy="6" fill="var(--crit)" />
 
                 <circle class="dial-track" cx="64" cy="64" r="47" stroke-width="7" />
                 <g id="socRing"></g>
@@ -46,12 +46,12 @@
               <div class="dial-center">
                 <span id="socNum" class="num">&mdash;</span>
                 <span id="producedSub" class="sub produced-sub">&mdash;</span>
-                <span id="ampReading" class="sub amp-reading">&mdash;</span>
+                <span id="batteryReading" class="sub battery-reading">&mdash;</span>
               </div>
             </div>
-            <div class="gauge-title">Current</div>
+            <div class="gauge-title">Battery</div>
             <div class="gauge-key">
-              <span id="keyAmps"><i style="background:var(--good)"></i>Amps</span>
+              <span id="keyPower"><i style="background:var(--good)"></i>Power</span>
               <span id="keySoc"><i style="background:var(--battery)"></i>SOC</span>
               <span id="keyProduced"><i style="background:var(--produced)"></i>Produced</span>
             </div>
@@ -164,13 +164,13 @@
   <script type="importmap">
   {
     "imports": {
-      "./app.js": "./app.js?v=faca0c8e14",
+      "./app.js": "./app.js?v=781adb002a",
       "./color.js": "./color.js?v=b9120594e9",
       "./render.js": "./render.js?v=e8c4d212f4"
     }
   }
   </script>
   <script src="config.js?v=05a58d0efe"></script>
-  <script type="module" src="app.js?v=faca0c8e14"></script>
+  <script type="module" src="app.js?v=781adb002a"></script>
 </body>
 </html>

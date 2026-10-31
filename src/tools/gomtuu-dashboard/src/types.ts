@@ -47,7 +47,8 @@ export interface PowerSummary {
 
 /** Watts by source and consumer, for the Charge and Draw gauges (see energyFlows.ts). */
 export interface EnergyFlows {
-  solarW: number;
+  /** Undefined while the MPPT is offline, as are the load output and everything inferred. */
+  solarW?: number;
   shoreW: number;
   /** Inferred from the battery balance while the Orion charges; undefined without a battery reading. */
   alternatorW?: number;
@@ -55,7 +56,7 @@ export interface EnergyFlows {
   /** Highest Starlink reading in the last 2 minutes. */
   starlinkPeakW?: number;
   /** The solar charger's load output. */
-  loadW: number;
+  loadW?: number;
   /** Unmeasured consumers; undefined without a battery reading. */
   ghostW?: number;
   /** True while the Orion charges: the ghost load is then the last value worked out while it was off. */

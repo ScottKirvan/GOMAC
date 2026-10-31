@@ -89,6 +89,22 @@ describe("computeEnergyFlows", () => {
     expect(flows.drawW).toBeUndefined();
   });
 
+  it("reports solar, its load output, and everything inferred as unknown while the MPPT is offline", () => {
+    const hold = createGhostHold();
+    computeEnergyFlows(van("OFF"), { powerW: 25 }, hold, 1000);
+    const store = van("OFF");
+    publish(store, SOLAR, { availability: "offline" });
+    const flows = computeEnergyFlows(store, { powerW: 25 }, hold, 2000);
+    expect(flows.solarW).toBeUndefined();
+    expect(flows.loadW).toBeUndefined();
+    expect(flows.ghostW).toBeUndefined();
+    expect(flows.alternatorW).toBeUndefined();
+    expect(flows.chargeW).toBeUndefined();
+    expect(flows.drawW).toBeUndefined();
+    expect(flows.starlinkW).toBe(25);
+    expect(hold).toEqual({ w: expect.closeTo(66), at: 1000 });
+  });
+
   it("passes the Starlink peak through", () => {
     expect(computeEnergyFlows(van("OFF"), { powerW: 25, peakW: 41 }, createGhostHold(), 1000).starlinkPeakW).toBe(41);
   });
