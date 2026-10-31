@@ -31,8 +31,8 @@ empty state until it can reach a broker with real traffic.
 
 | Panel | Status | Source |
 |---|---|---|
-| Power Gauge (Ah remaining, voltage, solar, amp flow, charger) | **live** | `victron-ble/<mac>/<metric>` |
-| Amp gauge (bidirectional draw/charge ring) | **live** | `power.current`, surfaced live as the dial center's `ampReading` line and the stats column's Current row -- no new plumbing, just a visualization of a field the backend already summarized. Outermost of the Power Gauge dial's three concentric rings (amp outer, SOC middle, solar inner, all sharing one center). 0A at top dead center, charge fills clockwise (green), draw fills counter-clockwise (red), full ring = `AMP_GAUGE_FULL_SCALE_A` in `public/app.js` (currently ±30A, tune there). All three rings are gradient arcs: each ring's soft-to-vivid color pair is derived from its base color in `style.css` by `gradientPair` in `public/color.js`, whose tuning constants are at the top of that file. |
+| Power Gauge: Current gauge | **live** | `victron-ble/<mac>/<metric>`. Rings: battery amps (outer; 0 A at the top, charge clockwise in green, draw counter-clockwise in red, full ring ±`AMP_GAUGE_FULL_SCALE_A` = 30 A), state of charge (middle), and energy produced by all charge sources since an hour before sunrise (inner, full ring `PRODUCED_FULL_SCALE_WH` = 1 kWh; summed from the chart's `producedWh`). Centre: Ah remaining, produced Wh, amps. |
+| Power Gauge: Charge and Draw gauges | **live** | `snapshot.victron.flows` / the live stream's `flows`, worked out in `src/energyFlows.ts`. Charge rings: solar (battery side), alternator, shore. Draw rings: Starlink (`starlink/power_w`, with its 2-minute peak as a dot), the solar charger's load output, and the ghost load. Each ring is full at its device's rated maximum (`FLOW_RINGS` in `public/app.js`); the watts are in each key entry's tooltip. All rings are gradient arcs: each ring's soft-to-vivid colour pair comes from its base colour in `style.css` via `gradientPair` in `public/color.js`. |
 | SOC ring center readout (Ah remaining) | **live** | `power.consumedAh` (BMV-712's `consumed_ah`, newly captured in `victronState.ts`) against a `BATTERY_CAPACITY_AH` (200Ah) nominal pack assumption in `public/app.js` -- deliberately not derived from `soc`%, since the two don't necessarily agree (the BMV-712's own internally configured capacity setting may differ from 200Ah). Falls back to a soc%-derived estimate, flagged as such in the number's tooltip, only if `consumed_ah` itself isn't being reported. The ring's fill is unchanged and still driven by `soc`% directly. |
 | Solar input & energy banked chart | **live** | Spans an hour before sunrise to now, stopping an hour after sunset. Until an hour before sunrise, it shows the previous day's span (sun times from Open-Meteo, `past_days=1`; without them, the last 12 hours). Solar power (W) on the left scale; energy charged into the battery since the span started (Wh, charging only, not net of draw) on the right. The snapshot carries the span as `victron.chart` (`start`, `end`, and 1-minute points). Readings are merged into 10-second buckets. 48 hours are kept and saved to `POWER_HISTORY_STATE_FILE` (default `data/power-history.json`, relative to the working directory, gitignored) every minute and on shutdown, so restarts don't blank the chart. Battery power is voltage × current, since the BMV-712 shunt doesn't report power itself. Each bucket also records the energy charged into the battery during it (`chargedWh`, charging only), counted by elapsed time at the latest battery power while the battery monitor is online (gaps of over 60s with no Victron messages at all aren't counted). |
 | Device cards | **live** | same, one VictronConnect-style card per device: photo, name, model, online/offline, key readings as tiles, every other metric behind an expand arrow |
@@ -160,6 +160,21 @@ reports (`soc` → BMV-712, `solar_power` → SmartSolar MPPT, `input_voltage`
 or `off_reason` → Orion Smart, `output_voltage1` → Blue Smart IP22), since
 each reading set belongs to exactly one of Gomtuu's devices; a device that
 matches none gets no photo. Swapping hardware means revisiting that mapping.
+
+**Energy flows (`src/energyFlows.ts`):** solar, shore, the load output
+and Starlink are measured. The Orion doesn't report its current over BLE,
+so the alternator can't be measured, and the shunt only sees the battery's
+net flow: whatever the measured flows don't account for is either the
+ghost load (unmeasured consumers) or the alternator. While the Orion is
+off, it's all ghost load. While it charges (any state but `OFF`, `FAULT`,
+`NOT_AVAILABLE`, `LOW_POWER`), the ghost load is held at its last value
+from before (taken as 0 after an hour) and marked as an estimate, and the
+alternator gets the rest. Solar is battery-side watts
+(`battery_charging_current` × `battery_voltage`), not PV watts, so it
+balances against the shunt. Unverified: whether the MPPT's
+`battery_charging_current` already excludes its load output. If it does,
+the load output is subtracted twice; it reads 0 W today, so this hasn't
+mattered yet.
 
 **Before relying on the Power Gauge for anything real**, verify the actual
 metric names against the live broker:

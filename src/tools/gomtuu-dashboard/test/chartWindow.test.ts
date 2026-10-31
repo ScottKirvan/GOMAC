@@ -49,11 +49,14 @@ describe("chartSamples", () => {
       { t: start, solarPower: 40, chargedWh: 0.1 },
       { t: start + 10_000, solarPower: 90, chargedWh: 0.2 },
       { t: start + 60_000, solarPower: 30 },
-      { t: start + 70_000, chargedWh: 0.05 },
+      { t: start + 70_000, chargedWh: 0.05, producedWh: 0.4 },
+      { t: start + 80_000, producedWh: 0.1 },
     ];
     const points = chartSamples(samples, start, start + 2 * 60_000);
     expect(points.map((p) => [p.t, p.solarPower])).toEqual([[start, 90], [start + 60_000, 30]]);
     expect(points[0]!.chargedWh).toBeCloseTo(0.3, 9);
     expect(points[1]!.chargedWh).toBeCloseTo(0.05, 9);
+    expect(points[0]!.producedWh).toBeUndefined();
+    expect(points[1]!.producedWh).toBeCloseTo(0.5, 9);
   });
 });

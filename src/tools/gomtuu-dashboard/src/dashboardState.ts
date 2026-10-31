@@ -1,11 +1,13 @@
 import { createConnectivityHistory, type ConnectivityHistory } from "./connectivityHistory.js";
 import { createConnectivityState, summarizeConnectivity } from "./connectivityState.js";
 import { chartSamples, chartWindow } from "./chartWindow.js";
+import { computeEnergyFlows, createGhostHold, type GhostHold } from "./energyFlows.js";
 import { createPowerHistory, type PowerHistory } from "./history.js";
 import { createNowPlayingState } from "./pandoraState.js";
 import { coarsenPosition, createPositionState } from "./positionState.js";
 import { createSolarPeakStore, summarizeSolarPeak, type SolarPeakStore } from "./solarPeak.js";
-import type { ConnectivityState, DashboardSnapshot, NowPlayingState, PositionState, WeatherState } from "./types.js";
+import { createStarlinkStore, summarizeStarlink, type StarlinkStore } from "./starlinkState.js";
+import type { ConnectivityState, DashboardSnapshot, EnergyFlows, NowPlayingState, PositionState, WeatherState } from "./types.js";
 import { createVictronStore, summarizePower, type VictronStore } from "./victronState.js";
 
 export interface DashboardStores {
@@ -17,6 +19,8 @@ export interface DashboardStores {
   powerHistory: PowerHistory;
   connectivityHistory: ConnectivityHistory;
   solarPeak: SolarPeakStore;
+  starlink: StarlinkStore;
+  ghostHold: GhostHold;
 }
 
 export function createDashboardStores(
@@ -32,7 +36,13 @@ export function createDashboardStores(
     powerHistory,
     connectivityHistory: createConnectivityHistory(),
     solarPeak,
+    starlink: createStarlinkStore(),
+    ghostHold: createGhostHold(),
   };
+}
+
+export function currentEnergyFlows(stores: DashboardStores, now: number = Date.now()): EnergyFlows {
+  return computeEnergyFlows(stores.victron, summarizeStarlink(stores.starlink, now), stores.ghostHold, now);
 }
 
 export function buildSnapshot(stores: DashboardStores, now: number = Date.now()): DashboardSnapshot {
@@ -44,6 +54,7 @@ export function buildSnapshot(stores: DashboardStores, now: number = Date.now())
       power: summarizePower(stores.victron),
       chart: { ...window, samples: chartSamples(stores.powerHistory.samples, window.start, window.end) },
       solarPeak: summarizeSolarPeak(stores.solarPeak),
+      flows: currentEnergyFlows(stores, now),
     },
     nowPlaying: stores.nowPlaying,
     position: stores.position,

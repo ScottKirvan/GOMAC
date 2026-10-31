@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Logger } from "./logger.js";
-import type { PositionState, PowerSummary } from "./types.js";
+import type { EnergyFlows, PositionState, PowerSummary } from "./types.js";
 
 /**
  * Payload of each `live` Server-Sent Event on `/stream`. `v` is bumped on
@@ -12,11 +12,13 @@ export interface LiveUpdate {
   t?: number;
   power: Pick<PowerSummary, "current" | "solarPower" | "voltage">;
   position: Pick<PositionState, "latitude" | "longitude" | "speedMps" | "courseDeg" | "coarse">;
+  flows?: EnergyFlows;
 }
 
-export function buildLiveUpdate(power: PowerSummary, position: PositionState): LiveUpdate {
+export function buildLiveUpdate(power: PowerSummary, position: PositionState, flows?: EnergyFlows): LiveUpdate {
   return {
     v: 1,
+    ...(flows ? { flows } : {}),
     power: { current: power.current, solarPower: power.solarPower, voltage: power.voltage },
     position: {
       latitude: position.latitude,

@@ -2,12 +2,13 @@ import mqtt, { type MqttClient } from "mqtt";
 import { handleConnectivityMessage, summarizeConnectivity } from "./connectivityState.js";
 import { recordConnectivitySample } from "./connectivityHistory.js";
 import type { DashboardConfig } from "./config.js";
-import type { DashboardStores } from "./dashboardState.js";
+import { currentEnergyFlows, type DashboardStores } from "./dashboardState.js";
 import { recordPowerSample } from "./history.js";
 import { recordSolarPower } from "./solarPeak.js";
 import type { Logger } from "./logger.js";
 import { handlePandoraMessage } from "./pandoraState.js";
 import { handlePositionMessage } from "./positionState.js";
+import { handleStarlinkMessage } from "./starlinkState.js";
 import { handleVictronMessage, summarizePower } from "./victronState.js";
 
 /** A connection closed this soon after opening counts as a quick drop. */
@@ -76,6 +77,8 @@ export function connectMqtt(
       `${config.mqtt.pandoraTopicPrefix}/#`,
       `${config.mqtt.positionTopicPrefix}/#`,
       config.mqtt.connectivityTopicFilter,
+      "starlink/power_w",
+      "starlink/availability",
     ];
     // One log line per connection, so a reconnect costs one line, not five.
     client.subscribe(topics, { qos: 0 }, (err) => {
@@ -97,7 +100,8 @@ export function connectMqtt(
     if (topic.startsWith("victron-ble/")) {
       handleVictronMessage(stores.victron, topic, payload);
       const power = summarizePower(stores.victron);
-      recordPowerSample(stores.powerHistory, power);
+      const now = Date.now();
+      recordPowerSample(stores.powerHistory, power, now, currentEnergyFlows(stores, now).chargeW);
       if (recordSolarPower(stores.solarPeak, power.solarPower)) onNewSolarPeak();
       onUpdate();
       return;
@@ -111,6 +115,12 @@ export function connectMqtt(
 
     if (topic.startsWith(`${config.mqtt.positionTopicPrefix}/`)) {
       handlePositionMessage(stores.position, topic, payload);
+      onUpdate();
+      return;
+    }
+
+    if (topic.startsWith("starlink/")) {
+      handleStarlinkMessage(stores.starlink, topic, payload);
       onUpdate();
       return;
     }

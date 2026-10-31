@@ -1,5 +1,5 @@
 import { loadConfig } from "./config.js";
-import { buildSnapshot, createDashboardStores, redactPositionForPublic } from "./dashboardState.js";
+import { buildSnapshot, createDashboardStores, currentEnergyFlows, redactPositionForPublic } from "./dashboardState.js";
 import { buildLiveUpdate, createLiveStream } from "./liveStream.js";
 import { consoleLogger } from "./logger.js";
 import { loadPowerHistory, savePowerHistory } from "./history.js";
@@ -42,10 +42,10 @@ const server = startServer(
   consoleLogger,
   () => buildSnapshot(stores),
   () => redactPositionForPublic(buildSnapshot(stores)),
-  createLiveStream({ ...liveStreamOptions, getUpdate: () => buildLiveUpdate(summarizePower(stores.victron), stores.position) }),
+  createLiveStream({ ...liveStreamOptions, getUpdate: () => buildLiveUpdate(summarizePower(stores.victron), stores.position, currentEnergyFlows(stores)) }),
   createLiveStream({
     ...liveStreamOptions,
-    getUpdate: () => buildLiveUpdate(summarizePower(stores.victron), coarsenPosition(stores.position)),
+    getUpdate: () => buildLiveUpdate(summarizePower(stores.victron), coarsenPosition(stores.position), currentEnergyFlows(stores)),
   }),
 );
 

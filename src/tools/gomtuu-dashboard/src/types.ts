@@ -45,6 +45,25 @@ export interface PowerSummary {
   solarDeviceName?: string;
 }
 
+/** Watts by source and consumer, for the Charge and Draw gauges (see energyFlows.ts). */
+export interface EnergyFlows {
+  solarW: number;
+  shoreW: number;
+  /** Inferred from the battery balance while the Orion charges; undefined without a battery reading. */
+  alternatorW?: number;
+  starlinkW: number;
+  /** Highest Starlink reading in the last 2 minutes. */
+  starlinkPeakW?: number;
+  /** The solar charger's load output. */
+  loadW: number;
+  /** Unmeasured consumers; undefined without a battery reading. */
+  ghostW?: number;
+  /** True while the Orion charges: the ghost load is then the last value worked out while it was off. */
+  ghostEstimated: boolean;
+  chargeW?: number;
+  drawW?: number;
+}
+
 export interface NowPlayingState {
   title?: string;
   artist?: string;
@@ -146,6 +165,7 @@ export interface DashboardSnapshot {
     /** The trend chart's time span and its 1-minute points (see chartWindow.ts). */
     chart: { start: number; end: number; samples: PowerSample[] };
     solarPeak: SolarPeakSummary;
+    flows: EnergyFlows;
   };
   nowPlaying: NowPlayingState;
   position: PositionState;
@@ -173,4 +193,6 @@ export interface PowerSample {
   solarPower?: number;
   /** Energy charged into the battery during this bucket, in Wh (charging only, never negative). */
   chargedWh?: number;
+  /** Energy produced by all charge sources during this bucket, in Wh, including what went straight to loads. */
+  producedWh?: number;
 }

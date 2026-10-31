@@ -10,7 +10,6 @@ import {
   buildRttSparkline,
   googleMapsUrl,
   currentDirection,
-  chargeStateTone,
   weatherIcon,
   forecastDayLabel,
   gradientArcSvg,
@@ -22,8 +21,9 @@ import {
 import { gradientPair } from "./color.js";
 
 /**
- * Shared concentric-ring dial geometry: amp (outer) / SOC (middle) / solar
- * (inner), all centered on the same point. Radii/stroke-widths are chosen
+ * Shared concentric-ring dial geometry for the Current gauge: amp (outer) /
+ * SOC (middle) / produced (inner), all centered on the same point; the
+ * Charge and Draw gauges use the same radii (see FLOW_RINGS). Radii/stroke-widths are chosen
  * for even breathing room between all three rings at the current viewBox
  * size -- see public/index.html's <svg viewBox="0 0 128 128"> for the
  * matching static markup (track circles and the empty ring groups that
@@ -32,8 +32,8 @@ import { gradientPair } from "./color.js";
 const DIAL_CENTER = 64;
 const SOC_RING_RADIUS = 47;
 const SOC_RING_STROKE = 7;
-const SOLAR_RING_RADIUS = 35;
-const SOLAR_RING_STROKE = 6;
+const INNER_RING_RADIUS = 35;
+const INNER_RING_STROKE = 6;
 const AMP_RING_STROKE = 7;
 
 /**
@@ -53,7 +53,13 @@ function getRingGradients() {
       charge: pairFor("--good"),
       draw: pairFor("--crit"),
       soc: pairFor("--battery"),
-      solar: pairFor("--solar"),
+      produced: pairFor("--produced"),
+      solarW: pairFor("--solar"),
+      alternatorW: pairFor("--alternator"),
+      shoreW: pairFor("--shore"),
+      starlinkW: pairFor("--connectivity"),
+      loadW: pairFor("--audio"),
+      ghostW: pairFor("--ghost"),
     };
   }
   return ringGradients;
@@ -79,7 +85,36 @@ const AMP_GAUGE_RADIUS = 58;
  */
 const BATTERY_CAPACITY_AH = 200;
 
-function renderPowerGauge(power, solarPeak) {
+/** Full scale of the Current gauge's inner ring: energy produced by all charge sources today. */
+const PRODUCED_FULL_SCALE_WH = 1000;
+
+/**
+ * Charge and Draw gauge rings, outer to inner, each full at its device's
+ * rated maximum at ~14.4 V (Starlink Mini's typical maximum; the ghost
+ * load's scale was picked from a day's history). Rings aren't comparable
+ * with each other by eye: the watts are in each key entry's tooltip.
+ */
+const FLOW_RINGS = [
+  { key: "solarW", label: "Solar", group: "chargeSolarRing", keyEl: "keySolar", r: 58, stroke: 7, fullW: 215 },
+  { key: "alternatorW", label: "Alternator", group: "chargeAlternatorRing", keyEl: "keyAlternator", r: 47, stroke: 7, fullW: 430 },
+  { key: "shoreW", label: "Shore", group: "chargeShoreRing", keyEl: "keyShore", r: 35, stroke: 6, fullW: 215 },
+  { key: "starlinkW", label: "Starlink", group: "drawStarlinkRing", keyEl: "keyStarlink", r: 58, stroke: 7, fullW: 40 },
+  { key: "loadW", label: "Load output", group: "drawLoadRing", keyEl: "keyLoad", r: 47, stroke: 7, fullW: 215 },
+  { key: "ghostW", label: "Ghost load", group: "drawGhostRing", keyEl: "keyGhost", r: 35, stroke: 6, fullW: 260 },
+];
+const FLOW_KEYS = [...FLOW_RINGS.map((ring) => ring.key), "starlinkPeakW"];
+const STARLINK_RING = FLOW_RINGS.find((ring) => ring.key === "starlinkW");
+
+function ringSvg(r, stroke, fraction, gradient) {
+  const clamped = Math.min(1, Math.max(0, fraction ?? 0));
+  return gradientArcSvg({ cx: DIAL_CENTER, cy: DIAL_CENTER, r, strokeWidth: stroke, extentDeg: clamped * 360, ...gradient });
+}
+
+function energyText(wh) {
+  return wh >= 1000 ? `${(wh / 1000).toFixed(2)} kWh` : `${Math.round(wh)} Wh`;
+}
+
+function renderPowerGauge(power, chart) {
   const soc = power.soc;
   const socPct = soc === undefined ? 0 : Math.min(100, Math.max(0, soc));
   const gradients = getRingGradients();
@@ -126,19 +161,15 @@ function renderPowerGauge(power, solarPeak) {
       : `${BATTERY_CAPACITY_AH}Ah nominal capacity minus ${Math.abs(consumedAh).toFixed(1)}Ah consumed since last full charge (consumed_ah).`;
   }
 
-  const peakW = solarPeak?.watts;
-  // All-time peak solar (server-side, persisted) is the solar ring's full
-  // scale; it's surfaced as a tooltip on the solar watts reading.
-  document.getElementById("solarSub").title =
-    peakW === undefined
-      ? ""
-      : `Solar ring full scale: highest reading recorded, ${fmt(peakW, 0, " W")}${solarPeak.at === undefined ? "" : ` on ${new Date(solarPeak.at).toLocaleDateString([], { year: "numeric", month: "short", day: "numeric" })}`}`;
+  document.getElementById("keySoc").title = soc === undefined ? "State of charge" : `State of charge: ${fmt(soc, 1, "%")}`;
 
-  const chargerEl = document.getElementById("chargerVal");
-  chargerEl.textContent = power.chargerState ?? "—";
-  chargerEl.className = "v";
-  const chargerTone = chargeStateTone(power.chargerState);
-  if (chargerTone) chargerEl.classList.add("charge-state", `cs-${chargerTone}`);
+  const samples = chart?.samples ?? [];
+  const hasProduced = samples.some((s) => s.producedWh !== undefined);
+  const producedWh = samples.reduce((sum, s) => sum + (s.producedWh ?? 0), 0);
+  document.getElementById("producedRing").innerHTML = ringSvg(INNER_RING_RADIUS, INNER_RING_STROKE, producedWh / PRODUCED_FULL_SCALE_WH, gradients.produced);
+  document.getElementById("producedSub").textContent = hasProduced ? energyText(producedWh) : "—";
+  document.getElementById("keyProduced").title =
+    `Produced by solar, alternator and shore since an hour before sunrise, including what went straight to loads: ${energyText(producedWh)} of ${energyText(PRODUCED_FULL_SCALE_WH)} full scale`;
 
   const sourceEl = document.getElementById("powerSourceMac");
   const sourceName = power.batteryDeviceName ?? power.batteryDeviceMac ?? "no data yet";
@@ -152,7 +183,7 @@ function renderPowerGauge(power, solarPeak) {
  * Charge (positive current) fills clockwise in green; draw/discharge
  * (negative current) fills counter-clockwise in red. +-AMP_GAUGE_FULL_SCALE_A
  * is a full 360 degree fill. This is now the outermost of the three
- * concentric dial rings (amp / SOC / solar), sharing one center with
+ * concentric dial rings (amp / SOC / produced), sharing one center with
  * renderPowerGauge's rings -- see DIAL_CENTER / AMP_GAUGE_RADIUS above.
  * Values beyond full scale are capped visually at 100% (not wrapped) but a
  * small pulsing dot marks the pegged end of the bar so the overflow is
@@ -164,14 +195,12 @@ function renderAmpGauge(current) {
   const overflowDot = document.getElementById("ampOverflowDot");
   const reading = document.getElementById("ampReading");
 
-  const currentStat = document.getElementById("currentVal");
   const direction = currentDirection(current);
-  for (const el of [reading, currentStat]) {
-    el.textContent = fmtSigned(current, 1, " A");
-    el.classList.remove("is-charge", "is-draw");
-    if (direction) el.classList.add(`is-${direction}`);
-    el.title = direction === "charge" ? "charging" : direction === "draw" ? "drawing" : "";
-  }
+  reading.textContent = fmtSigned(current, 1, " A");
+  reading.classList.remove("is-charge", "is-draw");
+  if (direction) reading.classList.add(`is-${direction}`);
+  reading.title = direction === "charge" ? "charging" : direction === "draw" ? "drawing" : "";
+  document.getElementById("keyAmps").title = `Battery current: ${fmtSigned(current, 1, " A")} of ±${AMP_GAUGE_FULL_SCALE_A} A full scale`;
 
   if (!direction) {
     arc.innerHTML = "";
@@ -204,16 +233,40 @@ function renderAmpGauge(current) {
   }
 }
 
-function renderSolar(solarPower, peakW) {
-  // Math.max(1, ...) keeps the ratio below well-defined (no div-by-zero)
-  // even when every reading so far has been 0.
-  const solarScale = Math.max(1, solarPower ?? 0, peakW ?? 0);
-  const solarPct = solarPower === undefined ? 0 : Math.min(1, solarPower / solarScale);
-  document.getElementById("solarRing").innerHTML = gradientArcSvg({
-    cx: DIAL_CENTER, cy: DIAL_CENTER, r: SOLAR_RING_RADIUS, strokeWidth: SOLAR_RING_STROKE,
-    extentDeg: solarPct * 360, ...getRingGradients().solar,
-  });
-  document.getElementById("solarSub").textContent = solarPower === undefined ? "no solar" : `${Math.round(solarPower)}W`;
+function sumOrUndefined(values) {
+  return values.some((v) => v === undefined) ? undefined : values.reduce((a, b) => a + b, 0);
+}
+
+function renderFlowGauges(shown, ghostEstimated) {
+  const gradients = getRingGradients();
+  for (const ring of FLOW_RINGS) {
+    const w = shown[ring.key];
+    document.getElementById(ring.group).innerHTML = ringSvg(ring.r, ring.stroke, w === undefined ? 0 : w / ring.fullW, gradients[ring.key]);
+    const estimate = ring.key === "ghostW" && ghostEstimated ? ", estimated: held from before the Orion started charging" : "";
+    const inferred = ring.key === "alternatorW" ? ", inferred from the battery balance" : "";
+    document.getElementById(ring.keyEl).title = `${ring.label}: ${fmt(w, 0, " W")} of ${ring.fullW} W full scale${inferred}${estimate}`;
+  }
+
+  const peakDot = document.getElementById("starlinkPeakDot");
+  if (shown.starlinkPeakW === undefined) {
+    peakDot.setAttribute("r", "0");
+  } else {
+    const at = polarPointFromTop(DIAL_CENTER, DIAL_CENTER, STARLINK_RING.r, Math.min(1, shown.starlinkPeakW / STARLINK_RING.fullW) * 360);
+    peakDot.setAttribute("cx", at.x.toFixed(3));
+    peakDot.setAttribute("cy", at.y.toFixed(3));
+    peakDot.setAttribute("r", "3");
+    peakDot.setAttribute("fill", gradients.starlinkW.end);
+  }
+  document.getElementById("keyStarlink").title += shown.starlinkPeakW === undefined ? "" : `, peak ${fmt(shown.starlinkPeakW, 0, " W")} in the last 2 minutes (dot)`;
+
+  const chargeW = sumOrUndefined([shown.solarW, shown.alternatorW, shown.shoreW]);
+  const drawW = sumOrUndefined([shown.starlinkW, shown.loadW, shown.ghostW]);
+  document.getElementById("chargeTotal").textContent = chargeW === undefined ? "—" : `${Math.round(chargeW)}W`;
+  document.getElementById("drawTotal").textContent = drawW === undefined ? "—" : `${Math.round(drawW)}W`;
+  document.getElementById("ghostTrack").classList.toggle("is-estimate", ghostEstimated === true);
+  const ghostSub = document.getElementById("ghostSub");
+  ghostSub.textContent = shown.ghostW === undefined ? "—" : `ghost ${ghostEstimated ? "~" : ""}${Math.round(shown.ghostW)}W`;
+  ghostSub.title = ghostEstimated ? "Estimated: the ghost load can't be worked out while the Orion charges, so this is the last value from before it started." : "Unmeasured loads: what the battery balance can't account for.";
 }
 
 function renderMotion(speedMps, courseDeg) {
@@ -234,19 +287,18 @@ function renderMotion(speedMps, courseDeg) {
  * Displayed values ease toward their targets (EASE_TAU_MS) at up to
  * MAX_FRAME_RATE, and the animation stops once everything has settled.
  */
-const LIVE_KEYS = ["current", "solarPower", "voltage", "speedMps", "courseDeg"];
-const SETTLE_EPSILON = { current: 0.01, solarPower: 0.2, voltage: 0.001, speedMps: 0.01, courseDeg: 0.1 };
+const LIVE_KEYS = ["current", "speedMps", "courseDeg", ...FLOW_KEYS];
+const SETTLE_EPSILON = { current: 0.01, speedMps: 0.01, courseDeg: 0.1, ...Object.fromEntries(FLOW_KEYS.map((key) => [key, 0.2])) };
 const EASE_TAU_MS = 120;
 const MIN_FRAME_MS = 1000 / 30;
 const prefersReducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
 
-const live = { streaming: false, targets: {}, shown: {}, peakW: undefined, frame: undefined, lastFrameAt: 0 };
+const live = { streaming: false, targets: {}, shown: {}, ghostEstimated: false, frame: undefined, lastFrameAt: 0 };
 
 function renderLiveFields() {
   const { shown } = live;
   renderAmpGauge(shown.current);
-  renderSolar(shown.solarPower, live.peakW);
-  document.getElementById("voltageVal").textContent = fmt(shown.voltage, 2, " V");
+  renderFlowGauges(shown, live.ghostEstimated);
   renderMotion(shown.speedMps, shown.courseDeg);
 }
 
@@ -553,13 +605,13 @@ function renderForecast(forecast) {
 }
 
 function render(snapshot) {
-  live.peakW = snapshot.victron.solarPeak?.watts;
   live.lastSnapshotPosition = live.streaming ? { ...snapshot.position, ...definedOnly(live.position) } : snapshot.position;
   if (!live.streaming) {
-    const { power } = snapshot.victron;
-    setLiveTargets({ ...power, speedMps: snapshot.position.speedMps, courseDeg: snapshot.position.courseDeg });
+    const { power, flows } = snapshot.victron;
+    live.ghostEstimated = flows?.ghostEstimated === true;
+    setLiveTargets({ current: power.current, ...flows, speedMps: snapshot.position.speedMps, courseDeg: snapshot.position.courseDeg });
   }
-  renderPowerGauge(snapshot.victron.power, snapshot.victron.solarPeak);
+  renderPowerGauge(snapshot.victron.power, snapshot.victron.chart);
   renderChart(snapshot.victron, snapshot.serverTime);
   renderSensorTables(snapshot.victron.devices);
   renderNowPlaying(snapshot.nowPlaying);
@@ -718,7 +770,8 @@ function openStream() {
     setStreaming(true);
     renderClock(update.t);
     live.position = update.position;
-    setLiveTargets({ ...update.power, speedMps: update.position.speedMps, courseDeg: update.position.courseDeg });
+    live.ghostEstimated = update.flows?.ghostEstimated === true;
+    setLiveTargets({ current: update.power.current, ...update.flows, speedMps: update.position.speedMps, courseDeg: update.position.courseDeg });
     const { latitude, longitude } = update.position;
     if (latitude !== live.lastSnapshotPosition?.latitude || longitude !== live.lastSnapshotPosition?.longitude) {
       live.lastSnapshotPosition = { ...live.lastSnapshotPosition, ...definedOnly(update.position) };

@@ -54,6 +54,16 @@ describe("energy charged into the battery", () => {
     expect(history.samples[0]!.chargedWh).toBeCloseTo(0.25, 6);
   });
 
+  it("counts energy produced by all charge sources the same way", () => {
+    const history = createPowerHistory();
+    const base = 1_000_000;
+    recordPowerSample(history, { soc: 50, power: -10 }, base, 360);
+    for (let i = 1; i <= 9; i++) recordPowerSample(history, { soc: 50, power: -10 }, base + i * 1000, 360);
+    // 9 seconds at 360 W = 0.9 Wh, even though the battery itself was discharging.
+    expect(history.samples[0]!.producedWh).toBeCloseTo(0.9, 6);
+    expect(history.samples[0]!.chargedWh ?? 0).toBe(0);
+  });
+
   it("ignores drawing: only charging counts", () => {
     const history = createPowerHistory();
     const base = 1_000_000;

@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" />
-<link rel="stylesheet" href="style.css?v=a673ce5c47" />
+<link rel="stylesheet" href="style.css?v=150d910fdb" />
 </head>
 <body>
   <div class="wrap">
@@ -29,29 +29,78 @@
           <span class="panel-title"><span class="swatch" style="background:var(--battery)"></span>Power Gauge</span>
           <span id="powerSourceMac" class="panel-meta mono">no data yet</span>
         </div>
-        <div class="hero-body">
-          <div class="dial-wrap">
-            <svg viewBox="0 0 128 128">
-              <circle class="dial-track" cx="64" cy="64" r="58" stroke-width="7" />
-              <g id="ampArc" class="amp-arc"></g>
-              <circle id="ampOverflowDot" class="amp-overflow-dot" r="0" cx="64" cy="6" fill="var(--crit)" />
+        <div class="gauge-row">
+          <div class="gauge">
+            <div class="dial-wrap">
+              <svg viewBox="0 0 128 128">
+                <circle class="dial-track" cx="64" cy="64" r="58" stroke-width="7" />
+                <g id="ampArc" class="amp-arc"></g>
+                <circle id="ampOverflowDot" class="amp-overflow-dot" r="0" cx="64" cy="6" fill="var(--crit)" />
 
-              <circle class="dial-track" cx="64" cy="64" r="47" stroke-width="7" />
-              <g id="socRing"></g>
+                <circle class="dial-track" cx="64" cy="64" r="47" stroke-width="7" />
+                <g id="socRing"></g>
 
-              <circle class="dial-track" cx="64" cy="64" r="35" stroke-width="6" />
-              <g id="solarRing"></g>
-            </svg>
-            <div class="dial-center">
-              <span id="socNum" class="num">&mdash;</span>
-              <span id="solarSub" class="sub">no solar</span>
-              <span id="ampReading" class="sub amp-reading">&mdash;</span>
+                <circle class="dial-track" cx="64" cy="64" r="35" stroke-width="6" />
+                <g id="producedRing"></g>
+              </svg>
+              <div class="dial-center">
+                <span id="socNum" class="num">&mdash;</span>
+                <span id="producedSub" class="sub produced-sub">&mdash;</span>
+                <span id="ampReading" class="sub amp-reading">&mdash;</span>
+              </div>
+            </div>
+            <div class="gauge-title">Current</div>
+            <div class="gauge-key">
+              <span id="keyAmps"><i style="background:var(--good)"></i>Amps</span>
+              <span id="keySoc"><i style="background:var(--battery)"></i>SOC</span>
+              <span id="keyProduced"><i style="background:var(--produced)"></i>Produced</span>
             </div>
           </div>
-          <div class="hero-stats mono">
-            <div class="stat-row"><span class="k">Voltage</span><span id="voltageVal" class="v">&mdash;</span></div>
-            <div class="stat-row"><span class="k">Current</span><span id="currentVal" class="v">&mdash;</span></div>
-            <div class="stat-row"><span class="k">Charger</span><span id="chargerVal" class="v">&mdash;</span></div>
+
+          <div class="gauge">
+            <div class="dial-wrap">
+              <svg viewBox="0 0 128 128">
+                <circle class="dial-track" cx="64" cy="64" r="58" stroke-width="7" />
+                <g id="chargeSolarRing"></g>
+                <circle class="dial-track" cx="64" cy="64" r="47" stroke-width="7" />
+                <g id="chargeAlternatorRing"></g>
+                <circle class="dial-track" cx="64" cy="64" r="35" stroke-width="6" />
+                <g id="chargeShoreRing"></g>
+              </svg>
+              <div class="dial-center">
+                <span id="chargeTotal" class="num">&mdash;</span>
+              </div>
+            </div>
+            <div class="gauge-title">Charge</div>
+            <div class="gauge-key">
+              <span id="keySolar"><i style="background:var(--solar)"></i>Solar</span>
+              <span id="keyAlternator"><i style="background:var(--alternator)"></i>Alt</span>
+              <span id="keyShore"><i style="background:var(--shore)"></i>Shore</span>
+            </div>
+          </div>
+
+          <div class="gauge">
+            <div class="dial-wrap">
+              <svg viewBox="0 0 128 128">
+                <circle class="dial-track" cx="64" cy="64" r="58" stroke-width="7" />
+                <g id="drawStarlinkRing"></g>
+                <circle id="starlinkPeakDot" r="0" cx="64" cy="6" />
+                <circle class="dial-track" cx="64" cy="64" r="47" stroke-width="7" />
+                <g id="drawLoadRing"></g>
+                <circle id="ghostTrack" class="dial-track" cx="64" cy="64" r="35" stroke-width="6" />
+                <g id="drawGhostRing"></g>
+              </svg>
+              <div class="dial-center">
+                <span id="drawTotal" class="num">&mdash;</span>
+                <span id="ghostSub" class="sub ghost-sub">&mdash;</span>
+              </div>
+            </div>
+            <div class="gauge-title">Draw</div>
+            <div class="gauge-key">
+              <span id="keyStarlink"><i style="background:var(--connectivity)"></i>Starlink</span>
+              <span id="keyLoad"><i style="background:var(--audio)"></i>Load</span>
+              <span id="keyGhost"><i style="background:var(--ghost)"></i>Ghost</span>
+            </div>
           </div>
         </div>
       </div>
@@ -115,13 +164,13 @@
   <script type="importmap">
   {
     "imports": {
-      "./app.js": "./app.js?v=fb46c05fd2",
+      "./app.js": "./app.js?v=faca0c8e14",
       "./color.js": "./color.js?v=b9120594e9",
       "./render.js": "./render.js?v=e8c4d212f4"
     }
   }
   </script>
   <script src="config.js?v=05a58d0efe"></script>
-  <script type="module" src="app.js?v=fb46c05fd2"></script>
+  <script type="module" src="app.js?v=faca0c8e14"></script>
 </body>
 </html>

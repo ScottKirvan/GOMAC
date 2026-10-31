@@ -61,6 +61,7 @@ export function chartSamples(samples: PowerSample[], start: number, end: number)
       point.solarPower = point.solarPower === undefined ? sample.solarPower : Math.max(point.solarPower, sample.solarPower);
     }
     if (sample.chargedWh !== undefined) point.chargedWh = (point.chargedWh ?? 0) + sample.chargedWh;
+    if (sample.producedWh !== undefined) point.producedWh = (point.producedWh ?? 0) + sample.producedWh;
   }
   return points;
 }

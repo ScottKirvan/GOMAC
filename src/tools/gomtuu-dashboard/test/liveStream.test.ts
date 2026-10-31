@@ -51,6 +51,11 @@ describe("buildLiveUpdate", () => {
     });
   });
 
+  it("carries the energy flows for the Charge and Draw gauges", () => {
+    const flows = { solarW: 130, shoreW: 0, alternatorW: 0, starlinkW: 25, starlinkPeakW: 41, loadW: 13, ghostW: 66, ghostEstimated: false, chargeW: 130, drawW: 104 };
+    expect(buildLiveUpdate({}, {}, flows).flows).toEqual(flows);
+  });
+
   it("passes the coarse marker through for the public variant", () => {
     const update = buildLiveUpdate({}, { latitude: 44.4, longitude: -64.3, coarse: true });
     expect(update.position.coarse).toBe(true);
