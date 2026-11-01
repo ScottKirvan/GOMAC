@@ -95,12 +95,12 @@ const PRODUCED_FULL_SCALE_WH = 1000;
  * with each other by eye: the watts are in each key entry's tooltip.
  */
 const FLOW_RINGS = [
-  { key: "solarW", label: "Solar", group: "chargeSolarRing", keyEl: "keySolar", r: 58, stroke: 7, fullW: 215 },
-  { key: "alternatorW", label: "Alternator", group: "chargeAlternatorRing", keyEl: "keyAlternator", r: 47, stroke: 7, fullW: 430 },
-  { key: "shoreW", label: "Shore", group: "chargeShoreRing", keyEl: "keyShore", r: 35, stroke: 6, fullW: 215 },
-  { key: "starlinkW", label: "Starlink", group: "drawStarlinkRing", keyEl: "keyStarlink", r: 58, stroke: 7, fullW: 40 },
-  { key: "loadW", label: "Load output", group: "drawLoadRing", keyEl: "keyLoad", r: 47, stroke: 7, fullW: 215 },
-  { key: "ghostW", label: "Ghost load", group: "drawGhostRing", keyEl: "keyGhost", r: 35, stroke: 6, fullW: 260 },
+  { key: "solarW", label: "Solar", group: "chargeSolarRing", keyEl: "keySolar", valEl: "valSolar", r: 58, stroke: 7, fullW: 215 },
+  { key: "alternatorW", label: "Alternator", group: "chargeAlternatorRing", keyEl: "keyAlternator", valEl: "valAlternator", r: 47, stroke: 7, fullW: 430 },
+  { key: "shoreW", label: "Shore", group: "chargeShoreRing", keyEl: "keyShore", valEl: "valShore", r: 35, stroke: 6, fullW: 215 },
+  { key: "starlinkW", label: "Starlink", group: "drawStarlinkRing", keyEl: "keyStarlink", valEl: "valStarlink", r: 58, stroke: 7, fullW: 40 },
+  { key: "loadW", label: "Load output", group: "drawLoadRing", keyEl: "keyLoad", valEl: "valLoad", r: 47, stroke: 7, fullW: 215 },
+  { key: "ghostW", label: "Ghost load", group: "drawGhostRing", keyEl: "keyGhost", valEl: "valGhost", r: 35, stroke: 6, fullW: 260 },
 ];
 const FLOW_KEYS = [...FLOW_RINGS.map((ring) => ring.key), "starlinkPeakW"];
 const STARLINK_RING = FLOW_RINGS.find((ring) => ring.key === "starlinkW");
@@ -243,6 +243,14 @@ function renderFlowGauges(shown, ghostEstimated) {
     const estimate = ring.key === "ghostW" && ghostEstimated ? ", estimated: held from before the Orion started charging" : "";
     const inferred = ring.key === "alternatorW" ? ", inferred from the battery balance" : "";
     document.getElementById(ring.keyEl).title = `${ring.label}: ${fmt(w, 0, " W")} of ${ring.fullW} W full scale${inferred}${estimate}`;
+
+    // Outer ring's value is the large number (with a small unit), as on the Battery gauge.
+    const val = document.getElementById(ring.valEl);
+    const approx = ring.key === "ghostW" && ghostEstimated && w !== undefined ? "~" : "";
+    if (w === undefined) val.textContent = "—";
+    else if (ring.r === BATTERY_POWER_RADIUS) val.innerHTML = `${Math.round(w)}<span class="unit">W</span>`;
+    else val.textContent = `${approx}${Math.round(w)} W`;
+    val.title = document.getElementById(ring.keyEl).title;
   }
 
   const peakDot = document.getElementById("starlinkPeakDot");
@@ -259,12 +267,9 @@ function renderFlowGauges(shown, ghostEstimated) {
 
   const chargeW = sumOrUndefined([shown.solarW, shown.alternatorW, shown.shoreW]);
   const drawW = sumOrUndefined([shown.starlinkW, shown.loadW, shown.ghostW]);
-  document.getElementById("chargeTotal").textContent = chargeW === undefined ? "—" : `${Math.round(chargeW)}W`;
-  document.getElementById("drawTotal").textContent = drawW === undefined ? "—" : `${Math.round(drawW)}W`;
+  document.getElementById("chargeTitle").title = `Total charge: ${fmt(chargeW, 0, " W")}`;
+  document.getElementById("drawTitle").title = `Total draw: ${fmt(drawW, 0, " W")}`;
   document.getElementById("ghostTrack").classList.toggle("is-estimate", ghostEstimated === true);
-  const ghostSub = document.getElementById("ghostSub");
-  ghostSub.textContent = shown.ghostW === undefined ? "—" : `ghost ${ghostEstimated ? "~" : ""}${Math.round(shown.ghostW)}W`;
-  ghostSub.title = ghostEstimated ? "Estimated: the ghost load can't be worked out while the Orion charges, so this is the last value from before it started." : "Unmeasured loads: what the battery balance can't account for.";
 }
 
 function renderMotion(speedMps, courseDeg) {

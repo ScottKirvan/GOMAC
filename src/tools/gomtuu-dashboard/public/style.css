@@ -109,7 +109,12 @@ header {
 .dial-center .num .unit { font-size: 0.5em; font-weight: 500; color: var(--ink-dim); margin-left: 1px; }
 .dial-center .sub { font-size: 7.5cqw; margin-top: 2px; font-family: "IBM Plex Mono", monospace; white-space: nowrap; }
 .dial-center .sub.produced-sub { color: var(--produced); }
-.dial-center .sub.ghost-sub { color: var(--ghost); }
+.flow-solar { color: var(--solar); }
+.flow-alternator { color: var(--alternator); }
+.flow-shore { color: var(--shore); }
+.flow-starlink { color: var(--connectivity); }
+.flow-load { color: var(--audio); }
+.dial-center .flow-ghost { color: var(--ghost); }
 .gauge-title {
   margin-top: 6px; font-size: 0.66rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-dim);
 }
