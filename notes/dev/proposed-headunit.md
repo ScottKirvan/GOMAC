@@ -13,7 +13,7 @@ Additionally, the DMH-WT3800NEX's `[Hotspot]` Wi-Fi client mode (which connects 
 Wire the **1GB Raspberry Pi 5** directly to the Pioneer head unit's rear USB port in **USB Gadget (OTG) mode**, running [`aa-proxy-rs`](https://github.com/aa-proxy/aa-proxy-rs), while a **dedicated Android phone** (and/or any phone in the van) remains connected to **Starlink Wi-Fi**.
 
 ```mermaid
-flowchart TD
+flowchart BT
     Starlink["Starlink Wi-Fi<br/>(Internet + Van LAN)"]
     Phone["Dedicated Android Phone<br/>(Maps, Apps, Telemetry)"]
     Pi["1GB Raspberry Pi 5<br/>(running aa-proxy-rs)"]
