@@ -55,7 +55,11 @@ Because this node acts as a thin, headless hardware bridge that is hard-powered-
    - Presents **AOAP (Android Open Accessory Protocol)** descriptors (`VID 0x18D1`, `PID 0x2D00`/`0x2D01`) to the Pioneer's USB port so the head unit recognizes the Pi as a wired Android phone.
 3. **Bridge Daemon (`aa-proxy-rs`)**:
    - Single compiled `aarch64` Rust binary using `io_uring` for low-latency USB ↔ TCP forwarding.
-   - Manages the `BlueZ` Bluetooth handshake, `ConfigFS` USB gadget state transitions, and the local web UI / optional packet hooks (DPI overrides, removing tap restrictions, etc.).
+   - Manages the `BlueZ` Bluetooth handshake, `ConfigFS` USB gadget state transitions, and the local web UI.
+   - Runs in **MITM (Man-in-the-Middle) mode** (using the 5 extracted GAL `.pem` certificate/key files in `/etc/aa-proxy-rs/`) to terminate the phone and head-unit TLS sessions independently, enabling:
+     - **Resolution & DPI override**: Forces a crisp `1280×720` video container and lowers reported DPI (e.g. `100`–`120` instead of the stock `160+`) so UI elements and the Android Auto dock bar don't look oversized on the `1024×600` Pioneer panel.
+     - **Motion lockout removal**: Strips driving-status restrictions so keyboards and long lists remain usable while the van is moving.
+     - **On-the-fly channel muxing**: Enables switching the video and touch channels between the phone and a local Pi stream (see below).
 4. **Tailscale & Headless Management (`tailscaled` + `dropbear`)**:
    - Static `arm64` `tailscale` / `tailscaled` binaries baked into the image, initialized in the background *after* `aa-proxy-rs` starts so Tailscale never delays the Android Auto handshake on boot.
    - State file (`tailscaled.state`) stored on the persistent data partition alongside `aa-proxy-rs`'s `config.toml` and Bluetooth pairing keys so the node keeps its tailnet identity across reboots.
@@ -78,6 +82,76 @@ Because this node acts as a thin, headless hardware bridge that is hard-powered-
 | **Pi 5 Support** | Native out of the box | **Native out of the box** (`alpine-rpi-aarch64`) | Requires adding `raspberrypi5` board target to `aa-proxy-buildroot` |
 | **Adding Tailscale** | `apt install tailscale` | **`apk add tailscale`** + `lbu commit` | Drop static `arm64` binaries into Buildroot `rootfs_overlay` |
 | **Iteration Speed** | Fast (live package manager) | **Fast** (live `apk` + commit to SD) | Slower (~30–45 min initial cross-compile per image build) |
+
+---
+
+## How Android Auto Actually Works with the Head Unit
+
+The Pioneer DMH-WT3800NEX does not run Android Auto apps locally; it acts strictly as a remote H.264 video display, capacitive touchscreen digitizer, speaker, and microphone.
+
+1. **Virtual Display & H.264 Encoding on the Phone**:
+   - The Android Auto system service on the phone creates an off-screen virtual display, renders the interface (status bar, app dock, split-screen "Coolwalk" cards, Google Maps, Waze, etc.), encodes it in real time to **H.264 video**, and streams the packets out.
+2. **Multiplexed TLS Channels**:
+   - Whether connected over USB (`AOAP` — Android Open Accessory Protocol) or Wi-Fi (bootstrapped via Bluetooth, then streamed over a TCP socket), the wire protocol is an identical multiplexed Protocol Buffers stream inside a mutual-TLS tunnel (`Google Automotive Link` / GAL):
+     - **Video Sink (Phone → Head Unit)**: H.264 video frames (`800×480`, `1280×720`, `1920×1080`, or `2560×1440` — notably, `1024×600` is not a native AA container size, so forcing `1280×720` + lowering DPI via `aa-proxy-rs` avoids blurry `800×480` upscaling).
+     - **Touch / Input Source (Head Unit → Phone)**: Raw multi-touch coordinates (`DOWN`, `MOVE`, `UP` `(x, y)`), steering-wheel controls, and hardware buttons.
+     - **Audio Sinks (Phone → Head Unit)**: Three independent audio streams — Media (music), Guidance/TTS (navigation & assistant prompts with audio ducking), and Telephony.
+     - **Microphone Source (Head Unit → Phone)**: Raw PCM audio from the wired cab microphone.
+     - **Sensor Channel (Head Unit → Phone)**: Headlight day/night state, driving/parking-brake status, etc.
+
+Because `aa-proxy-rs` bridges this protocol transparently, **100% of standard Android Auto (Google Maps, Waze, Spotify, split-screen view) continues to work normally** while gaining Starlink internet access. Custom GOMAC interfaces sit alongside them as additional icons in the Android Auto app launcher.
+
+---
+
+## Phone-Side App Tiers: Locked Templates vs. Unlocked `CarActivity` / `WebView`
+
+Android Auto apps on the phone fall into two distinct models depending on whether they follow Google Play Store restrictions or use Android Auto's Developer Mode ("Unknown Sources").
+
+### Tier 1: Locked Standard Templates (`androidx.car.app` & `MediaBrowserService`)
+Google restricts Play Store apps to sending structured data into fixed templates rather than drawing pixels:
+- **`MediaBrowserService`**: Used for audio apps (e.g., exposing GOMAC's Pandora/pianobar controls and station list inside the 1/3 split-screen media card right next to Google Maps).
+- **`androidx.car.app` Templates (`GridTemplate`, `ListTemplate`, `PaneTemplate`)**: Used by the official Home Assistant Android app (and available to a custom GOMAC app) for quick status tiles, sensor readouts, and toggle buttons.
+- **Limitations**: Cannot draw custom layouts, charts, gauges, `WebView`s, or terminals.
+
+### Tier 2: Unlocked Custom Surface (`CarActivity` + Developer Mode "Unknown Sources")
+By enabling **Developer Settings → Unknown Sources** in the phone's Android Auto settings, sideloaded apps built against the OEM projection API (`com.google.android.gms.car` / `CarActivity`) receive a raw Android `Window` and `Surface` on the head unit's virtual display.
+
+- **What Unlocked `CarActivity` Can Do (No Phone Root Required)**:
+  - Render **any custom Android UI** (`View`, `Canvas`, `Jetpack Compose`, OpenGL) or a **full Chromium `WebView`** (WebSockets, SVG, Canvas, JS) with full capacitive multi-touch (pinch, drag, swipe) and an in-window on-screen keyboard.
+  - Run existing open-source `CarActivity` wrappers like **Fermata Auto** today with zero custom Android code to load GOMAC's live telemetry dashboard (`http://theflea:8091`) or an interactive `bash` terminal (via `ttyd` / `xterm.js` running on TheFlea or the 1GB Pi 5).
+  - Or embed a thin `WebView` / native Kotlin screen directly inside GOMAC's own Android app.
+- **What Remains Different in Unlocked `CarActivity`**:
+  1. **The Android Auto Taskbar (~10% of screen)**: Because the phone's Android Auto service still composites the outer frame, the Android Auto dock/rail stays visible along one edge (useful for one-tap switching back to Google Maps/Waze, and shrunk down via `aa-proxy-rs`'s DPI override, but not 100% edge-to-edge).
+  2. **Unmodified Third-Party APKs**: Only apps compiled with `CarActivity` (or web apps hosted inside a `CarActivity` `WebView`) render natively on the car display without root screen-mirroring (`Screen2Auto`).
+  3. **OS Permission Dialogs**: First-time Android OS permission prompts appear on the phone screen rather than the dash (can be pre-granted once on the phone or via `adb install -g`).
+  4. **DRM Video (`Widevine L1` / `FLAG_SECURE`)**: Commercial paid video apps block virtual-display capture; non-DRM video, cameras, and all custom UIs/canvases render normally.
+
+---
+
+## Direct Pi H.264 Stream & On-the-Fly TLS Channel Switching (True 100% Fullscreen)
+
+For cases where we want **true 100% edge-to-edge fullscreen (`1024×600` / `1280×720` with no Android Auto dock bar at all)** — or want the 1GB Pi 5 to drive the Pioneer screen directly when no phone is connected — the 1GB Pi 5 can generate and inject its own H.264 stream over USB.
+
+### Why This Is Possible
+When `aa-proxy-rs` runs in **MITM mode**, there is no single end-to-end TLS session between the phone and the Pioneer. Instead, `aa-proxy-rs` terminates two separate TLS connections using the extracted Google Automotive Link certificates (`hu_cert.pem`/`hu_key.pem` facing the phone; `md_cert.pem`/`md_key.pem` + `galroot_cert.pem` facing the Pioneer, as documented in open-source projects like `AACS` and `vehiculum`).
+
+Inside the 1GB Pi 5's Rust process, every Android Auto channel is already decrypted and demultiplexed:
+- **Channel 3 (Video Sink)**: H.264 NAL units going to the Pioneer.
+- **Channel 1 (Touch / Input Source)**: `(x, y)` touch events coming from the Pioneer.
+- **Channel 4 (Media Audio)**: Stereo audio from the phone going to the cab speakers.
+
+### How On-the-Fly Switching Works
+1. **Default ("Android Auto" Mode)**:
+   - `aa-proxy-rs` forwards Channel 3 (Video) and Channel 1 (Touch) between the phone and the Pioneer with near-zero CPU overhead.
+2. **Switch to Direct Pi Stream (Triggered via App Button or MQTT Command)**:
+   - The USB connection and TLS session to the Pioneer remain live — no USB reset or reconnect delay.
+   - On **Channel 3 (Video)**, `aa-proxy-rs` pauses forwarding the phone's video frames, injects an H.264 IDR keyframe (`SPS`/`PPS` + I-frame) from a local display/framebuffer on the 1GB Pi 5 (`x264 --preset ultrafast --tune zerolatency`), and streams the Pi's own full-screen UI (`100%` of the display, zero Android Auto frame).
+   - On **Channel 1 (Touch)**, `aa-proxy-rs` stops forwarding touch coordinates to the phone and routes them to Linux's `/dev/uinput` virtual touchscreen device on the Pi.
+   - **Channel 4 (Audio)** from the phone (music or Google Maps voice navigation prompts) can continue playing through the cab speakers uninterrupted while the screen shows the Pi's full-screen terminal or dashboard.
+3. **Exit Back to Android Auto**:
+   - Tapping an Exit button on the Pi UI (or sending an MQTT command) requests a fresh keyframe (`VideoFocusRequest`) from the phone and switches Channel 3 and Channel 1 back to the phone stream on the next frame tick.
+
+*(Note: While `aa-proxy-rs` already implements the USB gadget layer, dual-TLS MITM termination, and channel demuxing out of the box, adding the local H.264 socket input + `/dev/uinput` touch muxer is a custom Rust extension we would add to our fork of `aa-proxy-rs` when ready for true edge-to-edge Pi streaming.)*
 
 ---
 
