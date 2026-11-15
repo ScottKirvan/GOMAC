@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.1](https://github.com/ScottKirvan/GOMAC/compare/v0.1.0...v0.1.1) (2026-11-15)
+
+
+### Bug Fixes
+
+* add a 7-day cooldown to Dependabot version updates ([35fae1a](https://github.com/ScottKirvan/GOMAC/commit/35fae1ac99e36a6da83c5713f9327a5e44851fd7))
+* add Dependabot config for monthly grouped dependency updates ([8fecfc3](https://github.com/ScottKirvan/GOMAC/commit/8fecfc3654d3aace07cf07f10d6d91a084dbac99))
+
 ## [0.1.0](https://github.com/ScottKirvan/GOMAC/compare/v0.0.0...v0.1.0) (2026-11-01)
 
 
