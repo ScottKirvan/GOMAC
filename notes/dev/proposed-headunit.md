@@ -149,3 +149,19 @@ Because the node is mounted out of reach, it is managed headlessly across reboot
   - **USB-powered fallback**: If powered from a Linux host USB port, a `udev` rule runs `adb tcpip 5555` automatically on USB enumeration.
 - **Browser-Accessible Control (`ws-scrcpy` on the Compute Hub)**: Exposes the dedicated phone's screen and touch input as a web page on the LAN/tailnet, controllable from any phone, tablet, or laptop browser.
 - **24/7 Charge Limiting**: Enforces a 50–60% charge ceiling (via Magisk `acc` on a rooted phone, or built-in 80% battery protection on supported devices) to prevent lithium-ion swelling in a warm vehicle cab.
+
+---
+
+## 5. Network Redundancy & Offline Fallback
+
+The bridge architecture degrades gracefully across all three connectivity failure modes so the head unit never depends on satellite lock or on the Starlink router remaining powered on:
+
+1. **Starlink Powered On, Satellite Signal Lost (Trees, Canyons, Tunnels)**:
+   - The Starlink router's local Wi-Fi LAN remains active even without an upstream satellite link.
+   - The Android Auto TCP stream between the phone and the 1GB Pi 5 continues uninterrupted over the local Wi-Fi LAN, while the Android phone automatically falls back to its own cellular data connection (or offline cached maps when both satellite and cell are unavailable).
+2. **Starlink Powered Off to Save Battery ("Skynet" Switch Off)**:
+   - Turning off the Starlink router removes its Wi-Fi SSID from the van. Two complementary fallback mechanisms keep the bridge and onboard network running:
+     - **Bridge Automatic AP Fallback (`aa-proxy-rs` Hotspot Mode)**: If `wpa_supplicant` on the 1GB Pi 5 does not detect the Starlink Wi-Fi network on boot (or loses the association when Starlink is switched off), the Pi automatically brings up its own local 5 GHz Wi-Fi access point (`hostapd`). During the Bluetooth handshake, `aa-proxy-rs` hands those local AP credentials to the phone, which connects directly to the Pi and uses cellular data or offline maps while keeping full Android Auto projection.
+     - **Compute Hub Always-On Local Van AP (TheFlea)**: Once TheFlea's secondary USB Wi-Fi interface (`hostapd` AP mode, see `compute-hub-current-state.md`) is active, the van has a permanent, low-power local Wi-Fi LAN independent of Starlink power state — allowing TheFlea, the 1GB Pi 5 bridge, and the dedicated Android node to communicate over local MQTT and stream Android Auto even with Starlink powered down.
+3. **Dedicated Phone Offline or Powered Down**:
+   - Any personal Android phone in the van can pair to the 1GB Pi 5 bridge as a drop-in Android Auto source, or the 1GB Pi 5 can drive the Pioneer display standalone via its direct H.264 stream.
