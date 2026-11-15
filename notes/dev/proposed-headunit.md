@@ -155,6 +155,42 @@ Inside the 1GB Pi 5's Rust process, every Android Auto channel is already decryp
 
 ---
 
+## Dedicated Android Phone: Mounted Sensor, Projection, & Co-Pilot Node
+
+Because the dedicated Android phone connects to the 1GB Pi 5 over Starlink Wi-Fi rather than needing to sit in the cab or be plugged into the dash, it can be permanently mounted out of the way (e.g., positioned with a clear view for security camera use and sky/GPS reception) and treated as a multi-sensor appliance node.
+
+### 1. Onboard Telemetry & Sensor Roles
+A single modern Android phone packs hardware sensors that would otherwise require several separate ESP32/I2C modules, all publishable to Mosquitto (`gomac/phone/state/#` or existing `gps/phone/#` topics):
+- **GPS / GLONASS**: Continuous `latitude`, `longitude`, `altitude`, `speed`, `bearing`, and `accuracy` (solving the May 2026 Starlink local-API GPS removal).
+- **Van Leveling (3-Axis Accelerometer / Gravity Sensor)**: Continuous **Pitch (°)** and **Roll (°)** measurements. Given Gomtuu's 144" wheelbase and track width, pitch and roll angles translate directly into exact leveling-block heights per wheel when parking.
+- **Environmental**: Barometric pressure (`hPa`, altitude/weather trend), ambient light (`lux`), and magnetometer compass heading.
+- **Security Camera / Interior Monitoring**: Built-in camera(s) streaming RTSP/WebRTC or motion snapshots over the local LAN/Tailscale.
+- **Android Auto Projection Engine**: Drives the Pioneer DMH-WT3800NEX display over Starlink Wi-Fi via `aa-proxy-rs`.
+
+### 2. Passenger Co-Pilot / Navigator Workflow (Decoupling Personal Phones from the Dash)
+When a personal phone is connected directly to Android Auto, the passenger navigator is locked out of normal map research, and modifying routes or adding stops while moving can interrupt the driver's turn-by-turn view at critical interchanges. Decoupling the **Dedicated Dash Phone** from the **Navigator's Personal Phone** resolves this in three ways:
+1. **Motion Lockouts Removed on the Dash (`DRIVING_STATUS_UNRESTRICTED`)**:
+   - `aa-proxy-rs` rewrites the Pioneer's `SensorBatch` driving status packets on the wire to `UNRESTRICTED` (parked), keeping the Pioneer's on-screen keyboard, "Add a stop" search, and list scrolling unlocked at all times while in motion.
+2. **Independent Research & Route Pushing**:
+   - The passenger researches freely on their personal phone (Google Maps, iOverlander, Campendium, weather radar) without touching the driver's live navigation screen.
+   - **Single-destination push**: Sending a standard `google.navigation:q=<lat>,<lon>` (or address) Android Intent to the dedicated phone switches the Pioneer's active Google Maps destination immediately in place.
+   - **Multi-stop caveat & leg-by-leg queuing**: Android Auto's Google Maps receiver strips or ignores the `waypoints=` parameter on external `ACTION_VIEW` intents. To drive a multi-stop route remotely without using the Pioneer's on-screen "Add stop" button, GOMAC holds the multi-stop itinerary and pushes one leg at a time (`Stop 1`, then `Stop 2` upon arrival/skip) via `google.navigation:q=`.
+3. **"Show This to the Driver" (Screen Push)**:
+   - The navigator can push a view (map, radar, campsite photo, or GOMAC screen) from their personal phone to the dash either by foregrounding the dedicated phone's `CarActivity` / `WebView` window or by triggering the 1GB Pi 5's H.264 stream switch.
+
+### 3. Headless Remote Management (`scrcpy` over Wi-Fi) & Battery Preservation
+Because the dedicated phone may be mounted out of easy physical reach, it must remain 100% controllable remotely (including across reboots and OS permission prompts) without physical touch:
+- **Persistent Wireless `adb` + `scrcpy`**:
+  - Stock Android resets `adb tcpip 5555` on reboot. To survive reboots unattended:
+    - **Rooted appliance phone (preferred)**: Set `persist.adb.tcp.port=5555` via a boot script (`/data/adb/service.d/`) so `adb` is always reachable over LAN/Tailscale immediately after boot. Also enables `scrcpy --turn-screen-off` so the phone's physical OLED screen stays powered off (0W display draw, no burn-in) while being controlled remotely.
+    - **USB-tethered fallback (if powered via a Pi USB port)**: A `udev` rule on the Pi runs `adb tcpip 5555` automatically whenever the phone enumerates on USB.
+- **Browser-Accessible `scrcpy` (`ws-scrcpy` on TheFlea)**:
+  - Running `ws-scrcpy` on TheFlea exposes the dedicated phone's screen and touch input as a web page on the local LAN/tailnet — allowing the navigator to view and control the mounted phone from a personal phone, bedroom iPad, or laptop browser without needing a desktop `scrcpy` client.
+- **24/7 Charge Limiting (Preventing Battery Swelling)**:
+  - Keeping a lithium-ion phone battery at 100% SOC continuously in a warm vehicle cab risks battery swelling. The dedicated phone should enforce a hardware charge limit (e.g., 50–60% via Magisk `acc` Advanced Charging Controller on a rooted phone, or built-in 80% battery protection on supported Pixel/Samsung devices).
+
+---
+
 ## Implementation Path
 
 ### Stage 1: Prototype on Alpine Linux (Diskless Mode)
