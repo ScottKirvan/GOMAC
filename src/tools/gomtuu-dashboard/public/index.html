@@ -8,6 +8,12 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" />
 <link rel="stylesheet" href="style.css?v=3f7e6deacd" />
+<link rel="manifest" href="manifest.webmanifest" />
+<meta name="theme-color" content="#0a0c0d" />
+<link rel="icon" type="image/png" sizes="16x16" href="img/icons/favicon-16.png" />
+<link rel="icon" type="image/png" sizes="32x32" href="img/icons/favicon-32.png" />
+<link rel="icon" type="image/png" sizes="48x48" href="img/icons/favicon-48.png" />
+<link rel="apple-touch-icon" href="img/icons/apple-touch-icon.png" />
 </head>
 <body>
   <div class="wrap">
@@ -169,11 +175,17 @@
     "imports": {
       "./app.js": "./app.js?v=c16f180289",
       "./color.js": "./color.js?v=b9120594e9",
-      "./render.js": "./render.js?v=e8c4d212f4"
+      "./render.js": "./render.js?v=e8c4d212f4",
+      "./sw.js": "./sw.js?v=49607eb185"
     }
   }
   </script>
   <script src="config.js?v=05a58d0efe"></script>
   <script type="module" src="app.js?v=c16f180289"></script>
+  <script>
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => navigator.serviceWorker.register("sw.js"));
+    }
+  </script>
 </body>
 </html>

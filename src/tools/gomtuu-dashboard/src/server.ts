@@ -13,6 +13,9 @@ const CONTENT_TYPES: Record<string, string> = {
   ".css": "text/css; charset=utf-8",
   ".json": "application/json; charset=utf-8",
   ".webp": "image/webp",
+  ".png": "image/png",
+  ".ico": "image/x-icon",
+  ".webmanifest": "application/manifest+json",
 };
 
 const PUBLIC_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "public");

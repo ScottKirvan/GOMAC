@@ -15,6 +15,25 @@ publish anything or expose Home Assistant MQTT discovery) — it's a
 read-only consumer of what those adapters already publish, so it lives
 under `src/tools/` instead.
 
+## PWA
+
+The frontend is installable: `manifest.webmanifest` and `sw.js` (a
+shell-only service worker) make it addable to a phone's home screen and
+launchable like an app. The service worker never caches `/snapshot.json`
+or `/stream` — those always hit the network, or fail outright offline,
+rather than ever serving stale telemetry as if it were current. Static
+files (HTML/CSS/JS/icons) are cached network-first as they're visited, so
+the shell still opens offline after at least one successful load.
+
+Icons live in `public/img/icons/`, generated from `assets/media/gomac-logo.png`
+(the GOMAC wordmark). The large PWA icons (192/512/apple-touch) use the
+full illustration; the small favicon sizes (16/32/48, `favicon.ico`) use a
+tighter crop on just part of the oval badge instead — the full illustration's
+fine linework turns to an illegible blur below about 48px, where a bolder,
+closer-cropped mark still reads as *something*. `favicon.ico` is a single
+file combining the 16/32/48 PNGs, for browsers that request it by convention
+rather than reading the `<link rel="icon">` tags.
+
 ## Running it
 
 ```

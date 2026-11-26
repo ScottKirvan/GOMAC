@@ -90,4 +90,29 @@ describe("startServer static files", () => {
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toBe("text/css; charset=utf-8");
   });
+
+  it("serves the PWA manifest, service worker, and icons with correct content types", async () => {
+    const config = loadConfig({ HTTP_PORT: "0", HTTP_PRIVATE_PORT: "0" });
+    const options = { ...config.liveStream, logger: silentLogger };
+    const stream = () => createLiveStream({ ...options, getUpdate: () => buildLiveUpdate({}, {}) });
+    server = startServer(config, silentLogger, () => emptySnapshot, () => emptySnapshot, stream(), stream());
+    await new Promise((r) => server!.httpServer.once("listening", r));
+    const base = `http://127.0.0.1:${(server.httpServer.address() as AddressInfo).port}`;
+
+    const manifest = await fetch(`${base}/manifest.webmanifest`);
+    expect(manifest.status).toBe(200);
+    expect(manifest.headers.get("content-type")).toBe("application/manifest+json");
+
+    const sw = await fetch(`${base}/sw.js`);
+    expect(sw.status).toBe(200);
+    expect(sw.headers.get("content-type")).toBe("text/javascript; charset=utf-8");
+
+    const favicon = await fetch(`${base}/favicon.ico`);
+    expect(favicon.status).toBe(200);
+    expect(favicon.headers.get("content-type")).toBe("image/x-icon");
+
+    const icon = await fetch(`${base}/img/icons/icon-192.png`);
+    expect(icon.status).toBe(200);
+    expect(icon.headers.get("content-type")).toBe("image/png");
+  });
 });
