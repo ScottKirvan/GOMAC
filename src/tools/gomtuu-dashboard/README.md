@@ -43,9 +43,13 @@ padded once actually installed, even though the underlying file filled its
 canvas edge to edge. The maskable files are the same logo scaled down and
 centered on an opaque white background so the artwork stays within the
 spec's safe zone (a circle at 40% of the icon's width as radius) — content
-outside that circle is fair game for any mask shape to crop. Regenerate both
-together if the logo changes; the maskable scale factor is derived from the
-logo's actual content bounds, not a fixed percentage.
+outside that circle is fair game for any mask shape to crop. The scale
+factor (0.65x of the logo's actual content bounds) is chosen deliberately
+tighter than a strict diagonal-safe fit: at the small sizes these icons
+actually render, filling more of the circle reads better than guaranteeing
+zero clipping under every possible mask shape, so the tube's tip and pins
+can brush the edge of the safe zone. Regenerate both together if the logo
+changes.
 
 ## Running it
 
