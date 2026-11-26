@@ -34,6 +34,19 @@ closer-cropped mark still reads as *something*. `favicon.ico` is a single
 file combining the 16/32/48 PNGs, for browsers that request it by convention
 rather than reading the `<link rel="icon">` tags.
 
+`icon-maskable-{192,512}.png` are separate from the regular `icon-{192,512}.png`
+files, per the manifest `purpose: "maskable"` spec: Android/Chrome crops an
+installed icon to whatever mask shape the launcher uses (circle, squircle,
+etc.), and without a maskable icon it shrinks the regular one defensively to
+guess at a safe margin — which is what made the icon look oddly small and
+padded once actually installed, even though the underlying file filled its
+canvas edge to edge. The maskable files are the same logo scaled down and
+centered on an opaque white background so the artwork stays within the
+spec's safe zone (a circle at 40% of the icon's width as radius) — content
+outside that circle is fair game for any mask shape to crop. Regenerate both
+together if the logo changes; the maskable scale factor is derived from the
+logo's actual content bounds, not a fixed percentage.
+
 ## Running it
 
 ```
