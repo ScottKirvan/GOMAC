@@ -24,6 +24,7 @@ import {
   formatSolarPosition,
   celsiusToFahrenheit,
   escapeHtml,
+  floatingDialRotation,
 } from "./render.js";
 import { resolveLocation } from "./location.js";
 import { gradientPair } from "./color.js";
@@ -303,10 +304,10 @@ function renderMotion(speedMps, courseDeg) {
     const dir = courseDeg === undefined ? "—" : `${Math.round(courseDeg)}° ${compassLabel(courseDeg)}`;
     const vel = mph === undefined ? "—" : `${Math.round(mph)} mph`;
     wxMotion.innerHTML = `<span class="wx-motion-dir">${dir}</span><span class="wx-motion-vel">${vel}</span>`;
-    const wxNeedle = document.getElementById("wxNeedle");
-    if (wxNeedle) {
-      wxNeedle.style.display = courseDeg === undefined ? "none" : "";
-      if (courseDeg !== undefined) wxNeedle.setAttribute("transform", `rotate(${courseDeg.toFixed(1)} 32 32)`);
+    const wxDial = document.getElementById("wxDial");
+    if (wxDial) {
+      const rot = floatingDialRotation(courseDeg);
+      wxDial.setAttribute("transform", `rotate(${rot.toFixed(1)} 32 32)`);
     }
   }
 }
@@ -451,11 +452,13 @@ function renderNowPlaying(np) {
 
 function renderPosition(position) {
   const body = document.getElementById("positionBody");
+  if (!body) return;
   const hasFix = position.latitude !== undefined && position.longitude !== undefined;
 
   if (!hasFix) {
     body.innerHTML = `<div class="empty-state">no GPS fix yet</div>`;
-    document.getElementById("positionMeta").textContent = "no fix yet";
+    const meta = document.getElementById("positionMeta");
+    if (meta) meta.textContent = "no fix yet";
     return;
   }
 
@@ -619,11 +622,18 @@ function renderWeather(weather, locationInfo, serverTime, position) {
       </div>
       <div class="wx-motion-block">
         <svg class="pos-compass wx-compass" viewBox="0 0 64 64" aria-label="Heading compass">
-          <circle cx="32" cy="32" r="28" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="1.5" />
-          <text x="32" y="10" text-anchor="middle" class="chart-axis-label">N</text>
-          <g id="wxNeedle" style="display:none">
-            <line x1="32" y1="32" x2="32" y2="10" stroke="var(--position)" stroke-width="2.5" stroke-linecap="round" />
-            <circle cx="32" cy="32" r="3" fill="var(--position)" />
+          <circle cx="32" cy="32" r="29.5" fill="none" stroke="rgba(212,175,55,0.45)" stroke-width="1.6" stroke-dasharray="2 1.5" />
+          <circle cx="32" cy="32" r="27.5" fill="#0d1117" stroke="rgba(255,255,255,0.14)" stroke-width="1" />
+          <line x1="32" y1="2" x2="32" y2="8" stroke="var(--position)" stroke-width="2" stroke-linecap="round" />
+          <polygon points="30,2 34,2 32,6" fill="var(--position)" />
+          <g id="wxDial" transform="rotate(${floatingDialRotation(live.shown?.courseDeg).toFixed(1)} 32 32)">
+            <circle cx="32" cy="32" r="25" fill="#131922" stroke="rgba(255,255,255,0.18)" stroke-width="1" />
+            <polygon points="32,7.5 37.5,14.5 34.5,14 34.5,19.5 29.5,19.5 29.5,14 26.5,14.5" fill="#4ade80" />
+            <text x="32" y="14" text-anchor="middle" dominant-baseline="central" class="wx-dial-label" transform="rotate(90 32 32)">E</text>
+            <text x="32" y="14" text-anchor="middle" dominant-baseline="central" class="wx-dial-label" transform="rotate(180 32 32)">S</text>
+            <text x="32" y="14" text-anchor="middle" dominant-baseline="central" class="wx-dial-label" transform="rotate(270 32 32)">W</text>
+            <circle cx="32" cy="32" r="3.5" fill="#c69214" stroke="#eab308" stroke-width="0.7" />
+            <circle cx="32" cy="32" r="1.5" fill="#fef08a" />
           </g>
         </svg>
         <div id="wxMotion" class="wx-motion-sub"></div>

@@ -599,3 +599,14 @@ export function formatSolarPosition(sun) {
   const inc = Math.round(sun.altitude);
   return `sun ${az}° az · ${inc}° inc`;
 }
+
+/**
+ * Calculates rotation degrees for a floating dial compass.
+ * In a floating dial compass, the dial rotates counter to the vehicle's course
+ * so that the vehicle's heading remains at the top (12 o'clock / lubber line).
+ */
+export function floatingDialRotation(courseDeg) {
+  if (courseDeg === undefined || Number.isNaN(courseDeg)) return 0;
+  return ((-courseDeg % 360) + 360) % 360;
+}
+
