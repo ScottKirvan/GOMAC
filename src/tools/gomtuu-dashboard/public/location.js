@@ -29,7 +29,7 @@ export function formatLocationLabel(data, isCoarse = false) {
   const countyObj = adminList.find(
     (item) => item.description?.toLowerCase().includes("county") || item.name?.toLowerCase().includes("county"),
   );
-  const county = countyObj ? countyObj.name.trim() : "";
+  const county = countyObj?.name?.trim() || "";
 
   const state = extractStateAbbreviation(data.principalSubdivisionCode, data.principalSubdivision);
   const country = data.countryCode?.toUpperCase() || "";
@@ -93,7 +93,10 @@ export async function resolveLocation(lat, lon, isCoarse = false, fetchFn = fetc
     try {
       const url = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`;
       const res = await fetchFn(url);
-      if (!res.ok) return null;
+      if (!res.ok) {
+        CACHE.delete(cacheKey);
+        return null;
+      }
       const data = await res.json();
 
       const label = formatLocationLabel(data, isCoarse);
@@ -113,6 +116,7 @@ export async function resolveLocation(lat, lon, isCoarse = false, fetchFn = fetc
         isCoarse,
       };
     } catch {
+      CACHE.delete(cacheKey);
       return null;
     }
   })();

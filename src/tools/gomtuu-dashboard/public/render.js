@@ -663,3 +663,17 @@ export function buildAltitudeTapeSvg(altitudeM) {
   `;
 }
 
+/**
+ * Formats the location header HTML for the Location card, hyperlinking to
+ * Google Maps when GPS coordinates are available.
+ */
+export function locationLinkHtml(locationInfo, position) {
+  if (!locationInfo?.label) return "";
+  const mapUrl = googleMapsUrl(position?.latitude, position?.longitude);
+  const mapTitle = position?.coarse ? "Approximate location (about 11 km). Open in Google Maps" : "Open in Google Maps";
+  const locContent = mapUrl
+    ? `<a class="wx-location-link" href="${mapUrl}" target="_blank" rel="noopener noreferrer" title="${mapTitle}">${escapeHtml(locationInfo.label)} ↗</a>`
+    : escapeHtml(locationInfo.label);
+  return `<div class="wx-location">${locContent}</div>`;
+}
+

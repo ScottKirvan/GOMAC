@@ -8,7 +8,6 @@ import {
   buildChartSvg,
   compassLabel,
   buildRttSparkline,
-  googleMapsUrl,
   currentDirection,
   weatherIcon,
   forecastDayLabel,
@@ -23,10 +22,10 @@ import {
   calculateSolarPosition,
   formatSolarPosition,
   celsiusToFahrenheit,
-  escapeHtml,
   floatingDialRotation,
   buildAltitudeTapeSvg,
   metersToFeet,
+  locationLinkHtml,
 } from "./render.js";
 import { resolveLocation } from "./location.js";
 import { gradientPair } from "./color.js";
@@ -286,21 +285,6 @@ function renderFlowGauges(shown, ghostEstimated) {
 function renderMotion(speedMps, courseDeg) {
   const mph = speedMps !== undefined ? speedMps * 2.23694 : undefined;
 
-  const speedEl = document.getElementById("posSpeed");
-  if (speedEl) {
-    speedEl.textContent = mph === undefined ? "—" : Math.round(mph);
-    const headingEl = document.getElementById("posHeading");
-    if (headingEl) {
-      headingEl.textContent =
-        `heading ${courseDeg === undefined ? "—" : `${Math.round(courseDeg)}° ${compassLabel(courseDeg)}`}${mph !== undefined && mph > 1 ? " · moving" : ""}`;
-    }
-    const needle = document.getElementById("posNeedle");
-    if (needle) {
-      needle.style.display = courseDeg === undefined ? "none" : "";
-      if (courseDeg !== undefined) needle.setAttribute("transform", `rotate(${courseDeg.toFixed(1)} 32 32)`);
-    }
-  }
-
   const wxMotion = document.getElementById("wxMotion");
   if (wxMotion) {
     const dir = courseDeg === undefined ? "—" : `${Math.round(courseDeg)}° ${compassLabel(courseDeg)}`;
@@ -452,51 +436,6 @@ function renderNowPlaying(np) {
   `;
 }
 
-function renderPosition(position) {
-  const body = document.getElementById("positionBody");
-  if (!body) return;
-  const hasFix = position.latitude !== undefined && position.longitude !== undefined;
-
-  if (!hasFix) {
-    body.innerHTML = `<div class="empty-state">no GPS fix yet</div>`;
-    const meta = document.getElementById("positionMeta");
-    if (meta) meta.textContent = "no fix yet";
-    return;
-  }
-
-  // Speed and heading are filled in by renderMotion, from the smoothed live values.
-  body.innerHTML = `
-    <div class="pos-top">
-      <svg class="pos-compass" viewBox="0 0 64 64">
-        <circle cx="32" cy="32" r="28" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="1.5" />
-        <text x="32" y="10" text-anchor="middle" class="chart-axis-label">N</text>
-        <g id="posNeedle" style="display:none">
-          <line x1="32" y1="32" x2="32" y2="10" stroke="var(--position)" stroke-width="2.5" stroke-linecap="round" />
-          <circle cx="32" cy="32" r="3" fill="var(--position)" />
-        </g>
-      </svg>
-      <div class="pos-stats">
-        <div class="pos-big"><span id="posSpeed" class="num">—</span><span class="unit">mph</span></div>
-        <div id="posHeading" class="pos-sub"></div>
-      </div>
-    </div>
-    <div id="posCoords" class="pos-coords mono"></div>
-  `;
-  renderCoords(position);
-  renderMotion(live.shown.speedMps, live.shown.courseDeg);
-  document.getElementById("positionMeta").textContent = position.coarse ? "phone GPS · approximate" : "phone GPS";
-}
-
-/** The public view gets coordinates rounded to 1 decimal place (~11 km), shown as approximate. */
-function renderCoords(position) {
-  const el = document.getElementById("posCoords");
-  if (!el || position.latitude === undefined || position.longitude === undefined) return;
-  const digits = position.coarse ? 1 : 4;
-  const coords = `${position.coarse ? "≈ " : ""}${position.latitude.toFixed(digits)}°, ${position.longitude.toFixed(digits)}°`;
-  const title = position.coarse ? "Approximate location (about 11 km). Open in Google Maps" : "Open in Google Maps";
-  el.innerHTML = `<a class="pos-map-link" href="${googleMapsUrl(position.latitude, position.longitude)}" target="_blank" rel="noopener noreferrer" title="${title}">${coords} ↗</a>${position.accuracyM !== undefined ? ` ±${Math.round(position.accuracyM)}m` : ""}${position.updatedAt !== undefined ? ` · fix ${formatAge(position.updatedAt)}` : ""}`;
-}
-
 function renderConnectivity(connectivity) {
   const body = document.getElementById("connectivityBody");
   const { targets, summary, history } = connectivity;
@@ -558,15 +497,7 @@ function renderWeather(weather, locationInfo, serverTime, position) {
   const tzPrefix = locationInfo?.timezoneAbbreviation ? `${locationInfo.timezoneAbbreviation} · ` : "";
   meta.textContent = `${tzPrefix}updated ${formatAge(weather.updatedAt)}`;
 
-  let locHtml = "";
-  if (locationInfo?.label) {
-    const mapUrl = googleMapsUrl(position?.latitude, position?.longitude);
-    const mapTitle = position?.coarse ? "Approximate location (about 11 km). Open in Google Maps" : "Open in Google Maps";
-    const locContent = mapUrl
-      ? `<a class="wx-location-link" href="${mapUrl}" target="_blank" rel="noopener noreferrer" title="${mapTitle}">${escapeHtml(locationInfo.label)} ↗</a>`
-      : escapeHtml(locationInfo.label);
-    locHtml = `<div class="wx-location">${locContent}</div>`;
-  }
+  const locHtml = locationLinkHtml(locationInfo, position);
 
   let barSection = "";
   if (weather.sunrise && weather.sunset) {
@@ -627,7 +558,7 @@ function renderWeather(weather, locationInfo, serverTime, position) {
           ${renderWind(weather)}
         </div>
         <div class="wx-motion-block">
-          <svg class="pos-compass wx-compass" viewBox="0 0 64 64" aria-label="Heading compass">
+          <svg class="wx-compass" viewBox="0 0 64 64" aria-label="Heading compass">
             <circle cx="32" cy="32" r="29.5" fill="none" stroke="rgba(212,175,55,0.45)" stroke-width="1.6" stroke-dasharray="2 1.5" />
             <circle cx="32" cy="32" r="27.5" fill="#0d1117" stroke="rgba(255,255,255,0.14)" stroke-width="1" />
             <line x1="32" y1="2" x2="32" y2="8" stroke="var(--position)" stroke-width="2" stroke-linecap="round" />
@@ -700,7 +631,6 @@ function render(snapshot) {
   renderChart(snapshot.victron, snapshot.serverTime);
   renderSensorTables(snapshot.victron.devices);
   renderNowPlaying(snapshot.nowPlaying);
-  renderPosition(live.lastSnapshotPosition);
   renderConnectivity(snapshot.connectivity);
   renderWeather(snapshot.weather, currentLocation, snapshot.serverTime, live.lastSnapshotPosition);
 
@@ -883,7 +813,6 @@ function openStream() {
     const { latitude, longitude } = update.position;
     if (latitude !== live.lastSnapshotPosition?.latitude || longitude !== live.lastSnapshotPosition?.longitude) {
       live.lastSnapshotPosition = { ...live.lastSnapshotPosition, ...definedOnly(update.position) };
-      renderCoords(live.lastSnapshotPosition);
     }
   });
   es.addEventListener("error", () => {

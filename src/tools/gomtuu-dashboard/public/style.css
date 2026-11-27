@@ -145,18 +145,6 @@ header {
 .stat-row .k { color: var(--ink-mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .stat-row .v { color: var(--ink); font-weight: 500; white-space: nowrap; }
 
-.pos-body { padding: 14px; display: flex; flex-direction: column; gap: 12px; }
-.pos-top { display: flex; gap: 14px; align-items: center; }
-.pos-compass { flex: 0 0 auto; width: 64px; height: 64px; }
-.pos-stats { flex: 1; min-width: 0; }
-.pos-big { display: flex; align-items: baseline; gap: 6px; }
-.pos-big .num { font-size: 1.9rem; font-weight: 700; }
-.pos-big .unit { font-size: 0.78rem; color: var(--ink-mute); }
-.pos-sub { font-size: 0.74rem; color: var(--ink-dim); margin-top: 2px; }
-.pos-coords { font-size: 0.72rem; color: var(--ink-mute); border-top: 1px solid rgba(255,255,255,0.05); padding-top: 8px; }
-.pos-map-link { color: var(--ink-dim); text-decoration: none; border-bottom: 1px dotted var(--ink-mute); }
-.pos-map-link:hover { color: var(--position); border-bottom-color: var(--position); }
-
 .wx-body { padding: 0; display: flex; align-items: stretch; }
 .wx-body .empty-state { flex: 1; }
 .wx-content { flex: 1; min-width: 0; padding: 14px; }

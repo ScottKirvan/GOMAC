@@ -146,11 +146,29 @@ describe("resolveLocation", () => {
     expect(mockFetch).toHaveBeenCalledTimes(1);
   });
 
-  it("returns null for invalid coordinates or network errors", async () => {
+  it("returns null for invalid coordinates or network errors and does not cache failures", async () => {
     expect(await resolveLocation(undefined, undefined)).toBeNull();
     expect(await resolveLocation(Number.NaN, 0)).toBeNull();
 
     const failingFetch = vi.fn().mockRejectedValue(new Error("Network error"));
     expect(await resolveLocation(10.0, 20.0, false, failingFetch)).toBeNull();
+
+    // Subsequent retry at same coordinates should not be poisoned by cached null
+    const recoveringFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ city: "Testville", principalSubdivisionCode: "US-PA", countryCode: "US" }),
+    });
+    const recovered = await resolveLocation(10.0, 20.0, false, recoveringFetch);
+    expect(recovered?.label).toBe("Testville, PA");
+    expect(recoveringFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("handles malformed county entries without a name", () => {
+    const malformed = {
+      city: "Philadelphia",
+      principalSubdivisionCode: "US-PA",
+      localityInfo: { administrative: [{ description: "county" }] },
+    };
+    expect(formatLocationLabel(malformed, false)).toBe("Philadelphia, PA");
   });
 });
