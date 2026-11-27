@@ -22,6 +22,7 @@ import {
   formatClockInTimezone,
   calculateSolarPosition,
   formatSolarPosition,
+  celsiusToFahrenheit,
   escapeHtml,
 } from "./render.js";
 import { resolveLocation } from "./location.js";
@@ -563,6 +564,18 @@ function renderWeather(weather, locationInfo, serverTime, position) {
     `;
   }
 
+  const tempF = weather.temperatureC !== undefined ? Math.round(celsiusToFahrenheit(weather.temperatureC)) : undefined;
+  const feelsC = weather.apparentTemperatureC !== undefined ? Math.round(weather.apparentTemperatureC) : undefined;
+  let feelsText = "";
+  if (feelsC !== undefined && tempF !== undefined) {
+    feelsText = `feels ${feelsC}° · ${tempF}°F`;
+  } else if (feelsC !== undefined) {
+    feelsText = `feels ${feelsC}°`;
+  } else if (tempF !== undefined) {
+    feelsText = `${tempF}°F`;
+  }
+  const feelsHtml = feelsText ? `<span class="wx-feels">${feelsText}</span>` : "";
+
   body.innerHTML = `
     ${locHtml}
     <div class="wx-top">
@@ -570,7 +583,7 @@ function renderWeather(weather, locationInfo, serverTime, position) {
       <span class="wx-temp">${Math.round(weather.temperatureC)}°C</span>
       <div class="wx-top-text">
         <span class="wx-cond">${weather.condition ?? "—"}</span>
-        ${weather.apparentTemperatureC !== undefined ? `<span class="wx-feels">feels ${Math.round(weather.apparentTemperatureC)}°</span>` : ""}
+        ${feelsHtml}
       </div>
     </div>
     ${renderWind(weather)}
