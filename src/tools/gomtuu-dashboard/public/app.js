@@ -281,15 +281,34 @@ function renderFlowGauges(shown, ghostEstimated) {
 }
 
 function renderMotion(speedMps, courseDeg) {
-  const speedEl = document.getElementById("posSpeed");
-  if (!speedEl) return;
   const mph = speedMps !== undefined ? speedMps * 2.23694 : undefined;
-  speedEl.textContent = mph === undefined ? "—" : Math.round(mph);
-  document.getElementById("posHeading").textContent =
-    `heading ${courseDeg === undefined ? "—" : `${Math.round(courseDeg)}° ${compassLabel(courseDeg)}`}${mph !== undefined && mph > 1 ? " · moving" : ""}`;
-  const needle = document.getElementById("posNeedle");
-  needle.style.display = courseDeg === undefined ? "none" : "";
-  if (courseDeg !== undefined) needle.setAttribute("transform", `rotate(${courseDeg.toFixed(1)} 32 32)`);
+
+  const speedEl = document.getElementById("posSpeed");
+  if (speedEl) {
+    speedEl.textContent = mph === undefined ? "—" : Math.round(mph);
+    const headingEl = document.getElementById("posHeading");
+    if (headingEl) {
+      headingEl.textContent =
+        `heading ${courseDeg === undefined ? "—" : `${Math.round(courseDeg)}° ${compassLabel(courseDeg)}`}${mph !== undefined && mph > 1 ? " · moving" : ""}`;
+    }
+    const needle = document.getElementById("posNeedle");
+    if (needle) {
+      needle.style.display = courseDeg === undefined ? "none" : "";
+      if (courseDeg !== undefined) needle.setAttribute("transform", `rotate(${courseDeg.toFixed(1)} 32 32)`);
+    }
+  }
+
+  const wxMotion = document.getElementById("wxMotion");
+  if (wxMotion) {
+    const dir = courseDeg === undefined ? "—" : `${Math.round(courseDeg)}° ${compassLabel(courseDeg)}`;
+    const vel = mph === undefined ? "—" : `${Math.round(mph)} mph`;
+    wxMotion.innerHTML = `<span class="wx-motion-dir">${dir}</span><span class="wx-motion-vel">${vel}</span>`;
+    const wxNeedle = document.getElementById("wxNeedle");
+    if (wxNeedle) {
+      wxNeedle.style.display = courseDeg === undefined ? "none" : "";
+      if (courseDeg !== undefined) wxNeedle.setAttribute("transform", `rotate(${courseDeg.toFixed(1)} 32 32)`);
+    }
+  }
 }
 
 /**
@@ -534,7 +553,12 @@ function renderWeather(weather, locationInfo, serverTime, position) {
   const tzPrefix = locationInfo?.timezoneAbbreviation ? `${locationInfo.timezoneAbbreviation} · ` : "";
   meta.textContent = `${tzPrefix}updated ${formatAge(weather.updatedAt)}`;
 
-  const locHtml = locationInfo?.label ? `<div class="wx-location">${escapeHtml(locationInfo.label)}</div>` : "";
+  const mapUrl = googleMapsUrl(position?.latitude, position?.longitude);
+  const mapTitle = position?.coarse ? "Approximate location (about 11 km). Open in Google Maps" : "Open in Google Maps";
+  const locContent = mapUrl
+    ? `<a class="wx-location-link" href="${mapUrl}" target="_blank" rel="noopener noreferrer" title="${mapTitle}">${escapeHtml(locationInfo.label)} ↗</a>`
+    : escapeHtml(locationInfo?.label ?? "");
+  const locHtml = locationInfo?.label ? `<div class="wx-location">${locContent}</div>` : "";
 
   let barSection = "";
   if (weather.sunrise && weather.sunset) {
@@ -579,17 +603,32 @@ function renderWeather(weather, locationInfo, serverTime, position) {
   body.innerHTML = `
     ${locHtml}
     <div class="wx-top">
-      <span class="wx-icon" aria-hidden="true">${weatherIcon(weather.conditionCode)}</span>
-      <span class="wx-temp">${Math.round(weather.temperatureC)}°C</span>
-      <div class="wx-top-text">
-        <span class="wx-cond">${weather.condition ?? "—"}</span>
-        ${feelsHtml}
+      <div class="wx-temp-block">
+        <span class="wx-icon" aria-hidden="true">${weatherIcon(weather.conditionCode)}</span>
+        <span class="wx-temp">${Math.round(weather.temperatureC)}°C</span>
+        <div class="wx-top-text">
+          <span class="wx-cond">${weather.condition ?? "—"}</span>
+          ${feelsHtml}
+        </div>
+      </div>
+      <div class="wx-motion-block">
+        <svg class="pos-compass wx-compass" viewBox="0 0 64 64" aria-label="Heading compass">
+          <circle cx="32" cy="32" r="28" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="1.5" />
+          <text x="32" y="10" text-anchor="middle" class="chart-axis-label">N</text>
+          <g id="wxNeedle" style="display:none">
+            <line x1="32" y1="32" x2="32" y2="10" stroke="var(--position)" stroke-width="2.5" stroke-linecap="round" />
+            <circle cx="32" cy="32" r="3" fill="var(--position)" />
+          </g>
+        </svg>
+        <div id="wxMotion" class="wx-motion-sub"></div>
       </div>
     </div>
     ${renderWind(weather)}
     ${barSection}
     ${renderForecast(weather.forecast)}
   `;
+
+  renderMotion(live.shown?.speedMps, live.shown?.courseDeg);
 }
 
 function renderWind(weather) {
