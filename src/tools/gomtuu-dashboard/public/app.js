@@ -605,14 +605,17 @@ function renderWeather(weather, locationInfo, serverTime, position) {
 
   body.innerHTML = `
     ${locHtml}
-    <div class="wx-top">
-      <div class="wx-temp-block">
-        <span class="wx-icon" aria-hidden="true">${weatherIcon(weather.conditionCode)}</span>
-        <span class="wx-temp">${Math.round(weather.temperatureC)}°C</span>
-        <div class="wx-top-text">
-          <span class="wx-cond">${weather.condition ?? "—"}</span>
-          ${feelsHtml}
+    <div class="wx-main-row">
+      <div class="wx-main-left">
+        <div class="wx-top">
+          <span class="wx-icon" aria-hidden="true">${weatherIcon(weather.conditionCode)}</span>
+          <span class="wx-temp">${Math.round(weather.temperatureC)}°C</span>
+          <div class="wx-top-text">
+            <span class="wx-cond">${weather.condition ?? "—"}</span>
+            ${feelsHtml}
+          </div>
         </div>
+        ${renderWind(weather)}
       </div>
       <div class="wx-motion-block">
         <svg class="pos-compass wx-compass" viewBox="0 0 64 64" aria-label="Heading compass">
@@ -626,7 +629,6 @@ function renderWeather(weather, locationInfo, serverTime, position) {
         <div id="wxMotion" class="wx-motion-sub"></div>
       </div>
     </div>
-    ${renderWind(weather)}
     ${barSection}
     ${renderForecast(weather.forecast)}
   `;
