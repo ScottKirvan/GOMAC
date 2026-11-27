@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { join } from "node:path";
+import ts from "typescript";
 import {
   buildChartSvg,
   compassLabel,
@@ -491,5 +493,27 @@ describe("formatClockInTimezone", () => {
     const epoch = Date.parse("2026-11-27T20:00:00.000Z");
     expect(formatClockInTimezone(epoch)).toBe(new Date(epoch).toLocaleTimeString());
     expect(formatClockInTimezone(undefined)).toBe("—");
+  });
+});
+
+describe("app.js scope & syntax", () => {
+  it("has no undeclared variable references in app.js", () => {
+    const filePath = join(__dirname, "../public/app.js");
+    const options: ts.CompilerOptions = {
+      noEmit: true,
+      allowJs: true,
+      checkJs: true,
+      target: ts.ScriptTarget.ES2022,
+      module: ts.ModuleKind.ESNext,
+    };
+    const host = ts.createCompilerHost(options);
+    const prog = ts.createProgram([filePath], options, host);
+    const sf = prog.getSourceFile(filePath);
+    expect(sf).toBeDefined();
+    if (sf) {
+      const diags = prog.getSemanticDiagnostics(sf);
+      const undeclared = diags.filter((d) => d.code === 2304 || d.code === 2552);
+      expect(undeclared.map((d) => d.messageText)).toEqual([]);
+    }
   });
 });

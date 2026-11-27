@@ -644,6 +644,7 @@ function render(snapshot) {
 let latestServerTime = 0;
 let latestTimezone;
 let latestTzAbbr;
+let currentLocation;
 
 function renderClock(serverTime, timezone = latestTimezone, tzAbbr = latestTzAbbr) {
   if (timezone !== undefined) latestTimezone = timezone;
