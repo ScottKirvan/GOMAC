@@ -17,7 +17,12 @@ import {
   easeAngleToward,
   lockIconSvg,
   deviceCardHtml,
+  formatSunTime,
+  calculateSunProgress,
+  formatClockInTimezone,
+  escapeHtml,
 } from "./render.js";
+import { resolveLocation } from "./location.js";
 import { gradientPair } from "./color.js";
 
 /**
@@ -513,40 +518,32 @@ function renderConnectivity(connectivity) {
   `;
 }
 
-function renderWeather(weather) {
+function renderWeather(weather, locationInfo, serverTime) {
   const body = document.getElementById("weatherBody");
   const meta = document.getElementById("weatherMeta");
 
-  if (weather.temperatureC === undefined) {
+  if (!weather || weather.temperatureC === undefined) {
     body.innerHTML = `<div class="empty-state">no weather data yet</div>`;
     meta.textContent = "no data yet";
     return;
   }
 
-  meta.textContent = `updated ${formatAge(weather.updatedAt)}`;
+  const tzPrefix = locationInfo?.timezoneAbbreviation ? `${locationInfo.timezoneAbbreviation} · ` : "";
+  meta.textContent = `${tzPrefix}updated ${formatAge(weather.updatedAt)}`;
+
+  const locHtml = locationInfo?.label ? `<div class="wx-sub">${escapeHtml(locationInfo.label)}</div>` : "";
 
   let barSection = "";
-  // Open-Meteo's timezone=auto returns naive local-time strings for the
-  // queried location; the browser parses them in ITS OWN local timezone,
-  // so this drifts if the dashboard is viewed from a different timezone
-  // than Gomtuu is currently in. Acceptable for now -- same person near
-  // the van in the common case -- not worth the extra complexity yet.
   if (weather.sunrise && weather.sunset) {
-    const sunrise = new Date(weather.sunrise);
-    const sunset = new Date(weather.sunset);
-    const now = new Date();
-    const totalMs = sunset - sunrise;
-    const pct = Math.min(100, Math.max(0, ((now - sunrise) / totalMs) * 100));
-    const sunriseLabel = sunrise.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-    const sunsetLabel = sunset.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    const tzAbbr = locationInfo?.timezoneAbbreviation;
+    const progress = calculateSunProgress(weather.sunrise, weather.sunset, weather.utcOffsetSeconds, serverTime ?? Date.now());
+    const pct = progress ? progress.pct : 0;
+    const sunriseLabel = formatSunTime(weather.sunrise, tzAbbr);
+    const sunsetLabel = formatSunTime(weather.sunset, tzAbbr);
 
-    let note;
-    if (now < sunrise) {
-      note = `before sunrise — ${formatDuration(sunrise - now)} to go`;
-    } else if (now > sunset) {
-      note = "after sunset";
-    } else {
-      note = `daylight ${pct.toFixed(0)}% elapsed · ${formatDuration(sunset - now)} to sunset`;
+    let note = progress ? progress.note : "";
+    if (note && tzAbbr) {
+      note = `${note} (${tzAbbr})`;
     }
 
     barSection = `
@@ -568,6 +565,7 @@ function renderWeather(weather) {
         ${weather.apparentTemperatureC !== undefined ? `<span class="wx-feels">feels ${Math.round(weather.apparentTemperatureC)}°</span>` : ""}
       </div>
     </div>
+    ${locHtml}
     ${renderWind(weather)}
     ${barSection}
     ${renderForecast(weather.forecast)}
@@ -620,21 +618,43 @@ function render(snapshot) {
   renderNowPlaying(snapshot.nowPlaying);
   renderPosition(live.lastSnapshotPosition);
   renderConnectivity(snapshot.connectivity);
-  renderWeather(snapshot.weather);
+  renderWeather(snapshot.weather, currentLocation, snapshot.serverTime);
 
-  renderClock(snapshot.serverTime);
+  renderClock(snapshot.serverTime, currentLocation?.timezone, currentLocation?.timezoneAbbreviation);
   renderLiveFields();
   document.getElementById("footerNote").textContent = live.streaming
     ? "live readings streaming, everything else polled every 10s, weather via Open-Meteo"
     : "polling /snapshot.json every 10s, weather via Open-Meteo";
+
+  const lat = snapshot.position?.latitude;
+  const lon = snapshot.position?.longitude;
+  const isCoarse = snapshot.position?.coarse === true;
+  if (lat !== undefined && lon !== undefined) {
+    resolveLocation(lat, lon, isCoarse).then((loc) => {
+      if (loc && (loc.label !== currentLocation?.label || loc.timezone !== currentLocation?.timezone)) {
+        currentLocation = loc;
+        renderWeather(snapshot.weather, currentLocation, snapshot.serverTime);
+        renderClock(snapshot.serverTime, currentLocation.timezone, currentLocation.timezoneAbbreviation);
+      }
+    });
+  }
 }
 
-/** The header clock shows the server time of the newest data received, from a snapshot or a live event. */
+/** The header clock shows the server time of the newest data received, in Gomtuu's timezone when available. */
 let latestServerTime = 0;
-function renderClock(serverTime) {
+let latestTimezone;
+let latestTzAbbr;
+
+function renderClock(serverTime, timezone = latestTimezone, tzAbbr = latestTzAbbr) {
+  if (timezone !== undefined) latestTimezone = timezone;
+  if (tzAbbr !== undefined) latestTzAbbr = tzAbbr;
   if (serverTime === undefined || serverTime < latestServerTime) return;
   latestServerTime = serverTime;
-  document.getElementById("serverTime").textContent = new Date(serverTime).toLocaleTimeString();
+  const el = document.getElementById("serverTime");
+  el.textContent = formatClockInTimezone(serverTime, latestTimezone, latestTzAbbr);
+  if (latestTimezone) {
+    el.title = `Gomtuu local time (${latestTimezone})`;
+  }
 }
 
 function definedOnly(obj) {
