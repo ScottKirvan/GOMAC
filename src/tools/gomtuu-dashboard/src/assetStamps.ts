@@ -17,7 +17,8 @@ export function computeStamps(publicDir: string): Record<string, string> {
   const stamps: Record<string, string> = {};
   for (const file of readdirSync(publicDir).sort()) {
     if (!/\.(js|css)$/.test(file)) continue;
-    stamps[file] = createHash("sha256").update(readFileSync(join(publicDir, file))).digest("hex").slice(0, STAMP_LENGTH);
+    const content = readFileSync(join(publicDir, file), "utf8").replace(/\r\n/g, "\n");
+    stamps[file] = createHash("sha256").update(content, "utf8").digest("hex").slice(0, STAMP_LENGTH);
   }
   return stamps;
 }
@@ -36,6 +37,7 @@ export function stampIndexHtml(html: string, stamps: Record<string, string>): st
   for (const [file, stamp] of Object.entries(stamps)) {
     if (file.endsWith(".js") && file !== "config.js") imports[`./${file}`] = `./${file}?v=${stamp}`;
   }
-  const map = JSON.stringify({ imports }, null, 2).replace(/\n/g, "\n  ");
-  return out.replace(/<script type="importmap">[^]*?<\/script>/, () => `<script type="importmap">\n  ${map}\n  </script>`);
+  const nl = html.includes("\r\n") ? "\r\n" : "\n";
+  const map = JSON.stringify({ imports }, null, 2).replace(/\r?\n/g, `${nl}  `);
+  return out.replace(/<script type="importmap">[^]*?<\/script>/, () => `<script type="importmap">${nl}  ${map}${nl}  </script>`);
 }
