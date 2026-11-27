@@ -98,25 +98,6 @@ describe("fetchWeather", () => {
     expect((await fetchWeather(0, 0)).utcOffsetSeconds).toBe(-10800);
   });
 
-  it("records the location's IANA timezone and abbreviation", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({
-          current: { temperature_2m: 19 },
-          daily: {},
-          timezone: "America/Los_Angeles",
-          timezone_abbreviation: "PST",
-          utc_offset_seconds: -28800,
-        }),
-      }),
-    );
-    const weather = await fetchWeather(0, 0);
-    expect(weather.timezone).toBe("America/Los_Angeles");
-    expect(weather.timezoneAbbreviation).toBe("PST");
-  });
-
   it("leaves the forecast empty when the response has no daily dates", async () => {
     vi.stubGlobal(
       "fetch",

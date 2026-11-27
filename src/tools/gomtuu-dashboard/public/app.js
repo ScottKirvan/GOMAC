@@ -17,9 +17,6 @@ import {
   easeAngleToward,
   lockIconSvg,
   deviceCardHtml,
-  formatSunTime,
-  calculateSunProgress,
-  formatClockInTimezone,
 } from "./render.js";
 import { gradientPair } from "./color.js";
 
@@ -516,7 +513,7 @@ function renderConnectivity(connectivity) {
   `;
 }
 
-function renderWeather(weather, serverTime) {
+function renderWeather(weather) {
   const body = document.getElementById("weatherBody");
   const meta = document.getElementById("weatherMeta");
 
@@ -526,20 +523,30 @@ function renderWeather(weather, serverTime) {
     return;
   }
 
-  const tzPrefix = weather.timezoneAbbreviation ? `${weather.timezoneAbbreviation} · ` : "";
-  meta.textContent = `${tzPrefix}updated ${formatAge(weather.updatedAt)}`;
+  meta.textContent = `updated ${formatAge(weather.updatedAt)}`;
 
   let barSection = "";
+  // Open-Meteo's timezone=auto returns naive local-time strings for the
+  // queried location; the browser parses them in ITS OWN local timezone,
+  // so this drifts if the dashboard is viewed from a different timezone
+  // than Gomtuu is currently in. Acceptable for now -- same person near
+  // the van in the common case -- not worth the extra complexity yet.
   if (weather.sunrise && weather.sunset) {
-    const tzAbbr = weather.timezoneAbbreviation;
-    const progress = calculateSunProgress(weather.sunrise, weather.sunset, weather.utcOffsetSeconds, serverTime ?? Date.now());
-    const pct = progress ? progress.pct : 0;
-    const sunriseLabel = formatSunTime(weather.sunrise, tzAbbr);
-    const sunsetLabel = formatSunTime(weather.sunset, tzAbbr);
+    const sunrise = new Date(weather.sunrise);
+    const sunset = new Date(weather.sunset);
+    const now = new Date();
+    const totalMs = sunset - sunrise;
+    const pct = Math.min(100, Math.max(0, ((now - sunrise) / totalMs) * 100));
+    const sunriseLabel = sunrise.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    const sunsetLabel = sunset.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 
-    let note = progress ? progress.note : "";
-    if (note && tzAbbr) {
-      note = `${note} (${tzAbbr})`;
+    let note;
+    if (now < sunrise) {
+      note = `before sunrise — ${formatDuration(sunrise - now)} to go`;
+    } else if (now > sunset) {
+      note = "after sunset";
+    } else {
+      note = `daylight ${pct.toFixed(0)}% elapsed · ${formatDuration(sunset - now)} to sunset`;
     }
 
     barSection = `
@@ -613,30 +620,21 @@ function render(snapshot) {
   renderNowPlaying(snapshot.nowPlaying);
   renderPosition(live.lastSnapshotPosition);
   renderConnectivity(snapshot.connectivity);
-  renderWeather(snapshot.weather, snapshot.serverTime);
+  renderWeather(snapshot.weather);
 
-  renderClock(snapshot.serverTime, snapshot.weather?.timezone, snapshot.weather?.timezoneAbbreviation);
+  renderClock(snapshot.serverTime);
   renderLiveFields();
   document.getElementById("footerNote").textContent = live.streaming
     ? "live readings streaming, everything else polled every 10s, weather via Open-Meteo"
     : "polling /snapshot.json every 10s, weather via Open-Meteo";
 }
 
-/** The header clock shows the server time of the newest data received, in Gomtuu's timezone when available. */
+/** The header clock shows the server time of the newest data received, from a snapshot or a live event. */
 let latestServerTime = 0;
-let latestTimezone;
-let latestTzAbbr;
-
-function renderClock(serverTime, timezone = latestTimezone, tzAbbr = latestTzAbbr) {
-  if (timezone !== undefined) latestTimezone = timezone;
-  if (tzAbbr !== undefined) latestTzAbbr = tzAbbr;
+function renderClock(serverTime) {
   if (serverTime === undefined || serverTime < latestServerTime) return;
   latestServerTime = serverTime;
-  const el = document.getElementById("serverTime");
-  el.textContent = formatClockInTimezone(serverTime, latestTimezone, latestTzAbbr);
-  if (latestTimezone) {
-    el.title = `Gomtuu local time (${latestTimezone})`;
-  }
+  document.getElementById("serverTime").textContent = new Date(serverTime).toLocaleTimeString();
 }
 
 function definedOnly(obj) {
