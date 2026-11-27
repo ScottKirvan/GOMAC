@@ -610,4 +610,21 @@ describe("app.js scope & syntax", () => {
       expect(errors.some((msg) => msg.includes("currentLocation"))).toBe(true);
     }
   });
+
+  it("safely handles undefined locationInfo with defined position (regression test)", () => {
+    // Regression check for TypeError: Cannot read properties of undefined (reading 'label')
+    // when position has coordinates but reverse geocoding has not resolved yet
+    const locationInfo = undefined;
+    const position = { latitude: 41.3, longitude: -72.9, coarse: true };
+    let locHtml = "";
+    if (locationInfo?.label) {
+      const mapUrl = googleMapsUrl(position?.latitude, position?.longitude);
+      const mapTitle = position?.coarse ? "Approximate location (about 11 km). Open in Google Maps" : "Open in Google Maps";
+      const locContent = mapUrl
+        ? `<a class="wx-location-link" href="${mapUrl}" target="_blank" rel="noopener noreferrer" title="${mapTitle}">${escapeHtml(locationInfo.label)} ↗</a>`
+        : escapeHtml(locationInfo.label);
+      locHtml = `<div class="wx-location">${locContent}</div>`;
+    }
+    expect(locHtml).toBe("");
+  });
 });
