@@ -182,6 +182,7 @@ header {
 .wx-location-link:hover { color: var(--position); border-bottom-color: var(--position); }
 .wx-motion-block { display: flex; flex-direction: column; align-items: center; flex: 0 0 auto; }
 .wx-compass { width: 64px; height: 64px; flex: 0 0 auto; }
+.wx-dial-label { font-family: "IBM Plex Mono", monospace; font-size: 8.5px; font-weight: 800; fill: #4ade80; }
 .wx-motion-sub { display: flex; flex-direction: column; align-items: center; font-size: 0.72rem; color: var(--ink-dim); line-height: 1.25; margin-top: 4px; font-family: "IBM Plex Mono", monospace; }
 .wx-motion-sub .wx-motion-vel { color: var(--ink-mute); }
 .wx-bar-row { display: flex; align-items: center; gap: 8px; font-size: 0.68rem; color: var(--ink-mute); font-family: "IBM Plex Mono", monospace; }

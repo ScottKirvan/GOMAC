@@ -27,6 +27,7 @@ import {
   calculateSolarPosition,
   formatSolarPosition,
   celsiusToFahrenheit,
+  floatingDialRotation,
 } from "../public/render.js";
 
 describe("fmt / fmtSigned", () => {
@@ -626,5 +627,37 @@ describe("app.js scope & syntax", () => {
       locHtml = `<div class="wx-location">${locContent}</div>`;
     }
     expect(locHtml).toBe("");
+  });
+});
+
+describe("floatingDialRotation", () => {
+  it("keeps North at 12 o'clock when heading is 0°", () => {
+    expect(floatingDialRotation(0)).toBe(0);
+  });
+
+  it("counter-rotates dial so heading is at top (12 o'clock)", () => {
+    // Heading 90° (East): dial rotates -90° (270°), bringing E to 12 o'clock
+    expect(floatingDialRotation(90)).toBe(270);
+    // Heading 180° (South): dial rotates -180° (180°), bringing S to 12 o'clock
+    expect(floatingDialRotation(180)).toBe(180);
+    // Heading 270° (West): dial rotates -270° (90°), bringing W to 12 o'clock
+    expect(floatingDialRotation(270)).toBe(90);
+    // Heading 45° (NE): dial rotates 315°
+    expect(floatingDialRotation(45)).toBe(315);
+  });
+
+  it("handles undefined and NaN gracefully by defaulting to 0", () => {
+    expect(floatingDialRotation(undefined)).toBe(0);
+    expect(floatingDialRotation(Number.NaN)).toBe(0);
+  });
+});
+
+describe("index.html card layout", () => {
+  it("has Location card and has removed Position card", () => {
+    const html = readFileSync(join(__dirname, "../public/index.html"), "utf8");
+    expect(html).toContain("Location");
+    expect(html).not.toContain("Position");
+    expect(html).not.toContain("positionBody");
+    expect(html).not.toContain("positionMeta");
   });
 });
