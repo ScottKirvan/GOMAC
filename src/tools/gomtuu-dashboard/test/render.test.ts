@@ -23,6 +23,8 @@ import {
   localTimeToEpoch,
   calculateSunProgress,
   formatClockInTimezone,
+  calculateSolarPosition,
+  formatSolarPosition,
 } from "../public/render.js";
 
 describe("fmt / fmtSigned", () => {
@@ -493,6 +495,48 @@ describe("formatClockInTimezone", () => {
     const epoch = Date.parse("2026-11-27T20:00:00.000Z");
     expect(formatClockInTimezone(epoch)).toBe(new Date(epoch).toLocaleTimeString());
     expect(formatClockInTimezone(undefined)).toBe("—");
+  });
+});
+
+describe("calculateSolarPosition & formatSolarPosition", () => {
+  it("returns null when coordinates are missing or invalid", () => {
+    expect(calculateSolarPosition(undefined, -72.9)).toBeNull();
+    expect(calculateSolarPosition(41.3, undefined)).toBeNull();
+    expect(calculateSolarPosition(Number.NaN, -72.9)).toBeNull();
+  });
+
+  it("calculates accurate solar azimuth and inclination for a known location and time", () => {
+    // 2026-11-27 17:36:00 UTC (~12:36 PM EST) in New Haven CT (41.3 N, 72.9 W)
+    const epoch = Date.parse("2026-11-27T17:36:00.000Z");
+    const pos = calculateSolarPosition(41.3, -72.9, epoch);
+    expect(pos).not.toBeNull();
+    if (pos) {
+      // Just after solar noon in late November in northern hemisphere:
+      // Sun is in the SSW (~190-200 degrees) and ~25-27 degrees above horizon
+      expect(pos.azimuth).toBeGreaterThan(180);
+      expect(pos.azimuth).toBeLessThan(210);
+      expect(pos.altitude).toBeGreaterThan(20);
+      expect(pos.altitude).toBeLessThan(30);
+
+      const formatted = formatSolarPosition(pos);
+      expect(formatted).toBe("sun 195° az · 26° inc");
+    }
+  });
+
+  it("calculates negative inclination at night", () => {
+    // Midnight EST (05:00 UTC)
+    const epoch = Date.parse("2026-11-27T05:00:00.000Z");
+    const pos = calculateSolarPosition(41.3, -72.9, epoch);
+    expect(pos).not.toBeNull();
+    if (pos) {
+      expect(pos.altitude).toBeLessThan(0);
+      const formatted = formatSolarPosition(pos);
+      expect(formatted).toMatch(/sun \d+° az · -\d+° inc/);
+    }
+  });
+
+  it("formats empty string for null solar position", () => {
+    expect(formatSolarPosition(null)).toBe("");
   });
 });
 

@@ -175,7 +175,7 @@ header {
 .wx-day-temps .hi { color: var(--ink); }
 .wx-day-temps .lo { color: var(--ink-mute); }
 .wx-day-precip { font-family: "IBM Plex Mono", monospace; color: var(--connectivity); min-height: 1em; }
-.wx-sub { font-size: 0.72rem; color: var(--ink-mute); margin-bottom: 12px; }
+.wx-location { font-size: 0.86rem; font-weight: 600; color: var(--ink); margin-bottom: 8px; }
 .wx-bar-row { display: flex; align-items: center; gap: 8px; font-size: 0.68rem; color: var(--ink-mute); font-family: "IBM Plex Mono", monospace; }
 .wx-bar { position: relative; flex: 1; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.08); }
 .wx-bar-fill { position: absolute; left: 0; top: 0; height: 100%; background: var(--solar); border-radius: 2px; }
