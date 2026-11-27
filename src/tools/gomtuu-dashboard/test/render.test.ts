@@ -30,6 +30,7 @@ import {
   floatingDialRotation,
   metersToFeet,
   buildAltitudeTapeSvg,
+  locationLinkHtml,
 } from "../public/render.js";
 
 describe("fmt / fmtSigned", () => {
@@ -615,20 +616,15 @@ describe("app.js scope & syntax", () => {
   });
 
   it("safely handles undefined locationInfo with defined position (regression test)", () => {
-    // Regression check for TypeError: Cannot read properties of undefined (reading 'label')
-    // when position has coordinates but reverse geocoding has not resolved yet
-    const locationInfo = undefined;
     const position = { latitude: 41.3, longitude: -72.9, coarse: true };
-    let locHtml = "";
-    if (locationInfo?.label) {
-      const mapUrl = googleMapsUrl(position?.latitude, position?.longitude);
-      const mapTitle = position?.coarse ? "Approximate location (about 11 km). Open in Google Maps" : "Open in Google Maps";
-      const locContent = mapUrl
-        ? `<a class="wx-location-link" href="${mapUrl}" target="_blank" rel="noopener noreferrer" title="${mapTitle}">${escapeHtml(locationInfo.label)} ↗</a>`
-        : escapeHtml(locationInfo.label);
-      locHtml = `<div class="wx-location">${locContent}</div>`;
-    }
-    expect(locHtml).toBe("");
+    expect(locationLinkHtml(undefined, position)).toBe("");
+
+    const link = locationLinkHtml({ label: "Near Philadelphia, PA" }, position);
+    expect(link).toContain(`href="${googleMapsUrl(position.latitude, position.longitude)}"`);
+    expect(link).toContain("Near Philadelphia, PA ↗</a>");
+
+    // Without coordinates, renders plain escaped label without a link
+    expect(locationLinkHtml({ label: "Philly & Co" }, undefined)).toBe('<div class="wx-location">Philly &amp; Co</div>');
   });
 });
 
