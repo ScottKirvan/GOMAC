@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.2.0](https://github.com/ScottKirvan/GOMAC/compare/v0.1.0...v0.2.0) (2026-11-27)
+
+
+### Features
+
+* **dashboard:** add a WiFi link to the footer ([07fa1fd](https://github.com/ScottKirvan/GOMAC/commit/07fa1fd1b771d42cc0e345baae7e91590ff509a6))
+* **dashboard:** display daylight and header time in van timezone ([94b240d](https://github.com/ScottKirvan/GOMAC/commit/94b240d380add5a921e7bcd562ee642854d97eca))
+* **dashboard:** make the frontend an installable PWA ([c417957](https://github.com/ScottKirvan/GOMAC/commit/c41795724430fa23ed11969aeb21d3a65c6efbd1))
+
+
+### Bug Fixes
+
+* add a 7-day cooldown to Dependabot version updates ([35fae1a](https://github.com/ScottKirvan/GOMAC/commit/35fae1ac99e36a6da83c5713f9327a5e44851fd7))
+* add Dependabot config for monthly grouped dependency updates ([8fecfc3](https://github.com/ScottKirvan/GOMAC/commit/8fecfc3654d3aace07cf07f10d6d91a084dbac99))
+* **dashboard:** add a real maskable PWA icon ([2618a67](https://github.com/ScottKirvan/GOMAC/commit/2618a671afe05c6dcef9a657b38f188a275ea4a3))
+* **dashboard:** crop the large PWA icons tighter, less white border ([b38369b](https://github.com/ScottKirvan/GOMAC/commit/b38369bb262318b9d4dd598eba199a30a44b31b7))
+* **dashboard:** revert backend timezone changes ([e4e95c0](https://github.com/ScottKirvan/GOMAC/commit/e4e95c03b2da028248de99b9b2e6fd3c84a45ac9))
+* tighten maskable icon safe-zone fill ([8b5906d](https://github.com/ScottKirvan/GOMAC/commit/8b5906dadd8c7b9926e28723b21e5d376b8b0ee0))
+
 ## [0.1.0](https://github.com/ScottKirvan/GOMAC/compare/v0.0.0...v0.1.0) (2026-11-01)
 
 
