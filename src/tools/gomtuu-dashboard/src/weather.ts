@@ -59,8 +59,6 @@ interface OpenMeteoResponse {
     wind_direction_10m?: number;
     wind_gusts_10m?: number;
   };
-  timezone?: string;
-  timezone_abbreviation?: string;
   utc_offset_seconds?: number;
   daily?: {
     time?: string[];
@@ -144,8 +142,6 @@ export async function fetchWeather(
     yesterdaySunrise: data.daily?.sunrise?.[TODAY - 1],
     yesterdaySunset: data.daily?.sunset?.[TODAY - 1],
     utcOffsetSeconds: data.utc_offset_seconds,
-    timezone: data.timezone,
-    timezoneAbbreviation: data.timezone_abbreviation,
     updatedAt: Date.now(),
     sourceLatitude: latitude,
     sourceLongitude: longitude,

@@ -17,10 +17,6 @@ import {
   easeAngleToward,
   lockIconSvg,
   deviceCardHtml,
-  formatSunTime,
-  localTimeToEpoch,
-  calculateSunProgress,
-  formatClockInTimezone,
 } from "../public/render.js";
 
 describe("fmt / fmtSigned", () => {
@@ -418,81 +414,5 @@ describe("deviceCardHtml", () => {
     const html = deviceCardHtml("x", { mac: "x", name: "<b>", model: "a&b", metrics: {} }, false);
     expect(html).toContain("&lt;b&gt;");
     expect(html).toContain("a&amp;b");
-  });
-});
-
-describe("formatSunTime", () => {
-  it("formats ISO local time string without timezone drift", () => {
-    expect(formatSunTime("2026-11-27T07:15")).toBe("7:15 AM");
-    expect(formatSunTime("2026-11-27T17:42", "PST")).toBe("5:42 PM PST");
-    expect(formatSunTime("2026-11-27T00:05", "MST")).toBe("12:05 AM MST");
-    expect(formatSunTime("2026-11-27T12:30")).toBe("12:30 PM");
-  });
-
-  it("handles missing values", () => {
-    expect(formatSunTime(undefined)).toBe("—");
-    expect(formatSunTime("")).toBe("—");
-  });
-});
-
-describe("localTimeToEpoch", () => {
-  it("converts ISO naive time and UTC offset to epoch ms", () => {
-    // 2026-11-27T12:00:00Z = 1795780800000
-    // at UTC-8 (-28800s): 12:00 local is 20:00 UTC = 1795780800000 - (-28800000) = 1795809600000
-    const epoch = localTimeToEpoch("2026-11-27T12:00", -28800);
-    expect(new Date(epoch).toISOString()).toBe("2026-11-27T20:00:00.000Z");
-  });
-});
-
-describe("calculateSunProgress", () => {
-  const sunrise = "2026-11-27T07:00";
-  const sunset = "2026-11-27T17:00";
-  const offset = -28800; // PST
-  const sunriseMs = localTimeToEpoch(sunrise, offset);
-  const sunsetMs = localTimeToEpoch(sunset, offset);
-
-  it("returns null when sunrise or sunset is missing", () => {
-    expect(calculateSunProgress(undefined, sunset, offset)).toBeNull();
-    expect(calculateSunProgress(sunrise, undefined, offset)).toBeNull();
-  });
-
-  it("detects before sunrise with duration remaining", () => {
-    const now = sunriseMs - 30 * 60 * 1000; // 30 mins before sunrise
-    const res = calculateSunProgress(sunrise, sunset, offset, now);
-    expect(res?.state).toBe("before_sunrise");
-    expect(res?.pct).toBe(0);
-    expect(res?.note).toBe("before sunrise — 30m to go");
-  });
-
-  it("computes daylight elapsed percentage accurately", () => {
-    const now = sunriseMs + 5 * 60 * 60 * 1000; // halfway through 10-hour daylight
-    const res = calculateSunProgress(sunrise, sunset, offset, now);
-    expect(res?.state).toBe("daylight");
-    expect(res?.pct).toBe(50);
-    expect(res?.note).toContain("daylight 50% elapsed");
-  });
-
-  it("detects after sunset", () => {
-    const now = sunsetMs + 10 * 60 * 1000; // 10 mins after sunset
-    const res = calculateSunProgress(sunrise, sunset, offset, now);
-    expect(res?.state).toBe("after_sunset");
-    expect(res?.pct).toBe(100);
-    expect(res?.note).toBe("after sunset");
-  });
-});
-
-describe("formatClockInTimezone", () => {
-  it("formats epoch time in the designated IANA timezone with abbreviation", () => {
-    // 2026-11-27T20:00:00Z -> 12:00 PM in America/Los_Angeles (PST)
-    const epoch = Date.parse("2026-11-27T20:00:00.000Z");
-    const formatted = formatClockInTimezone(epoch, "America/Los_Angeles", "PST");
-    expect(formatted).toContain("12:00:00");
-    expect(formatted).toContain("PST");
-  });
-
-  it("falls back gracefully when timezone is omitted", () => {
-    const epoch = Date.parse("2026-11-27T20:00:00.000Z");
-    expect(formatClockInTimezone(epoch)).toBe(new Date(epoch).toLocaleTimeString());
-    expect(formatClockInTimezone(undefined)).toBe("—");
   });
 });

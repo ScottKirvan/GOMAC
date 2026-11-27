@@ -111,10 +111,6 @@ export interface WeatherState {
   yesterdaySunset?: string;
   /** The queried location's offset from UTC, for converting the naive local times above. */
   utcOffsetSeconds?: number;
-  /** IANA timezone identifier at the van's location (e.g. "America/Los_Angeles"). */
-  timezone?: string;
-  /** Timezone abbreviation at the van's location (e.g. "PST", "PDT"). */
-  timezoneAbbreviation?: string;
   updatedAt?: number;
   sourceLatitude?: number;
   sourceLongitude?: number;
