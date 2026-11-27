@@ -553,12 +553,15 @@ function renderWeather(weather, locationInfo, serverTime, position) {
   const tzPrefix = locationInfo?.timezoneAbbreviation ? `${locationInfo.timezoneAbbreviation} · ` : "";
   meta.textContent = `${tzPrefix}updated ${formatAge(weather.updatedAt)}`;
 
-  const mapUrl = googleMapsUrl(position?.latitude, position?.longitude);
-  const mapTitle = position?.coarse ? "Approximate location (about 11 km). Open in Google Maps" : "Open in Google Maps";
-  const locContent = mapUrl
-    ? `<a class="wx-location-link" href="${mapUrl}" target="_blank" rel="noopener noreferrer" title="${mapTitle}">${escapeHtml(locationInfo.label)} ↗</a>`
-    : escapeHtml(locationInfo?.label ?? "");
-  const locHtml = locationInfo?.label ? `<div class="wx-location">${locContent}</div>` : "";
+  let locHtml = "";
+  if (locationInfo?.label) {
+    const mapUrl = googleMapsUrl(position?.latitude, position?.longitude);
+    const mapTitle = position?.coarse ? "Approximate location (about 11 km). Open in Google Maps" : "Open in Google Maps";
+    const locContent = mapUrl
+      ? `<a class="wx-location-link" href="${mapUrl}" target="_blank" rel="noopener noreferrer" title="${mapTitle}">${escapeHtml(locationInfo.label)} ↗</a>`
+      : escapeHtml(locationInfo.label);
+    locHtml = `<div class="wx-location">${locContent}</div>`;
+  }
 
   let barSection = "";
   if (weather.sunrise && weather.sunset) {
