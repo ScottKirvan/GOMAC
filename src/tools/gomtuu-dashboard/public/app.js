@@ -25,6 +25,8 @@ import {
   celsiusToFahrenheit,
   escapeHtml,
   floatingDialRotation,
+  buildAltitudeTapeSvg,
+  metersToFeet,
 } from "./render.js";
 import { resolveLocation } from "./location.js";
 import { gradientPair } from "./color.js";
@@ -606,41 +608,49 @@ function renderWeather(weather, locationInfo, serverTime, position) {
   }
   const feelsHtml = feelsText ? `<span class="wx-feels">${feelsText}</span>` : "";
 
+  const altM = position?.altitudeM !== undefined && Number.isFinite(position.altitudeM) ? position.altitudeM : 0;
+  const altFt = Math.round(metersToFeet(altM));
+
   body.innerHTML = `
-    ${locHtml}
-    <div class="wx-main-row">
-      <div class="wx-main-left">
-        <div class="wx-top">
-          <span class="wx-icon" aria-hidden="true">${weatherIcon(weather.conditionCode)}</span>
-          <span class="wx-temp">${Math.round(weather.temperatureC)}°C</span>
-          <div class="wx-top-text">
-            <span class="wx-cond">${weather.condition ?? "—"}</span>
-            ${feelsHtml}
+    <div class="wx-content">
+      ${locHtml}
+      <div class="wx-main-row">
+        <div class="wx-main-left">
+          <div class="wx-top">
+            <span class="wx-icon" aria-hidden="true">${weatherIcon(weather.conditionCode)}</span>
+            <span class="wx-temp">${Math.round(weather.temperatureC)}°C</span>
+            <div class="wx-top-text">
+              <span class="wx-cond">${weather.condition ?? "—"}</span>
+              ${feelsHtml}
+            </div>
           </div>
+          ${renderWind(weather)}
         </div>
-        ${renderWind(weather)}
+        <div class="wx-motion-block">
+          <svg class="pos-compass wx-compass" viewBox="0 0 64 64" aria-label="Heading compass">
+            <circle cx="32" cy="32" r="29.5" fill="none" stroke="rgba(212,175,55,0.45)" stroke-width="1.6" stroke-dasharray="2 1.5" />
+            <circle cx="32" cy="32" r="27.5" fill="#0d1117" stroke="rgba(255,255,255,0.14)" stroke-width="1" />
+            <line x1="32" y1="2" x2="32" y2="8" stroke="var(--position)" stroke-width="2" stroke-linecap="round" />
+            <polygon points="30,2 34,2 32,6" fill="var(--position)" />
+            <g id="wxDial" transform="rotate(${floatingDialRotation(live.shown?.courseDeg).toFixed(1)} 32 32)">
+              <circle cx="32" cy="32" r="25" fill="#131922" stroke="rgba(255,255,255,0.18)" stroke-width="1" />
+              <polygon points="32,7.5 37.5,14.5 34.5,14 34.5,19.5 29.5,19.5 29.5,14 26.5,14.5" fill="#4ade80" />
+              <text x="32" y="14" text-anchor="middle" dominant-baseline="central" class="wx-dial-label" transform="rotate(90 32 32)">E</text>
+              <text x="32" y="14" text-anchor="middle" dominant-baseline="central" class="wx-dial-label" transform="rotate(180 32 32)">S</text>
+              <text x="32" y="14" text-anchor="middle" dominant-baseline="central" class="wx-dial-label" transform="rotate(270 32 32)">W</text>
+              <circle cx="32" cy="32" r="3.5" fill="#c69214" stroke="#eab308" stroke-width="0.7" />
+              <circle cx="32" cy="32" r="1.5" fill="#fef08a" />
+            </g>
+          </svg>
+          <div id="wxMotion" class="wx-motion-sub"></div>
+        </div>
       </div>
-      <div class="wx-motion-block">
-        <svg class="pos-compass wx-compass" viewBox="0 0 64 64" aria-label="Heading compass">
-          <circle cx="32" cy="32" r="29.5" fill="none" stroke="rgba(212,175,55,0.45)" stroke-width="1.6" stroke-dasharray="2 1.5" />
-          <circle cx="32" cy="32" r="27.5" fill="#0d1117" stroke="rgba(255,255,255,0.14)" stroke-width="1" />
-          <line x1="32" y1="2" x2="32" y2="8" stroke="var(--position)" stroke-width="2" stroke-linecap="round" />
-          <polygon points="30,2 34,2 32,6" fill="var(--position)" />
-          <g id="wxDial" transform="rotate(${floatingDialRotation(live.shown?.courseDeg).toFixed(1)} 32 32)">
-            <circle cx="32" cy="32" r="25" fill="#131922" stroke="rgba(255,255,255,0.18)" stroke-width="1" />
-            <polygon points="32,7.5 37.5,14.5 34.5,14 34.5,19.5 29.5,19.5 29.5,14 26.5,14.5" fill="#4ade80" />
-            <text x="32" y="14" text-anchor="middle" dominant-baseline="central" class="wx-dial-label" transform="rotate(90 32 32)">E</text>
-            <text x="32" y="14" text-anchor="middle" dominant-baseline="central" class="wx-dial-label" transform="rotate(180 32 32)">S</text>
-            <text x="32" y="14" text-anchor="middle" dominant-baseline="central" class="wx-dial-label" transform="rotate(270 32 32)">W</text>
-            <circle cx="32" cy="32" r="3.5" fill="#c69214" stroke="#eab308" stroke-width="0.7" />
-            <circle cx="32" cy="32" r="1.5" fill="#fef08a" />
-          </g>
-        </svg>
-        <div id="wxMotion" class="wx-motion-sub"></div>
-      </div>
+      ${barSection}
+      ${renderForecast(weather.forecast)}
     </div>
-    ${barSection}
-    ${renderForecast(weather.forecast)}
+    <div class="wx-alt-tape" title="Altitude: ${altFt} ft (${Math.round(altM)} m)">
+      ${buildAltitudeTapeSvg(altM)}
+    </div>
   `;
 
   renderMotion(live.shown?.speedMps, live.shown?.courseDeg);

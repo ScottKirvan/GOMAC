@@ -610,3 +610,56 @@ export function floatingDialRotation(courseDeg) {
   return ((-courseDeg % 360) + 360) % 360;
 }
 
+/** Converts meters to feet. */
+export function metersToFeet(meters) {
+  if (meters === undefined || !Number.isFinite(meters)) return 0;
+  return meters * 3.28084;
+}
+
+function formatAltTick(ft) {
+  if (Math.abs(ft) >= 1000) {
+    return `${(ft / 1000).toFixed(ft % 1000 === 0 ? 0 : 1)}k`;
+  }
+  return String(ft);
+}
+
+/**
+ * Builds an aviation-style scrolling altitude tape SVG centered on the given
+ * altitude in meters (defaults to 0 when missing).
+ */
+export function buildAltitudeTapeSvg(altitudeM) {
+  const m = altitudeM !== undefined && Number.isFinite(altitudeM) ? altitudeM : 0;
+  const altFt = Math.round(metersToFeet(m));
+  const cy = 130;
+  const pxPerFt = 0.14;
+  const minTick = Math.floor((altFt - 1000) / 100) * 100;
+  const maxTick = Math.ceil((altFt + 1000) / 100) * 100;
+
+  const marks = [];
+  for (let ft = minTick; ft <= maxTick; ft += 100) {
+    const y = cy - (ft - altFt) * pxPerFt;
+    const isMajor = ft % 500 === 0;
+    const isZero = ft === 0;
+    const stroke = isZero ? "rgba(77,208,225,0.65)" : isMajor ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.18)";
+    marks.push(
+      `<line x1="0" y1="${y.toFixed(1)}" x2="${isMajor ? 10 : 5}" y2="${y.toFixed(1)}" stroke="${stroke}" stroke-width="${isZero ? 1.5 : 1}" />`,
+    );
+    if (isMajor) {
+      const fill = isZero ? "var(--position)" : "var(--ink-mute)";
+      marks.push(
+        `<text x="14" y="${y.toFixed(1)}" dominant-baseline="central" fill="${fill}" font-family="'IBM Plex Mono', monospace" font-size="9" font-weight="${isZero ? "600" : "500"}">${formatAltTick(ft)}</text>`,
+      );
+    }
+  }
+
+  const fontSize = Math.abs(altFt) >= 10000 ? "9.5" : "11";
+  return `
+    <svg class="wx-alt-svg" viewBox="0 0 60 260" preserveAspectRatio="xMidYMid slice" aria-label="Altitude ${altFt} ft">
+      ${marks.join("")}
+      <polygon points="5,130 11,116 57,116 57,144 11,144" fill="#0d1117" stroke="var(--position)" stroke-width="1.3" />
+      <text x="34" y="126" text-anchor="middle" dominant-baseline="central" fill="var(--ink)" font-family="'IBM Plex Mono', monospace" font-size="${fontSize}" font-weight="700">${altFt}</text>
+      <text x="34" y="138" text-anchor="middle" dominant-baseline="central" fill="var(--ink-mute)" font-family="'IBM Plex Mono', monospace" font-size="8" font-weight="500">ft</text>
+    </svg>
+  `;
+}
+
