@@ -175,7 +175,15 @@ header {
 .wx-day-temps .hi { color: var(--ink); }
 .wx-day-temps .lo { color: var(--ink-mute); }
 .wx-day-precip { font-family: "IBM Plex Mono", monospace; color: var(--connectivity); min-height: 1em; }
-.wx-location { font-size: 0.86rem; font-weight: 600; color: var(--ink); margin-bottom: 8px; }
+.wx-location { font-size: 0.86rem; font-weight: 600; margin-bottom: 8px; }
+.wx-location-link { color: var(--ink); text-decoration: none; border-bottom: 1px dotted var(--ink-mute); }
+.wx-location-link:hover { color: var(--position); border-bottom-color: var(--position); }
+.wx-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.wx-temp-block { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.wx-motion-block { display: flex; flex-direction: column; align-items: center; flex: 0 0 auto; margin-left: auto; }
+.wx-compass { width: 50px; height: 50px; flex: 0 0 auto; }
+.wx-motion-sub { display: flex; flex-direction: column; align-items: center; font-size: 0.68rem; color: var(--ink-dim); line-height: 1.25; margin-top: 3px; font-family: "IBM Plex Mono", monospace; }
+.wx-motion-sub .wx-motion-vel { color: var(--ink-mute); }
 .wx-bar-row { display: flex; align-items: center; gap: 8px; font-size: 0.68rem; color: var(--ink-mute); font-family: "IBM Plex Mono", monospace; }
 .wx-bar { position: relative; flex: 1; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.08); }
 .wx-bar-fill { position: absolute; left: 0; top: 0; height: 100%; background: var(--solar); border-radius: 2px; }
