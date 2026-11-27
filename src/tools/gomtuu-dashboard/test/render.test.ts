@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import ts from "typescript";
 import {
@@ -574,6 +575,39 @@ describe("app.js scope & syntax", () => {
       const diags = prog.getSemanticDiagnostics(sf);
       const undeclared = diags.filter((d) => d.code === 2304 || d.code === 2552);
       expect(undeclared.map((d) => d.messageText)).toEqual([]);
+    }
+  });
+
+  it("detects missing currentLocation declaration as an error (red/green regression test)", () => {
+    const filePath = join(__dirname, "../public/app.js");
+    const source = readFileSync(filePath, "utf8");
+    // Simulate the bug where let currentLocation was missing
+    const buggySource = source.replace(/let currentLocation;\r?\n/, "");
+    expect(buggySource).not.toContain("let currentLocation;");
+
+    const options: ts.CompilerOptions = {
+      noEmit: true,
+      allowJs: true,
+      checkJs: true,
+      target: ts.ScriptTarget.ES2022,
+      module: ts.ModuleKind.ESNext,
+    };
+    const host = ts.createCompilerHost(options);
+    const origGet = host.getSourceFile;
+    host.getSourceFile = (fileName, ...args) => {
+      if (fileName.includes("app.js")) {
+        return ts.createSourceFile(fileName, buggySource, ts.ScriptTarget.Latest, true);
+      }
+      return origGet(fileName, ...args);
+    };
+    const prog = ts.createProgram([filePath], options, host);
+    const sf = prog.getSourceFile(filePath);
+    expect(sf).toBeDefined();
+    if (sf) {
+      const diags = prog.getSemanticDiagnostics(sf);
+      const undeclared = diags.filter((d) => d.code === 2304 || d.code === 2552);
+      const errors = undeclared.map((d) => String(d.messageText));
+      expect(errors.some((msg) => msg.includes("currentLocation"))).toBe(true);
     }
   });
 });
