@@ -28,6 +28,8 @@ import {
   formatSolarPosition,
   celsiusToFahrenheit,
   floatingDialRotation,
+  metersToFeet,
+  buildAltitudeTapeSvg,
 } from "../public/render.js";
 
 describe("fmt / fmtSigned", () => {
@@ -659,5 +661,23 @@ describe("index.html card layout", () => {
     expect(html).not.toContain("Position");
     expect(html).not.toContain("positionBody");
     expect(html).not.toContain("positionMeta");
+  });
+});
+
+describe("buildAltitudeTapeSvg", () => {
+  it("defaults to 0 ft when altitudeM is undefined or NaN", () => {
+    expect(metersToFeet(undefined)).toBe(0);
+    const svg = buildAltitudeTapeSvg(undefined);
+    expect(svg).toContain('aria-label="Altitude 0 ft"');
+    expect(svg).toContain(">0</text>");
+  });
+
+  it("converts meters to feet and centers the readout box", () => {
+    // 1000 m ≈ 3281 ft
+    const svg = buildAltitudeTapeSvg(1000);
+    expect(svg).toContain('aria-label="Altitude 3281 ft"');
+    expect(svg).toContain(">3281</text>");
+    expect(svg).toContain(">3k</text>");
+    expect(svg).toContain(">3.5k</text>");
   });
 });
