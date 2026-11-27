@@ -25,6 +25,7 @@ import {
   formatClockInTimezone,
   calculateSolarPosition,
   formatSolarPosition,
+  celsiusToFahrenheit,
 } from "../public/render.js";
 
 describe("fmt / fmtSigned", () => {
@@ -537,6 +538,21 @@ describe("calculateSolarPosition & formatSolarPosition", () => {
 
   it("formats empty string for null solar position", () => {
     expect(formatSolarPosition(null)).toBe("");
+  });
+});
+
+describe("celsiusToFahrenheit", () => {
+  it("converts Celsius to Fahrenheit correctly", () => {
+    expect(celsiusToFahrenheit(0)).toBe(32);
+    expect(celsiusToFahrenheit(100)).toBe(212);
+    expect(celsiusToFahrenheit(-40)).toBe(-40);
+    expect(Math.round(celsiusToFahrenheit(11.7)!)).toBe(53);
+    expect(Math.round(celsiusToFahrenheit(20)!)).toBe(68);
+  });
+
+  it("handles undefined and NaN gracefully", () => {
+    expect(celsiusToFahrenheit(undefined)).toBeUndefined();
+    expect(celsiusToFahrenheit(Number.NaN)).toBeUndefined();
   });
 });
 

@@ -586,6 +586,12 @@ export function calculateSolarPosition(lat, lon, date = Date.now()) {
   return { azimuth, altitude };
 }
 
+/** Converts Celsius to Fahrenheit. */
+export function celsiusToFahrenheit(c) {
+  if (c === undefined || Number.isNaN(c)) return undefined;
+  return (c * 9) / 5 + 32;
+}
+
 /** Formats solar azimuth and inclination for display (e.g. "sun 195° az · 26° inc"). */
 export function formatSolarPosition(sun) {
   if (!sun) return "";
