@@ -1,4 +1,5 @@
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { computeStamps, stampIndexHtml } from "../src/assetStamps.js";
@@ -9,6 +10,21 @@ const html = `<link rel="stylesheet" href="style.css" />
 <script type="importmap">{}</script>
 <script src="config.js"></script>
 <script type="module" src="app.js?v=old"></script>`;
+
+describe("computeStamps", () => {
+  it("produces identical stamps regardless of CRLF vs LF line endings", () => {
+    const dir = mkdtempSync(join(tmpdir(), "stamps-test-"));
+    try {
+      writeFileSync(join(dir, "style.css"), "body {\n  color: red;\n}\n");
+      const lfStamps = computeStamps(dir);
+      writeFileSync(join(dir, "style.css"), "body {\r\n  color: red;\r\n}\r\n");
+      const crlfStamps = computeStamps(dir);
+      expect(crlfStamps).toEqual(lfStamps);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
 
 describe("stampIndexHtml", () => {
   const stamps = { "app.js": "aaaa", "config.js": "cccc", "render.js": "rrrr", "style.css": "ssss" };
@@ -32,6 +48,13 @@ describe("stampIndexHtml", () => {
   it("is stable when run again", () => {
     const once = stampIndexHtml(html, stamps);
     expect(stampIndexHtml(once, stamps)).toBe(once);
+  });
+
+  it("preserves CRLF line endings when input uses CRLF", () => {
+    const crlfHtml = html.replace(/\n/g, "\r\n");
+    const out = stampIndexHtml(crlfHtml, stamps);
+    expect(out).not.toMatch(/(?<!\r)\n/);
+    expect(stampIndexHtml(out, stamps)).toBe(out);
   });
 });
 
