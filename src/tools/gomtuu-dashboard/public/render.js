@@ -526,3 +526,70 @@ export function formatClockInTimezone(epochMs, timezone, tzAbbr) {
     return new Date(epochMs).toLocaleTimeString();
   }
 }
+
+/**
+ * Computes the Sun's azimuth and inclination (altitude above horizon)
+ * in degrees for a given GPS coordinate and epoch timestamp.
+ *
+ * Azimuth: degrees clockwise from true North (0° = N, 90° = E, 180° = S, 270° = W).
+ * Inclination: degrees above horizon (positive = above, negative = below).
+ */
+export function calculateSolarPosition(lat, lon, date = Date.now()) {
+  if (lat === undefined || lon === undefined || !Number.isFinite(lat) || !Number.isFinite(lon)) {
+    return null;
+  }
+  const epoch = typeof date === "number" ? date : date.getTime();
+  const d = (epoch - 946728000000) / 86400000; // Days since J2000.0 (2000-01-01 12:00:00 UTC)
+
+  const DEG = Math.PI / 180;
+  const RAD = 180 / Math.PI;
+
+  // Mean anomaly of the Sun
+  const M = ((357.5291 + 0.98560028 * d) % 360 + 360) % 360;
+  const Mrad = M * DEG;
+
+  // Equation of center
+  const C = 1.9148 * Math.sin(Mrad) + 0.02 * Math.sin(2 * Mrad) + 0.0003 * Math.sin(3 * Mrad);
+
+  // Ecliptic longitude of the Sun
+  const lambda = ((280.4665 + 0.98564736 * d + C) % 360 + 360) % 360;
+  const lambdaRad = lambda * DEG;
+
+  // Obliquity of the ecliptic
+  const epsilon = (23.439 - 0.0000004 * d) * DEG;
+
+  // Declination & Right Ascension
+  const sinDelta = Math.sin(epsilon) * Math.sin(lambdaRad);
+  const delta = Math.asin(sinDelta);
+  const cosDelta = Math.cos(delta);
+  const alpha = Math.atan2(Math.cos(epsilon) * Math.sin(lambdaRad), Math.cos(lambdaRad));
+
+  // Sidereal time & local hour angle
+  const gmst = ((280.46061837 + 360.98564736629 * d) % 360 + 360) % 360;
+  const lst = (gmst + lon) * DEG;
+  const H = lst - alpha;
+
+  const latRad = lat * DEG;
+  const sinLat = Math.sin(latRad);
+  const cosLat = Math.cos(latRad);
+
+  // Solar inclination / altitude
+  const sinAlt = sinLat * sinDelta + cosLat * cosDelta * Math.cos(H);
+  const altitude = Math.asin(sinAlt) * RAD;
+
+  // Solar azimuth (clockwise from true North)
+  const y = -Math.sin(H);
+  const x = Math.tan(delta) * cosLat - sinLat * Math.cos(H);
+  let azimuth = Math.atan2(y, x) * RAD;
+  if (azimuth < 0) azimuth += 360;
+
+  return { azimuth, altitude };
+}
+
+/** Formats solar azimuth and inclination for display (e.g. "sun 195° az · 26° inc"). */
+export function formatSolarPosition(sun) {
+  if (!sun) return "";
+  const az = Math.round(sun.azimuth);
+  const inc = Math.round(sun.altitude);
+  return `sun ${az}° az · ${inc}° inc`;
+}

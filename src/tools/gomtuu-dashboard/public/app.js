@@ -20,6 +20,8 @@ import {
   formatSunTime,
   calculateSunProgress,
   formatClockInTimezone,
+  calculateSolarPosition,
+  formatSolarPosition,
   escapeHtml,
 } from "./render.js";
 import { resolveLocation } from "./location.js";
@@ -518,7 +520,7 @@ function renderConnectivity(connectivity) {
   `;
 }
 
-function renderWeather(weather, locationInfo, serverTime) {
+function renderWeather(weather, locationInfo, serverTime, position) {
   const body = document.getElementById("weatherBody");
   const meta = document.getElementById("weatherMeta");
 
@@ -531,19 +533,24 @@ function renderWeather(weather, locationInfo, serverTime) {
   const tzPrefix = locationInfo?.timezoneAbbreviation ? `${locationInfo.timezoneAbbreviation} · ` : "";
   meta.textContent = `${tzPrefix}updated ${formatAge(weather.updatedAt)}`;
 
-  const locHtml = locationInfo?.label ? `<div class="wx-sub">${escapeHtml(locationInfo.label)}</div>` : "";
+  const locHtml = locationInfo?.label ? `<div class="wx-location">${escapeHtml(locationInfo.label)}</div>` : "";
 
   let barSection = "";
   if (weather.sunrise && weather.sunset) {
-    const tzAbbr = locationInfo?.timezoneAbbreviation;
     const progress = calculateSunProgress(weather.sunrise, weather.sunset, weather.utcOffsetSeconds, serverTime ?? Date.now());
     const pct = progress ? progress.pct : 0;
-    const sunriseLabel = formatSunTime(weather.sunrise, tzAbbr);
-    const sunsetLabel = formatSunTime(weather.sunset, tzAbbr);
+    const sunriseLabel = formatSunTime(weather.sunrise);
+    const sunsetLabel = formatSunTime(weather.sunset);
 
     let note = progress ? progress.note : "";
-    if (note && tzAbbr) {
-      note = `${note} (${tzAbbr})`;
+    const lat = position?.latitude;
+    const lon = position?.longitude;
+    if (lat !== undefined && lon !== undefined) {
+      const sun = calculateSolarPosition(lat, lon, serverTime ?? Date.now());
+      if (sun) {
+        const sunText = formatSolarPosition(sun);
+        note = note ? `${note} · ${sunText}` : sunText;
+      }
     }
 
     barSection = `
@@ -557,6 +564,7 @@ function renderWeather(weather, locationInfo, serverTime) {
   }
 
   body.innerHTML = `
+    ${locHtml}
     <div class="wx-top">
       <span class="wx-icon" aria-hidden="true">${weatherIcon(weather.conditionCode)}</span>
       <span class="wx-temp">${Math.round(weather.temperatureC)}°C</span>
@@ -565,7 +573,6 @@ function renderWeather(weather, locationInfo, serverTime) {
         ${weather.apparentTemperatureC !== undefined ? `<span class="wx-feels">feels ${Math.round(weather.apparentTemperatureC)}°</span>` : ""}
       </div>
     </div>
-    ${locHtml}
     ${renderWind(weather)}
     ${barSection}
     ${renderForecast(weather.forecast)}
@@ -618,7 +625,7 @@ function render(snapshot) {
   renderNowPlaying(snapshot.nowPlaying);
   renderPosition(live.lastSnapshotPosition);
   renderConnectivity(snapshot.connectivity);
-  renderWeather(snapshot.weather, currentLocation, snapshot.serverTime);
+  renderWeather(snapshot.weather, currentLocation, snapshot.serverTime, live.lastSnapshotPosition);
 
   renderClock(snapshot.serverTime, currentLocation?.timezone, currentLocation?.timezoneAbbreviation);
   renderLiveFields();
@@ -633,7 +640,7 @@ function render(snapshot) {
     resolveLocation(lat, lon, isCoarse).then((loc) => {
       if (loc && (loc.label !== currentLocation?.label || loc.timezone !== currentLocation?.timezone)) {
         currentLocation = loc;
-        renderWeather(snapshot.weather, currentLocation, snapshot.serverTime);
+        renderWeather(snapshot.weather, currentLocation, snapshot.serverTime, live.lastSnapshotPosition);
         renderClock(snapshot.serverTime, currentLocation.timezone, currentLocation.timezoneAbbreviation);
       }
     });
