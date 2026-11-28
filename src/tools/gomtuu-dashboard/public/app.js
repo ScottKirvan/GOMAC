@@ -28,6 +28,7 @@ import {
   locationLinkHtml,
 } from "./render.js";
 import { resolveLocation } from "./location.js";
+import { loadCachedSnapshot, saveCachedSnapshot } from "./snapshotCache.js";
 import { gradientPair } from "./color.js";
 
 /**
@@ -620,7 +621,13 @@ function renderForecast(forecast) {
   return `<div class="wx-forecast">${days}</div>`;
 }
 
-function render(snapshot) {
+function render(snapshot, { fromCache = false } = {}) {
+  if (!fromCache) {
+    lastLiveSnapshot = snapshot;
+    cachedAt = snapshot.serverTime ?? Date.now();
+    showingCached = false;
+    saveCachedSnapshot(snapshot, currentLocation, cachedAt);
+  }
   live.lastSnapshotPosition = live.streaming ? { ...snapshot.position, ...definedOnly(live.position) } : snapshot.position;
   if (!live.streaming) {
     const { power, flows } = snapshot.victron;
@@ -636,19 +643,24 @@ function render(snapshot) {
 
   renderClock(snapshot.serverTime, currentLocation?.timezone, currentLocation?.timezoneAbbreviation);
   renderLiveFields();
-  document.getElementById("footerNote").textContent = live.streaming
-    ? "live readings streaming, everything else polled every 10s, weather via Open-Meteo"
-    : "polling /snapshot.json every 10s, weather via Open-Meteo";
+  document.getElementById("footerNote").textContent = fromCache
+    ? "offline — showing last recorded data from this browser"
+    : live.streaming
+      ? "live readings streaming, everything else polled every 10s, weather via Open-Meteo"
+      : "polling /snapshot.json every 10s, weather via Open-Meteo";
 
   const lat = snapshot.position?.latitude;
   const lon = snapshot.position?.longitude;
   const isCoarse = snapshot.position?.coarse === true;
-  if (lat !== undefined && lon !== undefined) {
+  if (lat !== undefined && lon !== undefined && !(fromCache && currentLocation?.label)) {
     resolveLocation(lat, lon, isCoarse).then((loc) => {
       if (loc && (loc.label !== currentLocation?.label || loc.timezone !== currentLocation?.timezone)) {
         currentLocation = loc;
         renderWeather(snapshot.weather, currentLocation, snapshot.serverTime, live.lastSnapshotPosition);
         renderClock(snapshot.serverTime, currentLocation.timezone, currentLocation.timezoneAbbreviation);
+        if (!showingCached && lastLiveSnapshot) {
+          saveCachedSnapshot(lastLiveSnapshot, currentLocation, cachedAt);
+        }
       }
     });
   }
@@ -659,6 +671,9 @@ let latestServerTime = 0;
 let latestTimezone;
 let latestTzAbbr;
 let currentLocation;
+let lastLiveSnapshot;
+let cachedAt;
+let showingCached = false;
 
 function renderClock(serverTime, timezone = latestTimezone, tzAbbr = latestTzAbbr) {
   if (timezone !== undefined) latestTimezone = timezone;
@@ -687,9 +702,16 @@ function setConnState(state) {
     el.title = live.streaming ? "Power and motion readings update as they change" : "Readings refresh every 10 seconds";
     el.classList.add("ok");
   } else if (state === "connecting") {
-    el.textContent = "connecting…";
+    el.textContent = showingCached ? "connecting… · cached" : "connecting…";
+    el.title = showingCached ? "Connecting to Gomtuu; showing last recorded readings" : "";
+  } else if (state === "cached") {
+    const age = cachedAt !== undefined ? ` · ${formatAge(cachedAt)}` : "";
+    el.textContent = `offline · cached${age}`;
+    el.title = "Gomtuu is currently unreachable; showing the last recorded readings from this browser";
+    el.classList.add("warn");
   } else {
     el.textContent = "unreachable — retrying";
+    el.title = "";
     el.classList.add("err");
   }
 }
@@ -777,7 +799,14 @@ async function poll() {
     setConnState("live");
   } catch (err) {
     console.error("failed to fetch dashboard snapshot", err);
-    setConnState("disconnected");
+    if (lastLiveSnapshot || showingCached) {
+      showingCached = true;
+      setStreaming(false);
+      setConnState("cached");
+      document.getElementById("footerNote").textContent = "offline — showing last recorded data from this browser";
+    } else {
+      setConnState("disconnected");
+    }
   }
 }
 
@@ -833,6 +862,13 @@ function closeStream() {
 }
 
 async function start() {
+  const cached = loadCachedSnapshot();
+  if (cached) {
+    showingCached = true;
+    cachedAt = cached.savedAt ?? cached.snapshot.serverTime;
+    if (cached.locationInfo) currentLocation = cached.locationInfo;
+    render(cached.snapshot, { fromCache: true });
+  }
   setConnState("connecting");
   const resolved = await resolveApiBase();
   apiBase = resolved.base;

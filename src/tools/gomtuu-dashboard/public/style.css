@@ -64,6 +64,7 @@ header {
   padding: 4px 9px; border-radius: 3px;
 }
 .badge.ok { color: var(--good); border-color: var(--good); }
+.badge.warn { color: var(--warn); border-color: var(--warn); }
 .badge.err { color: var(--crit); border-color: var(--crit); }
 .net-lock { display: inline-flex; align-items: center; color: var(--ink-mute); }
 .net-lock.tailnet { color: var(--good); }
